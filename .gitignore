@@ -1,0 +1,10 @@
+# Ignorar código fuente y dependencias por el momento según solicitud del usuario
+client/
+server/
+node_modules/
+pnpm-lock.yaml
+pnpm-workspace.yaml
+package.json
+dist/
+.env
+*.log
