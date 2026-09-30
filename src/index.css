@@ -1,0 +1,272 @@
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-handwriting: 'Kalam', cursive;
+  --font-display: 'Plus Jakarta Sans', sans-serif;
+
+  /* Web Whiteboard / Miro Palette */
+  --miro-blue: #4262ff;
+  --miro-blue-hover: #3350e0;
+  --miro-blue-light: #edf2fe;
+  --miro-yellow: #ffd02f;
+  --miro-navy: #050038;
+  --miro-dark: #1a1a1a;
+  --miro-gray-bg: #f8f9fa;
+  --miro-gray-surface: #ffffff;
+  --miro-gray-border: #e1e3ea;
+  --miro-gray-border-hover: #babbc5;
+  --miro-gray-text: #5f5c80;
+  --miro-gray-dim: #9b99af;
+
+  --shadow-sm: 0 1px 3px rgba(5, 0, 56, 0.06);
+  --shadow-md: 0 4px 14px rgba(5, 0, 56, 0.08);
+  --shadow-lg: 0 8px 24px rgba(5, 0, 56, 0.12);
+  --shadow-sticky: 0 6px 18px -4px rgba(5, 0, 56, 0.12), 0 2px 6px rgba(5, 0, 56, 0.04);
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --transition-fast: 0.12s ease;
+  --transition-smooth: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html, body, #root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background-color: var(--miro-gray-bg);
+  color: var(--miro-dark);
+}
+
+/* Miro Island Card */
+.miro-island {
+  background: var(--miro-gray-surface);
+  border: 1px solid var(--miro-gray-border);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-sm);
+  transition: box-shadow var(--transition-smooth);
+}
+
+.miro-island:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* Buttons */
+.btn-miro-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background-color: var(--miro-blue);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn-miro-primary:hover {
+  background-color: var(--miro-blue-hover);
+}
+
+.btn-miro-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: #ffffff;
+  color: var(--miro-dark);
+  border: 1px solid var(--miro-gray-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-miro-secondary:hover {
+  background-color: #f4f5f7;
+  border-color: var(--miro-gray-border-hover);
+}
+
+/* Tool Button in Left Bar */
+.left-tool-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: #2b2e38;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.left-tool-btn:hover {
+  background-color: #edf0f5;
+  color: var(--miro-navy);
+}
+
+.left-tool-btn.active {
+  background-color: var(--miro-blue-light);
+  color: var(--miro-blue);
+}
+
+/* Sticky Note on Canvas */
+.miro-sticky-note {
+  position: absolute;
+  border-radius: 4px;
+  box-shadow: var(--shadow-sticky);
+  display: flex;
+  flex-direction: column;
+  cursor: move;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: box-shadow var(--transition-fast);
+  padding: 12px;
+  overflow: hidden;
+}
+
+.miro-sticky-note:hover {
+  box-shadow: 0 10px 24px -4px rgba(5, 0, 56, 0.18), 0 2px 8px rgba(5, 0, 56, 0.08);
+}
+
+.miro-sticky-note.selected {
+  outline: 2px solid var(--miro-blue);
+  outline-offset: 2px;
+}
+
+.miro-sticky-textarea {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #1a1a1a;
+  cursor: text;
+}
+
+/* Contextual Floating Selection Bar */
+.contextual-toolbar {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #ffffff;
+  border: 1px solid var(--miro-gray-border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-sm);
+  transform: translate(-50%, -100%) translateY(-12px);
+  pointer-events: auto;
+  animation: contextFadeIn 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes contextFadeIn {
+  from { opacity: 0; transform: translate(-50%, -100%) translateY(-6px) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -100%) translateY(-12px) scale(1); }
+}
+
+.context-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  border: none;
+  color: #3b3e48;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.context-btn:hover {
+  background-color: #f1f3f7;
+  color: #050038;
+}
+
+.context-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--miro-gray-border);
+  margin: 0 3px;
+}
+
+/* Collaborators Live Cursors */
+.miro-collaborator-cursor {
+  position: absolute;
+  pointer-events: none;
+  z-index: 55;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  transition: transform 0.12s linear;
+}
+
+.collab-label {
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Custom Modal */
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.miro-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 0, 56, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.miro-modal-card {
+  width: 100%;
+  max-width: 600px;
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px rgba(5, 0, 56, 0.2);
+  padding: 24px;
+  animation: fadeInScale 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
