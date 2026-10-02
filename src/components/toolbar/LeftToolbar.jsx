@@ -39,6 +39,11 @@ export default function LeftToolbar({
   onAddAssembly,
   onSelectRopeTool,
   onOpenMruSolver,
+  onOpenMruvSolver,
+  onOpenFreefallSolver,
+  onOpenTiroVerticalSolver,
+  onOpenHorizontalLaunchSolver,
+  onOpenProjectileMotionSolver,
 }) {
   // Flyout submenu visibility states ('pen' | 'templates' | 'sticky' | 'shapes' | 'greek_symbols' | 'physics_objects' | null)
   const [activeFlyout, setActiveFlyout] = useState(null);
@@ -79,19 +84,20 @@ export default function LeftToolbar({
 
   return (
     <aside className="webwb-left-container">
-      {/* Main Unified Tools Floating Island */}
-      <div className="left-main-island">
-        {/* SECTION 1: Navigation & Selection */}
-        <button
-          className={`wb-tool-btn ${activeTool === 'select' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTool('select');
-            setActiveFlyout(null);
-          }}
-          title="Seleccionar (V / Esc) — Mover, escalar y seleccionar"
-        >
-          <MousePointer2 size={19} />
-        </button>
+      {/* Studio Workbench Left Rail */}
+      <div className="left-main-rail">
+        <div className="left-tools-top-group">
+          {/* SECTION 1: Navigation & Selection */}
+          <button
+            className={`wb-tool-btn ${activeTool === 'select' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTool('select');
+              setActiveFlyout(null);
+            }}
+            title="Seleccionar (V / Esc) — Mover, escalar y seleccionar"
+          >
+            <MousePointer2 size={19} />
+          </button>
 
         <button
           className={`wb-tool-btn ${activeTool === 'hand' ? 'active' : ''}`}
@@ -199,26 +205,28 @@ export default function LeftToolbar({
           <BookOpen size={19} />
         </button>
 
-        <div className="toolbar-section-divider"></div>
+        </div>
 
-        {/* SECTION 4: History / Undo & Redo */}
-        <button
-          className="wb-tool-btn"
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Deshacer (Ctrl + Z)"
-        >
-          <Undo2 size={17} />
-        </button>
+        {/* SECTION 4: History / Undo & Redo docked at bottom */}
+        <div className="left-tools-bottom-group">
+          <button
+            className="wb-tool-btn"
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Deshacer (Ctrl + Z)"
+          >
+            <Undo2 size={16} />
+          </button>
 
-        <button
-          className="wb-tool-btn"
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Rehacer (Ctrl + Y)"
-        >
-          <Redo2 size={17} />
-        </button>
+          <button
+            className="wb-tool-btn"
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Rehacer (Ctrl + Y)"
+          >
+            <Redo2 size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Modular Flyouts */}
@@ -244,6 +252,11 @@ export default function LeftToolbar({
           setActiveFlyout(null);
         }}
         onOpenMruSolver={onOpenMruSolver}
+        onOpenMruvSolver={onOpenMruvSolver}
+        onOpenFreefallSolver={onOpenFreefallSolver}
+        onOpenTiroVerticalSolver={onOpenTiroVerticalSolver}
+        onOpenHorizontalLaunchSolver={onOpenHorizontalLaunchSolver}
+        onOpenProjectileMotionSolver={onOpenProjectileMotionSolver}
       />
 
       <PenFlyout
@@ -287,31 +300,42 @@ export default function LeftToolbar({
       <style>{`
         .webwb-left-container {
           position: fixed;
-          left: 14px;
-          top: 90px;
+          left: 0;
+          top: 50px;
+          bottom: 32px;
+          width: 54px;
           z-index: 50;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          background: #ffffff;
+          border-right: 1px solid #e2e8f0;
+          box-shadow: 1px 0 4px rgba(15, 23, 42, 0.03);
         }
 
-        .left-main-island {
+        .left-main-rail {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
-          padding: 6px;
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border-radius: 14px;
-          box-shadow: 0 6px 20px -2px rgba(15, 23, 42, 0.1);
-          border: 1px solid rgba(225, 230, 240, 0.85);
-          transition: box-shadow 0.2s ease;
+          justify-content: space-between;
+          height: 100%;
+          padding: 8px 0;
         }
 
-        .left-main-island:hover {
-          box-shadow: 0 8px 28px -2px rgba(15, 23, 42, 0.14);
+        .left-tools-top-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+        }
+
+        .left-tools-bottom-group {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+          border-top: 1px solid #f1f5f9;
+          padding-top: 6px;
+          width: 100%;
         }
 
         .toolbar-section-divider {
@@ -325,7 +349,7 @@ export default function LeftToolbar({
           position: relative;
           width: 38px;
           height: 38px;
-          border-radius: 9px;
+          border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -333,20 +357,18 @@ export default function LeftToolbar({
           background: transparent;
           color: #475569;
           cursor: pointer;
-          transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: all 0.12s ease;
         }
 
         .wb-tool-btn:hover:not(:disabled) {
           background-color: #f1f5f9;
           color: #0f172a;
-          transform: scale(1.04);
         }
 
         .wb-tool-btn.active {
-          background-color: #eff6ff;
-          color: #2563eb;
-          border-color: #bfdbfe;
-          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.12);
+          background-color: #f0f9ff;
+          color: #0284c7;
+          border-color: #bae6fd;
         }
 
         .wb-tool-btn:disabled {

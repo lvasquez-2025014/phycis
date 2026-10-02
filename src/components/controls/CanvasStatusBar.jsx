@@ -9,8 +9,11 @@ import {
   Wand2, 
   HelpCircle, 
   X,
-  Sparkles,
-  Eraser
+  Eraser,
+  Minus,
+  Plus,
+  Compass,
+  Maximize2
 } from 'lucide-react';
 
 const TOOL_INFOS = {
@@ -83,45 +86,95 @@ const SHORTCUTS = [
   { key: 'Rueda / Ctrl + Rueda', desc: 'Zoom y navegación' },
 ];
 
-export default function CanvasStatusBar({ activeTool = 'select' }) {
+export default function CanvasStatusBar({ 
+  activeTool = 'select',
+  scale = 1.0,
+  onZoomIn,
+  onZoomOut,
+  onResetZoom,
+  minimapOpen = false,
+  onToggleMinimap,
+}) {
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   const currentInfo = TOOL_INFOS[activeTool] || TOOL_INFOS.select;
   const ToolIcon = currentInfo.icon;
 
   return (
-    <div className="canvas-status-bar">
-      <div className="status-pill-main">
-        {/* Active Tool Badge */}
-        <div className={`active-tool-chip ${currentInfo.isMagic ? 'magic-active' : ''}`}>
-          <ToolIcon size={14} className={currentInfo.isMagic ? 'magic-spin-icon' : ''} />
-          <span className="tool-chip-name">{currentInfo.label}</span>
-          {currentInfo.isMagic && <span className="magic-dot"></span>}
+    <footer className="studio-bottom-bar">
+      {/* 1. LEFT: Active Tool & Tip */}
+      <div className="bottom-bar-left">
+        <div className={`status-tool-badge ${currentInfo.isMagic ? 'magic-active' : ''}`}>
+          <ToolIcon size={13} className={currentInfo.isMagic ? 'magic-spin-icon' : ''} />
+          <span className="tool-badge-text">{currentInfo.label}</span>
+          {currentInfo.isMagic && <span className="magic-dot" />}
         </div>
 
-        <div className="status-pill-divider"></div>
+        <div className="status-divider" />
 
-        {/* Tip text */}
         <span className="status-tip-text">
           {currentInfo.tip}
         </span>
+      </div>
 
-        {/* Shortcuts Cheat Sheet Button */}
+      {/* 2. CENTER: Laboratory Reference System */}
+      <div className="bottom-bar-center">
+        <span className="studio-system-label">
+          Sistema de Referencia Inercial (SI) • Escala Métrica
+        </span>
+      </div>
+
+      {/* 3. RIGHT: Shortcuts & Integrated Zoom */}
+      <div className="bottom-bar-right">
+        {/* Shortcuts Trigger */}
         <button
-          className="shortcuts-trigger-btn"
+          className="bottom-bar-btn"
           onClick={() => setShowShortcuts((prev) => !prev)}
           title="Atajos de teclado rápidos"
         >
-          <HelpCircle size={14} />
-          <span className="shortcuts-btn-label">Atajos</span>
+          <HelpCircle size={13} />
+          <span>Atajos</span>
         </button>
+
+        <div className="status-divider" />
+
+        {/* Zoom Controls */}
+        <div className="zoom-controls-integrated">
+          <button className="zoom-sub-btn" onClick={onZoomOut} title="Alejar (-)">
+            <Minus size={13} />
+          </button>
+
+          <button className="zoom-value-btn" onClick={onResetZoom} title="Restablecer zoom al 100%">
+            {Math.round(scale * 100)}%
+          </button>
+
+          <button className="zoom-sub-btn" onClick={onZoomIn} title="Acercar (+)">
+            <Plus size={13} />
+          </button>
+
+          {onToggleMinimap && (
+            <button
+              className={`zoom-sub-btn ${minimapOpen ? 'active' : ''}`}
+              onClick={onToggleMinimap}
+              title="Mostrar / Ocultar radar minimapa"
+            >
+              <Compass size={13} />
+            </button>
+          )}
+
+          {onResetZoom && (
+            <button className="zoom-sub-btn" onClick={onResetZoom} title="Ajustar a 100%">
+              <Maximize2 size={13} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Shortcuts Modal Popover */}
       {showShortcuts && (
         <div className="shortcuts-popover-card">
           <div className="shortcuts-header">
-            <h4 className="shortcuts-title">Atajos de Teclado</h4>
+            <h4 className="shortcuts-title">Atajos de Teclado del Laboratorio</h4>
             <button className="shortcuts-close-btn" onClick={() => setShowShortcuts(false)}>
               <X size={14} />
             </button>
@@ -138,142 +191,213 @@ export default function CanvasStatusBar({ activeTool = 'select' }) {
       )}
 
       <style>{`
-        .canvas-status-bar {
+        .studio-bottom-bar {
           position: fixed;
-          bottom: 18px;
-          left: 18px;
-          z-index: 45;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 32px;
+          z-index: 52;
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
           display: flex;
-          flex-direction: column;
-          gap: 8px;
-          pointer-events: none;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 12px 0 62px;
+          user-select: none;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
-        .status-pill-main {
-          pointer-events: auto;
+        .bottom-bar-left {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: rgba(255, 255, 255, 0.88);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border: 1px solid rgba(225, 230, 240, 0.85);
-          box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.08);
-          border-radius: 9999px;
-          padding: 4px 10px 4px 5px;
-          transition: all 0.2s ease;
-          max-width: 580px;
+          min-width: 0;
+          flex: 1;
         }
 
-        .active-tool-chip {
-          display: flex;
+        .status-tool-badge {
+          display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 3px 10px;
-          border-radius: 9999px;
-          background: #eff6ff;
-          color: #2563eb;
-          font-family: var(--font-sans);
-          font-size: 0.76rem;
+          gap: 5px;
+          padding: 2px 7px;
+          border-radius: 4px;
+          background: #f0f9ff;
+          color: #0284c7;
+          border: 1px solid #bae6fd;
+          font-size: 0.72rem;
           font-weight: 700;
           white-space: nowrap;
-          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.1);
+          flex-shrink: 0;
         }
 
-        .active-tool-chip.magic-active {
-          background: linear-gradient(135deg, #ede9fe 0%, #fae8ff 100%);
+        .status-tool-badge.magic-active {
+          background: #f5f3ff;
           color: #7c3aed;
+          border-color: #ddd6fe;
         }
 
         .magic-dot {
-          width: 6px;
-          height: 6px;
+          width: 5px;
+          height: 5px;
           border-radius: 50%;
-          background: #a855f7;
-          box-shadow: 0 0 6px #a855f7;
-          animation: pulse 1.5s infinite;
+          background: #7c3aed;
         }
 
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.3); opacity: 0.7; }
-        }
-
-        .status-pill-divider {
+        .status-divider {
           width: 1px;
           height: 14px;
           background: #e2e8f0;
+          flex-shrink: 0;
         }
 
         .status-tip-text {
-          font-size: 0.73rem;
-          font-weight: 500;
+          font-size: 0.7rem;
           color: #64748b;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .shortcuts-trigger-btn {
+        .bottom-bar-center {
           display: flex;
           align-items: center;
+          justify-content: center;
+          padding: 0 16px;
+          flex-shrink: 0;
+        }
+
+        .studio-system-label {
+          font-size: 0.68rem;
+          font-weight: 600;
+          color: #94a3b8;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
+        }
+
+        .bottom-bar-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
+        }
+
+        .bottom-bar-btn {
+          display: inline-flex;
+          align-items: center;
           gap: 4px;
-          padding: 3px 8px;
-          background: #f1f5f9;
+          padding: 2px 7px;
+          background: #f8fafc;
           border: 1px solid #e2e8f0;
-          border-radius: 9999px;
-          color: #475569;
+          border-radius: 4px;
+          color: #64748b;
           font-size: 0.7rem;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.15s ease;
-          margin-left: auto;
-          white-space: nowrap;
+          transition: all 0.12s ease;
         }
 
-        .shortcuts-trigger-btn:hover {
+        .bottom-bar-btn:hover {
           background: #e2e8f0;
           color: #0f172a;
         }
 
+        .zoom-controls-integrated {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 5px;
+          padding: 1px 3px;
+        }
+
+        .zoom-sub-btn {
+          width: 22px;
+          height: 22px;
+          border-radius: 3px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.12s ease;
+        }
+
+        .zoom-sub-btn:hover {
+          background: #e2e8f0;
+          color: #0f172a;
+        }
+
+        .zoom-sub-btn.active {
+          color: #0284c7;
+          background: #e0f2fe;
+        }
+
+        .zoom-value-btn {
+          border: none;
+          background: transparent;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #334155;
+          padding: 0 4px;
+          cursor: pointer;
+          min-width: 42px;
+          text-align: center;
+          font-family: ui-monospace, SFMono-Regular, monospace;
+        }
+
+        .zoom-value-btn:hover {
+          color: #0284c7;
+        }
+
         /* Shortcuts Popover */
         .shortcuts-popover-card {
-          pointer-events: auto;
+          position: fixed;
+          bottom: 38px;
+          right: 14px;
           width: 320px;
           background: #ffffff;
           border: 1px solid #e2e8f0;
           box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
-          border-radius: 12px;
+          border-radius: 8px;
           padding: 12px 14px;
-          animation: contextFadeIn 0.16s ease-out;
+          animation: contextFadeIn 0.14s ease-out;
+          z-index: 60;
         }
 
         .shortcuts-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 8px;
+          margin-bottom: 10px;
+          padding-bottom: 6px;
           border-bottom: 1px solid #f1f5f9;
-          margin-bottom: 8px;
         }
 
         .shortcuts-title {
-          font-size: 0.82rem;
+          font-size: 0.8rem;
           font-weight: 700;
           color: #0f172a;
           margin: 0;
         }
 
         .shortcuts-close-btn {
-          background: transparent;
           border: none;
+          background: transparent;
           color: #94a3b8;
           cursor: pointer;
           padding: 2px;
           border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .shortcuts-close-btn:hover {
+          background: #f1f5f9;
           color: #0f172a;
         }
 
@@ -281,7 +405,7 @@ export default function CanvasStatusBar({ activeTool = 'select' }) {
           display: flex;
           flex-direction: column;
           gap: 6px;
-          max-height: 260px;
+          max-height: 280px;
           overflow-y: auto;
         }
 
@@ -289,8 +413,7 @@ export default function CanvasStatusBar({ activeTool = 'select' }) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 8px;
-          font-size: 0.74rem;
+          font-size: 0.72rem;
         }
 
         .shortcut-desc {
@@ -298,23 +421,16 @@ export default function CanvasStatusBar({ activeTool = 'select' }) {
         }
 
         .shortcut-kbd {
-          background: #f8fafc;
+          background: #f1f5f9;
           border: 1px solid #cbd5e1;
           border-radius: 4px;
           padding: 2px 6px;
-          font-family: var(--font-sans);
+          font-family: ui-monospace, SFMono-Regular, monospace;
           font-size: 0.68rem;
-          font-weight: 700;
-          color: #1e293b;
-          box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
-        }
-
-        @media (max-width: 768px) {
-          .status-tip-text {
-            display: none;
-          }
+          font-weight: 600;
+          color: #0f172a;
         }
       `}</style>
-    </div>
+    </footer>
   );
 }

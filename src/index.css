@@ -3,29 +3,43 @@
   --font-handwriting: 'Kalam', cursive;
   --font-display: 'Plus Jakarta Sans', sans-serif;
 
-  /* Web Whiteboard / Miro Palette */
-  --miro-blue: #4262ff;
-  --miro-blue-hover: #3350e0;
-  --miro-blue-light: #edf2fe;
-  --miro-yellow: #ffd02f;
-  --miro-navy: #050038;
-  --miro-dark: #1a1a1a;
-  --miro-gray-bg: #f8f9fa;
-  --miro-gray-surface: #ffffff;
-  --miro-gray-border: #e1e3ea;
-  --miro-gray-border-hover: #babbc5;
-  --miro-gray-text: #5f5c80;
-  --miro-gray-dim: #9b99af;
+  /* Physics Studio Laboratory Design Tokens */
+  --lab-primary: #0284c7;
+  --lab-primary-hover: #0369a1;
+  --lab-primary-light: #f0f9ff;
+  --lab-accent: #38bdf8;
+  --lab-navy: #0f172a;
+  --lab-dark: #1e293b;
+  --lab-bg: #fbfcfd;
+  --lab-surface: #ffffff;
+  --lab-border: #e2e8f0;
+  --lab-border-hover: #cbd5e1;
+  --lab-text: #475569;
+  --lab-dim: #94a3b8;
 
-  --shadow-sm: 0 1px 3px rgba(5, 0, 56, 0.06);
-  --shadow-md: 0 4px 14px rgba(5, 0, 56, 0.08);
-  --shadow-lg: 0 8px 24px rgba(5, 0, 56, 0.12);
-  --shadow-sticky: 0 6px 18px -4px rgba(5, 0, 56, 0.12), 0 2px 6px rgba(5, 0, 56, 0.04);
+  /* Theme mappings */
+  --miro-blue: var(--lab-primary);
+  --miro-blue-hover: var(--lab-primary-hover);
+  --miro-blue-light: var(--lab-primary-light);
+  --miro-yellow: #f59e0b;
+  --miro-navy: var(--lab-navy);
+  --miro-dark: var(--lab-dark);
+  --miro-gray-bg: var(--lab-bg);
+  --miro-gray-surface: var(--lab-surface);
+  --miro-gray-border: var(--lab-border);
+  --miro-gray-border-hover: var(--lab-border-hover);
+  --miro-gray-text: var(--lab-text);
+  --miro-gray-dim: var(--lab-dim);
+
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-sticky: 0 6px 18px -4px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
 
   --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-pill: 9999px;
 
   --transition-fast: 0.12s ease;
@@ -45,16 +59,16 @@ html, body, #root {
   height: 100vh;
   overflow: hidden;
   font-family: var(--font-sans);
-  background-color: var(--miro-gray-bg);
-  color: var(--miro-dark);
+  background-color: var(--lab-bg);
+  color: var(--lab-dark);
 }
 
-/* Miro Island Card */
+/* Studio Surface Card */
 .miro-island {
-  background: var(--miro-gray-surface);
-  border: 1px solid var(--miro-gray-border);
+  background: var(--lab-surface);
+  border: 1px solid var(--lab-border);
   box-shadow: var(--shadow-md);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   transition: box-shadow var(--transition-smooth);
 }
 
@@ -69,7 +83,7 @@ html, body, #root {
   justify-content: center;
   gap: 6px;
   padding: 7px 14px;
-  background-color: var(--miro-blue);
+  background-color: var(--lab-primary);
   color: #ffffff;
   border: none;
   border-radius: var(--radius-sm);
@@ -81,7 +95,7 @@ html, body, #root {
 }
 
 .btn-miro-primary:hover {
-  background-color: var(--miro-blue-hover);
+  background-color: var(--lab-primary-hover);
 }
 
 .btn-miro-secondary {

@@ -108,7 +108,176 @@ export default function PhysicsSimulationBar({
       {/* Real-time Educational Physics Telemetry HUD */}
       {isExpanded && metrics && (
         <div className="sim-telemetry-strip">
-          {metrics.type === 'mru' ? (
+          {metrics.type === 'movimiento_proyectiles' ? (
+            <>
+              <div className="telemetry-badge proyectil-mode">
+                <span className="telemetry-label">Fase:</span>
+                <span className={`telemetry-value ${metrics.stage?.includes('Impacto') ? 'rose' : (metrics.stage?.includes('APEX') ? 'amber' : 'purple')}`}>
+                  {metrics.stage || 'Tiro Parabólico 2D'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_x:</span>
+                <span className="telemetry-value highlight">{metrics.vx !== undefined ? `${typeof metrics.vx === 'number' ? metrics.vx.toFixed(1) : metrics.vx} m/s` : '0.0 m/s'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_y(t):</span>
+                <span className={`telemetry-value ${Number(metrics.vy) > 0 ? 'emerald' : (Number(metrics.vy) < 0 ? 'rose' : 'amber')}`}>
+                  {metrics.vy !== undefined ? `${Number(metrics.vy) > 0 ? '+' : ''}${typeof metrics.vy === 'number' ? metrics.vy.toFixed(1) : metrics.vy} m/s` : '0.0 m/s'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_res:</span>
+                <span className="telemetry-value purple">
+                  {metrics.vResultant !== undefined ? `${typeof metrics.vResultant === 'number' ? metrics.vResultant.toFixed(1) : metrics.vResultant} m/s` : '0.0 m/s'} ({metrics.thetaDeg || 0}°)
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Alcance x:</span>
+                <span className="telemetry-value highlight">x = {metrics.rangeM || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Altura y:</span>
+                <span className="telemetry-value emerald">y = {metrics.heightM || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">H_máx:</span>
+                <span className="telemetry-value amber">{metrics.maxHeight || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge equation">
+                <span className="telemetry-label">Ecuación:</span>
+                <span className="telemetry-value math-eq">v_x=v₀cosθ | y=v₀y·t - ½gt²</span>
+              </div>
+              <div className="telemetry-badge time">
+                <span className="telemetry-label">Tiempo:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'} s</span>
+              </div>
+            </>
+          ) : metrics.type === 'lanzamiento_horizontal' ? (
+            <>
+              <div className="telemetry-badge horizontal-mode">
+                <span className="telemetry-label">Fase:</span>
+                <span className={`telemetry-value ${metrics.stage?.includes('Impacto') ? 'rose' : 'emerald'}`}>
+                  {metrics.stage || 'Vuelo Parabólico ↷'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_x (MRU):</span>
+                <span className="telemetry-value highlight">{metrics.vx !== undefined ? `${typeof metrics.vx === 'number' ? metrics.vx.toFixed(1) : metrics.vx} m/s` : '0.0 m/s'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_y (Caída):</span>
+                <span className="telemetry-value rose">{metrics.vy !== undefined ? `${typeof metrics.vy === 'number' ? metrics.vy.toFixed(1) : metrics.vy} m/s` : '0.0 m/s'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_resultante:</span>
+                <span className="telemetry-value emerald">
+                  v = {metrics.vResultant !== undefined ? `${typeof metrics.vResultant === 'number' ? metrics.vResultant.toFixed(1) : metrics.vResultant} m/s` : '0.0 m/s'} ({metrics.angleDeg || 0}°)
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Alcance x:</span>
+                <span className="telemetry-value highlight">x = {metrics.rangeM || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Altura h:</span>
+                <span className="telemetry-value amber">h = {metrics.heightM || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge equation">
+                <span className="telemetry-label">Ecuación:</span>
+                <span className="telemetry-value math-eq">x = v₀·t | y = ½g·t²</span>
+              </div>
+              <div className="telemetry-badge time">
+                <span className="telemetry-label">Tiempo:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'} s</span>
+              </div>
+            </>
+          ) : metrics.type === 'tiro_vertical' ? (
+            <>
+              <div className="telemetry-badge tiro-vertical-mode">
+                <span className="telemetry-label">Fase:</span>
+                <span className={`telemetry-value ${metrics.stage?.includes('CÚSPIDE') ? 'amber' : (metrics.stage?.includes('Bajando') ? 'rose' : 'emerald')}`}>
+                  {metrics.stage || 'Lanzamiento ↑'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Velocidad v(t):</span>
+                <span className={`telemetry-value ${metrics.vel > 0 ? 'emerald' : (metrics.vel < 0 ? 'rose' : 'amber')}`}>
+                  {metrics.vel !== undefined ? `${metrics.vel > 0 ? '+' : ''}${typeof metrics.vel === 'number' ? metrics.vel.toFixed(2) : metrics.vel} m/s` : '0.00 m/s'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Altura h(t):</span>
+                <span className="telemetry-value highlight">{metrics.height || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">h_máx:</span>
+                <span className="telemetry-value purple">{metrics.maxHeight || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">g:</span>
+                <span className="telemetry-value">{metrics.accel ? `${metrics.accel} m/s²` : '9.80 m/s²'}</span>
+              </div>
+              <div className="telemetry-badge equation">
+                <span className="telemetry-label">Ecuación:</span>
+                <span className="telemetry-value math-eq">v = v₀ - g·t | h = v₀·t - ½g·t²</span>
+              </div>
+              <div className="telemetry-badge time">
+                <span className="telemetry-label">Tiempo:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'} s</span>
+              </div>
+            </>
+          ) : metrics.type === 'freefall' ? (
+            <>
+              <div className="telemetry-badge freefall-mode">
+                <span className="telemetry-label">Caída Libre:</span>
+                <span className="telemetry-value rose">v₀ = 0 | g = {metrics.accel || 9.8} m/s²</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Velocidad:</span>
+                <span className="telemetry-value emerald">
+                  v = {metrics.vel !== undefined ? `${typeof metrics.vel === 'number' ? metrics.vel.toFixed(2) : metrics.vel} m/s` : '0.00 m/s'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Distancia caída:</span>
+                <span className="telemetry-value highlight">y = {metrics.dist || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge equation">
+                <span className="telemetry-label">Ecuación:</span>
+                <span className="telemetry-value math-eq">v = g·t | y = ½g·t²</span>
+              </div>
+              <div className="telemetry-badge time">
+                <span className="telemetry-label">Tiempo:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'} s</span>
+              </div>
+            </>
+          ) : metrics.type === 'mruv' ? (
+            <>
+              <div className="telemetry-badge mruv-mode">
+                <span className="telemetry-label">MRUV:</span>
+                <span className="telemetry-value amber">a = {metrics.accel ? `${metrics.accel.toFixed(2)} m/s²` : '0.00 m/s²'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Velocidad:</span>
+                <span className="telemetry-value emerald">
+                  v = {metrics.vel !== undefined ? `${metrics.vel > 0 ? '+' : ''}${typeof metrics.vel === 'number' ? metrics.vel.toFixed(metrics.vel % 1 === 0 ? 0 : 2) : metrics.vel} ${metrics.unit || 'm/s'}` : '0.0 m/s'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Distancia:</span>
+                <span className="telemetry-value">d = {metrics.dist || '0.00'} m</span>
+              </div>
+              <div className="telemetry-badge equation">
+                <span className="telemetry-label">Ecuación:</span>
+                <span className="telemetry-value math-eq">v = v₀ + a·t | x = v₀·t + ½a·t²</span>
+              </div>
+              <div className="telemetry-badge time">
+                <span className="telemetry-label">Tiempo:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'} s</span>
+              </div>
+            </>
+          ) : metrics.type === 'mru' ? (
             <>
               <div className="telemetry-badge mru-mode">
                 <span className="telemetry-label">MRU:</span>
@@ -365,8 +534,51 @@ export default function PhysicsSimulationBar({
           color: #059669;
         }
 
+        .telemetry-value.amber {
+          color: #d97706;
+        }
+
+        .telemetry-value.rose {
+          color: #e11d48;
+        }
+
+        .telemetry-value.purple {
+          color: #7c3aed;
+        }
+
         .telemetry-badge.mru-mode {
           background: #eff6ff;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-badge.mruv-mode {
+          background: #fef3c7;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-badge.freefall-mode {
+          background: #ffe4e6;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-badge.tiro-vertical-mode {
+          background: #f3e8ff;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-badge.horizontal-mode {
+          background: #e0f2fe;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-badge.proyectil-mode {
+          background: #f3e8ff;
+          border: 1px solid #d8b4fe;
           padding: 2px 6px;
           border-radius: 4px;
         }

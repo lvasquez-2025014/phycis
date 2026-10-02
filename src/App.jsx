@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import TopBar from './components/controls/TopBar';
 import LeftToolbar from './components/toolbar/LeftToolbar';
 import CanvasBoard from './components/canvas/CanvasBoard';
-import ZoomControls from './components/controls/ZoomControls';
 import Minimap from './components/controls/Minimap';
 import ShareModal from './components/modals/ShareModal';
 import SaveBoardModal from './components/modals/SaveBoardModal';
@@ -11,9 +10,29 @@ import ToastContainer from './components/controls/ToastContainer';
 import CanvasStatusBar from './components/controls/CanvasStatusBar';
 import PhysicsSandbox from './components/canvas/PhysicsSandbox';
 import MruExerciseSolverModal from './components/modals/MruExerciseSolverModal';
+import MruvExerciseSolverModal from './components/modals/MruvExerciseSolverModal';
+import FreefallExerciseSolverModal from './components/modals/FreefallExerciseSolverModal';
+import TiroVerticalExerciseSolverModal from './components/modals/TiroVerticalExerciseSolverModal';
+import HorizontalLaunchExerciseSolverModal from './components/modals/HorizontalLaunchExerciseSolverModal';
+import ProjectileMotionExerciseSolverModal from './components/modals/ProjectileMotionExerciseSolverModal';
 import { getMruTemplate } from './data/mruTemplates';
-import { createPhysicsElement, createAtwoodMachineAssembly, createMruLabAssembly } from './physics/physicsRegistry';
+import { 
+  createPhysicsElement, 
+  createAtwoodMachineAssembly, 
+  createMruLabAssembly, 
+  createMruvLabAssembly,
+  createFreefallLabAssembly,
+  createVerticalLaunchLabAssembly,
+  createHorizontalLaunchLabAssembly,
+  createProjectileMotionLabAssembly,
+  getCannonMuzzlePosition,
+} from './physics/physicsRegistry';
 import { buildExerciseBoardElements } from './services/mruExerciseSolver';
+import { buildMruvExerciseBoardElements } from './services/mruvExerciseSolver';
+import { buildFreefallExerciseBoardElements } from './services/freefallExerciseSolver';
+import { buildVerticalLaunchExerciseBoardElements } from './services/tiroVerticalExerciseSolver';
+import { buildHorizontalLaunchExerciseBoardElements } from './services/horizontalLaunchExerciseSolver';
+import { buildProjectileMotionExerciseBoardElements } from './services/projectileMotionExerciseSolver';
 
 class SandboxErrorBoundary extends React.Component {
   constructor(props) {
@@ -89,6 +108,11 @@ export default function App() {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isMruSolverOpen, setIsMruSolverOpen] = useState(false);
+  const [isMruvSolverOpen, setIsMruvSolverOpen] = useState(false);
+  const [isFreefallSolverOpen, setIsFreefallSolverOpen] = useState(false);
+  const [isTiroVerticalSolverOpen, setIsTiroVerticalSolverOpen] = useState(false);
+  const [isHorizontalLaunchSolverOpen, setIsHorizontalLaunchSolverOpen] = useState(false);
+  const [isProjectileMotionSolverOpen, setIsProjectileMotionSolverOpen] = useState(false);
   const [isPhysicsSandboxOpen, setIsPhysicsSandboxOpen] = useState(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState(false);
 
@@ -372,6 +396,40 @@ export default function App() {
             const offsetCount = currentCarts.length % 5;
             wx += offsetCount * 130;
           }
+        } else if (type === 'horizontal_projectile') {
+          const currentCliffs = elementsRef.current.filter((e) => e.physicsType === 'cliff_platform');
+          if (currentCliffs.length > 0) {
+            const cliff = currentCliffs[0];
+            const projW = 44;
+            const projH = 44;
+            // Dock on top launch ledge
+            wx = cliff.x + cliff.width - projW / 2;
+            wy = cliff.y - projH / 2;
+          }
+        } else if (type === 'freefall_body') {
+          const currentTowers = elementsRef.current.filter((e) => e.physicsType === 'freefall_tower');
+          if (currentTowers.length > 0) {
+            const tower = currentTowers[0];
+            wx = tower.x + tower.width + 25;
+            wy = tower.y + 10;
+          }
+        } else if (type === 'vertical_projectile') {
+          const currentTowers = elementsRef.current.filter((e) => e.physicsType === 'freefall_tower');
+          if (currentTowers.length > 0) {
+            const tower = currentTowers[0];
+            wx = tower.x + tower.width + 25;
+            wy = tower.y + tower.height - 40;
+          }
+        } else if (type === 'oblique_projectile') {
+          const currentCannons = elementsRef.current.filter((e) => e.physicsType === 'cannon_launcher');
+          if (currentCannons.length > 0) {
+            const cannon = currentCannons[0];
+            const projSize = preset?.width || 26;
+            const thetaDeg = cannon.properties?.angleDeg ?? cannon.properties?.initialAngleDeg ?? 37.0;
+            const muzzle = getCannonMuzzlePosition(cannon.x, cannon.y, cannon.width || 90, cannon.height || 70, thetaDeg);
+            wx = muzzle.muzzleCenterX - projSize / 2;
+            wy = muzzle.muzzleCenterY - projSize / 2;
+          }
         }
       }
       const newEl = createPhysicsElement(type, wx, wy, preset);
@@ -400,9 +458,34 @@ export default function App() {
         setElements((prev) => [...prev, ...mruElements]);
         setActiveTool('select');
         addToast('🏎️ Laboratorio MRU montado en el lienzo');
+      } else if (assemblyType === 'mruv') {
+        const mruvElements = createMruvLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...mruvElements]);
+        setActiveTool('select');
+        addToast('🏎️ Laboratorio MRUV montado en el lienzo');
+      } else if (assemblyType === 'freefall') {
+        const freefallElements = createFreefallLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...freefallElements]);
+        setActiveTool('select');
+        addToast('🌍 Laboratorio de Caída Libre montado en el lienzo');
+      } else if (assemblyType === 'tiro_vertical') {
+        const vtElements = createVerticalLaunchLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...vtElements]);
+        setActiveTool('select');
+        addToast('🚀 Laboratorio de Tiro Vertical montado en el lienzo');
+      } else if (assemblyType === 'lanzamiento_horizontal') {
+        const hlElements = createHorizontalLaunchLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...hlElements]);
+        setActiveTool('select');
+        addToast('🚀 Laboratorio de Lanzamiento Horizontal montado en el lienzo');
+      } else if (assemblyType === 'movimiento_proyectiles') {
+        const projElements = createProjectileMotionLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...projElements]);
+        setActiveTool('select');
+        addToast('🎯 Laboratorio de Movimiento de Proyectiles montado en el lienzo');
       }
     },
-    [pushHistory, transform, setActiveTool]
+    [pushHistory, transform, setActiveTool, addToast]
   );
 
   const handleMountExercise = useCallback(
@@ -416,7 +499,77 @@ export default function App() {
       setActiveTool('select');
       addToast(`📐 Ejercicio montado en el lienzo: ${exercise.title}`);
     },
-    [pushHistory, transform, setActiveTool]
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountMruvExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildMruvExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`📐 Ejercicio MRUV montado en el lienzo: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountFreefallExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildFreefallExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`🌍 Ejercicio de Caída Libre montado: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountTiroVerticalExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildVerticalLaunchExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`🚀 Ejercicio de Tiro Vertical montado: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountHorizontalLaunchExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildHorizontalLaunchExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`🚀 Ejercicio de Lanzamiento Horizontal montado: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountProjectileMotionExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildProjectileMotionExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`🎯 Ejercicio de Movimiento de Proyectiles montado: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
   );
 
   return (
@@ -435,6 +588,11 @@ export default function App() {
         onOpenSaveModal={() => setIsSaveModalOpen(true)}
         onOpenTemplates={() => setIsTemplatesOpen(true)}
         onOpenMruSolver={() => setIsMruSolverOpen(true)}
+        onOpenMruvSolver={() => setIsMruvSolverOpen(true)}
+        onOpenFreefallSolver={() => setIsFreefallSolverOpen(true)}
+        onOpenTiroVerticalSolver={() => setIsTiroVerticalSolverOpen(true)}
+        onOpenHorizontalLaunchSolver={() => setIsHorizontalLaunchSolverOpen(true)}
+        onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
         onOpenPhysicsSandbox={() => setIsPhysicsSandboxOpen(true)}
         onClearBoard={handleClearBoard}
       />
@@ -461,6 +619,11 @@ export default function App() {
         onAddAssembly={handleAddAssembly}
         onSelectRopeTool={() => setActiveTool('rope')}
         onOpenMruSolver={() => setIsMruSolverOpen(true)}
+        onOpenMruvSolver={() => setIsMruvSolverOpen(true)}
+        onOpenFreefallSolver={() => setIsFreefallSolverOpen(true)}
+        onOpenTiroVerticalSolver={() => setIsTiroVerticalSolverOpen(true)}
+        onOpenHorizontalLaunchSolver={() => setIsHorizontalLaunchSolverOpen(true)}
+        onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
         onLoadTemplate={(tplArg) => {
           pushHistory();
           // 1. Direct object format from modal { elements, boardName, toast }
@@ -503,20 +666,8 @@ export default function App() {
         viewportSize={viewportSize}
         setViewportSize={setViewportSize}
         pushHistory={pushHistory}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
         canvasRef={canvasRef}
         onNotify={addToast}
-      />
-
-      {/* Bottom Right Miro Zoom Controls */}
-      <ZoomControls
-        scale={transform.scale}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onResetZoom={handleResetZoom}
-        minimapOpen={isMinimapOpen}
-        onToggleMinimap={() => setIsMinimapOpen(!isMinimapOpen)}
       />
 
       {/* Minimap (if toggled) */}
@@ -536,7 +687,7 @@ export default function App() {
         onNotify={addToast}
       />
 
-      {/* 24-hr Save to Miro Modal */}
+      {/* Save Session Modal */}
       <SaveBoardModal
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
@@ -564,6 +715,41 @@ export default function App() {
         onMountExerciseOnBoard={handleMountExercise}
       />
 
+      {/* MRUV Exercise Solver (HT02 Kinal) & Laboratory Generator Modal */}
+      <MruvExerciseSolverModal
+        isOpen={isMruvSolverOpen}
+        onClose={() => setIsMruvSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountMruvExercise}
+      />
+
+      {/* Freefall Exercise Solver (HT03 Kinal) & Laboratory Generator Modal */}
+      <FreefallExerciseSolverModal
+        isOpen={isFreefallSolverOpen}
+        onClose={() => setIsFreefallSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountFreefallExercise}
+      />
+
+      {/* Tiro Vertical Exercise Solver (HT04 Kinal) & Laboratory Generator Modal */}
+      <TiroVerticalExerciseSolverModal
+        isOpen={isTiroVerticalSolverOpen}
+        onClose={() => setIsTiroVerticalSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountTiroVerticalExercise}
+      />
+
+      {/* Horizontal Launch Exercise Solver (HT01 Kinal) & Laboratory Generator Modal */}
+      <HorizontalLaunchExerciseSolverModal
+        isOpen={isHorizontalLaunchSolverOpen}
+        onClose={() => setIsHorizontalLaunchSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountHorizontalLaunchExercise}
+      />
+
+      {/* Projectile Motion Exercise Solver (HT02 Kinal) & Laboratory Generator Modal */}
+      <ProjectileMotionExerciseSolverModal
+        isOpen={isProjectileMotionSolverOpen}
+        onClose={() => setIsProjectileMotionSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountProjectileMotionExercise}
+      />
+
       {/* Physics Sandbox Modal (Matter.js Atwood Machine) */}
       {isPhysicsSandboxOpen && (
         <SandboxErrorBoundary onClose={() => setIsPhysicsSandboxOpen(false)}>
@@ -571,8 +757,16 @@ export default function App() {
         </SandboxErrorBoundary>
       )}
 
-      {/* Bottom Left Tool Hints & Status Bar */}
-      <CanvasStatusBar activeTool={activeTool} />
+      {/* Studio Bottom Status Bar & Zoom Controls */}
+      <CanvasStatusBar
+        activeTool={activeTool}
+        scale={transform.scale}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
+        minimapOpen={isMinimapOpen}
+        onToggleMinimap={() => setIsMinimapOpen(!isMinimapOpen)}
+      />
 
       {/* Toast Feedback Alerts */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

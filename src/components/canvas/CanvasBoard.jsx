@@ -50,8 +50,6 @@ export default function CanvasBoard({
   viewportSize,
   setViewportSize,
   pushHistory,
-  onUndo,
-  onRedo,
   canvasRef,
   onNotify,
 }) {
@@ -112,12 +110,20 @@ export default function CanvasBoard({
 
   const handleUpdatePhysicsElement = useCallback((updatedEl) => {
     pushHistory();
-    setElements((prev) =>
-      prev.map((el) => (el.id === updatedEl.id ? updatedEl : el))
-    );
-    if (simStateRef.current) {
-      simStateRef.current = null;
+    if (isSimulatingRef.current) {
+      setIsSimulating(false);
+      isSimulatingRef.current = false;
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
     }
+    setElements((prev) => {
+      const next = prev.map((el) => (el.id === updatedEl.id ? updatedEl : el));
+      elementsRef.current = next;
+      return next;
+    });
+    simStateRef.current = null;
     lastInitialSnapshotRef.current = null;
   }, [pushHistory, setElements]);
 
@@ -200,25 +206,35 @@ export default function CanvasBoard({
       }
     }
 
-    if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elementsRef.current)) {
-      simStateRef.current = null;
-    }
-
     if (simStateRef.current) {
       const resetEls = resetHeadlessSimulation(simStateRef.current, elementsRef.current);
       elementsRef.current = resetEls;
       setElements(resetEls);
       if (simStateRef.current.telemetry) {
-        setSimMetrics(simStateRef.current.telemetry);
+        setSimMetrics({ ...simStateRef.current.telemetry });
       }
       if (onNotifyRef.current) {
         onNotifyRef.current('🔄 Posiciones iniciales restablecidas');
       }
-    } else if (lastInitialSnapshotRef.current) {
+      return;
+    }
+
+    if (lastInitialSnapshotRef.current) {
       const snapshotMap = new Map(lastInitialSnapshotRef.current.map((s) => [s.id, s]));
       const restored = elementsRef.current.map((el) => {
         const snap = snapshotMap.get(el.id);
         if (snap) {
+          const initV = snap.properties?.initialVelocity !== undefined 
+            ? snap.properties.initialVelocity 
+            : (snap.properties?.velocity !== undefined ? snap.properties.velocity : 0.0);
+          const initTheta = snap.properties?.initialAngleDeg !== undefined
+            ? snap.properties.initialAngleDeg
+            : (snap.properties?.angleDeg !== undefined ? snap.properties.angleDeg : 0.0);
+          const rad = (initTheta * Math.PI) / 180;
+          const initH = snap.properties?.launchHeight !== undefined 
+            ? snap.properties.launchHeight 
+            : (snap.properties?.launchHeightMeters !== undefined ? snap.properties.launchHeightMeters : (snap.properties?.heightMeters !== undefined ? snap.properties.heightMeters : 0.0));
+
           return {
             ...el,
             x: snap.x,
@@ -227,8 +243,22 @@ export default function CanvasBoard({
               ...el.properties,
               ...snap.properties,
               distance: 0,
+              distanceFallen: 0,
+              currentHeight: initH,
+              currentRange: 0,
               triggered: false,
               recordedTime: null,
+              isFinished: false,
+              reachedApex: false,
+              isAscending: true,
+              trailPoints: [],
+              velocity: initV,
+              initialVelocity: initV,
+              angleDeg: initTheta,
+              initialAngleDeg: initTheta,
+              vx: initV * Math.cos(rad),
+              vy: initV * Math.sin(rad),
+              vResultant: initV,
             },
           };
         }
@@ -237,17 +267,76 @@ export default function CanvasBoard({
       elementsRef.current = restored;
       setElements(restored);
 
-      const cart = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mru_cart');
-      if (cart) {
+      const cart = restored.find((el) => el.type === 'physics_object' && (el.physicsType === 'mru_cart' || el.physicsType === 'mruv_cart'));
+      const proj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'oblique_projectile');
+      const hzProj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'horizontal_projectile');
+      const vertProj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'vertical_projectile');
+      const ffBody = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'freefall_body');
+
+      if (proj) {
+        const v0 = proj.properties?.initialVelocity ?? proj.properties?.velocity ?? 25.0;
+        const theta = proj.properties?.initialAngleDeg ?? proj.properties?.angleDeg ?? 45.0;
+        const rad = (theta * Math.PI) / 180;
+        setSimMetrics({
+          type: 'movimiento_proyectiles',
+          v0: Number(v0.toFixed(2)),
+          vx: Number((v0 * Math.cos(rad)).toFixed(2)),
+          vy: Number((v0 * Math.sin(rad)).toFixed(2)),
+          vResultant: Number(v0.toFixed(2)),
+          thetaDeg: Number(theta.toFixed(1)),
+          accel: proj.properties?.gravity || 9.8,
+          accelUnit: 'm/s²',
+          rangeM: '0.00',
+          time: '0.0',
+          stage: 'Listo para Disparo',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (hzProj) {
+        const v0x = hzProj.properties?.initialVelocity ?? hzProj.properties?.velocity ?? 20.0;
+        setSimMetrics({
+          type: 'lanzamiento_horizontal',
+          vx: Number(v0x.toFixed(2)),
+          vy: 0.0,
+          vResultant: Number(v0x.toFixed(2)),
+          angleDeg: 0.0,
+          rangeM: '0.00',
+          time: '0.0',
+          stage: 'Inicio en Borde',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (vertProj) {
+        const v0 = vertProj.properties?.initialVelocity ?? vertProj.properties?.velocity ?? 20.0;
+        setSimMetrics({
+          type: 'tiro_vertical',
+          vel: v0,
+          height: '0.00',
+          time: '0.0',
+          stage: 'Lanzamiento ↑',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (ffBody) {
+        const v0 = ffBody.properties?.initialVelocity ?? ffBody.properties?.velocity ?? 0.0;
+        setSimMetrics({
+          type: 'freefall',
+          vel: v0,
+          dist: '0.00',
+          time: '0.0',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (cart) {
         const dispV = cart.properties?.displayVelocity !== undefined ? cart.properties.displayVelocity : (cart.properties?.velocity ?? 2.0);
         const vUnit = cart.properties?.unit || 'm/s';
         const cartLabel = cart.properties?.label || 'Móvil MRU';
         setSimMetrics({
-          type: 'mru',
+          type: cart.physicsType === 'mruv_cart' ? 'mruv' : 'mru',
           vel: dispV,
           unit: vUnit,
           label: cartLabel,
-          accel: 0.0,
+          accel: cart.properties?.acceleration || 0.0,
           dist: '0.00',
           time: '0.0',
           isFinished: false,
@@ -353,8 +442,13 @@ export default function CanvasBoard({
     const physicsObjs = elements.filter((el) => el.type === 'physics_object');
     const conns = elements.filter((el) => el.type === 'physics_connection');
 
+    // Only capture initial snapshot if none exists, and DO NOT capture in-flight moved objects
+    const hasMovedObjects = physicsObjs.some(
+      (o) => o.properties?.isFinished || o.properties?.distance > 0 || o.properties?.distanceFallen > 0 || (o.properties?.trailPoints && o.properties.trailPoints.length > 1)
+    );
+
     // Always ensure a fallback snapshot exists for baseline Reset
-    if (!lastInitialSnapshotRef.current && physicsObjs.length > 0) {
+    if (!lastInitialSnapshotRef.current && physicsObjs.length > 0 && !hasMovedObjects) {
       lastInitialSnapshotRef.current = elements.map((el) => {
         if (el.type === 'physics_object') {
           return {
@@ -666,31 +760,6 @@ export default function CanvasBoard({
           setSelectedIds([]);
         }
       }
-      // Undo hotkey (Ctrl+Z or Cmd+Z)
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        if (e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
-          e.preventDefault();
-          if (autoFormatTimerRef.current) {
-            clearTimeout(autoFormatTimerRef.current);
-            autoFormatTimerRef.current = null;
-          }
-          if (onUndo) onUndo();
-        }
-      }
-      // Redo hotkey (Ctrl+Y or Ctrl+Shift+Z or Cmd+Shift+Z)
-      if (
-        ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') ||
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z')
-      ) {
-        if (e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
-          e.preventDefault();
-          if (autoFormatTimerRef.current) {
-            clearTimeout(autoFormatTimerRef.current);
-            autoFormatTimerRef.current = null;
-          }
-          if (onRedo) onRedo();
-        }
-      }
       // Duplicate hotkey (Ctrl+D)
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
         if (selectedIds.length > 0 && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
@@ -785,7 +854,7 @@ export default function CanvasBoard({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [spacePressed, selectedIds, pushHistory, onUndo, onRedo, setElements, setActiveTool, setTransform]);
+  }, [spacePressed, selectedIds, pushHistory, setElements, setActiveTool, setTransform]);
 
   // Main Canvas Rendering Loop
   useEffect(() => {
@@ -822,6 +891,7 @@ export default function CanvasBoard({
     // 2. Draw Elements in order
     elements.forEach((el) => {
       const isSelected = selectedIds.includes(el.id);
+      ctx.save();
       if (el.type === 'eraser_brush') {
         drawEraserBrush(ctx, el);
       } else if (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen') {
@@ -856,6 +926,7 @@ export default function CanvasBoard({
       } else if (el.type === 'physics_connection') {
         drawPhysicsConnection(ctx, el, elements, isSelected);
       }
+      ctx.restore();
     });
 
     // 3. Multi-Selection Collective Bounding Box

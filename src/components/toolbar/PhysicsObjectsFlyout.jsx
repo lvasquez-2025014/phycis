@@ -1,33 +1,54 @@
 import React, { useState } from 'react';
 import { 
   X, 
+  Gauge, 
+  TrendingUp, 
+  ArrowDownCircle, 
+  ArrowUpCircle, 
+  Navigation, 
   Weight, 
-  Layers, 
-  Info,
-  CircleDot,
-  Move,
-  Plus,
-  Link2,
-  Sparkles,
-  Gauge,
-  Timer,
-  Calculator
+  Layers,
+  Target
 } from 'lucide-react';
 import { PHYSICS_TOPICS, PHYSICS_OBJECT_DEFINITIONS } from '../../physics/physicsRegistry';
+
+const TOPIC_CONFIG = {
+  mru: { icon: Gauge, short: 'MRU', tag: 'HT01', color: '#2563eb' },
+  mruv: { icon: TrendingUp, short: 'MRUV', tag: 'HT02', color: '#d97706' },
+  freefall: { icon: ArrowDownCircle, short: 'Caída Libre', tag: 'HT03', color: '#16a34a' },
+  tiro_vertical: { icon: ArrowUpCircle, short: 'Tiro Vertical', tag: 'HT04', color: '#db2777' },
+  lanzamiento_horizontal: { icon: Navigation, short: 'Lanz. Horiz.', tag: 'HT01 2D', color: '#0891b2' },
+  movimiento_proyectiles: { icon: Target, short: 'Proyectiles', tag: 'HT02 2D', color: '#8b5cf6' },
+  mechanics: { icon: Weight, short: 'Dinámica', tag: 'Atwood', color: '#4f46e5' },
+};
 
 export default function PhysicsObjectsFlyout({
   isOpen,
   onClose,
   onAddPhysicsObject,
-  onAddAssembly,
+  _onAddAssembly,
   onSelectRopeTool,
   onOpenMruSolver,
+  onOpenMruvSolver,
+  onOpenFreefallSolver,
+  onOpenTiroVerticalSolver,
+  onOpenHorizontalLaunchSolver,
+  onOpenProjectileMotionSolver,
 }) {
-  if (!isOpen) return null;
-
   const [activeTopic, setActiveTopic] = useState('mru');
 
+  if (!isOpen) return null;
+
   const mruCartDef = PHYSICS_OBJECT_DEFINITIONS.mru_cart;
+  const mruvCartDef = PHYSICS_OBJECT_DEFINITIONS.mruv_cart;
+  const freefallBodyDef = PHYSICS_OBJECT_DEFINITIONS.freefall_body;
+  const freefallTowerDef = PHYSICS_OBJECT_DEFINITIONS.freefall_tower;
+  const verticalProjectileDef = PHYSICS_OBJECT_DEFINITIONS.vertical_projectile;
+  const horizontalProjectileDef = PHYSICS_OBJECT_DEFINITIONS.horizontal_projectile;
+  const cliffPlatformDef = PHYSICS_OBJECT_DEFINITIONS.cliff_platform;
+  const cannonLauncherDef = PHYSICS_OBJECT_DEFINITIONS.cannon_launcher;
+  const obliqueProjectileDef = PHYSICS_OBJECT_DEFINITIONS.oblique_projectile;
+  const targetWallDef = PHYSICS_OBJECT_DEFINITIONS.target_wall;
   const mruTrackDef = PHYSICS_OBJECT_DEFINITIONS.mru_track;
   const mruGateDef = PHYSICS_OBJECT_DEFINITIONS.mru_photogate;
   const massDef = PHYSICS_OBJECT_DEFINITIONS.mass;
@@ -44,138 +65,126 @@ export default function PhysicsObjectsFlyout({
     e.dataTransfer.effectAllowed = 'copy';
   };
 
+  const getCleanLabel = (label) => {
+    return label.replace(/\s*\(.*\)$/, '');
+  };
+
   return (
     <div className="physics-objects-drawer miro-island">
       {/* Header */}
       <div className="drawer-header">
-        <div>
+        <div className="drawer-header-meta">
           <span className="objects-badge">Laboratorio de Física</span>
-          <h3 className="drawer-title">Objetos Físicos</h3>
+          <h3 className="drawer-title">Objetos e Instrumentos</h3>
         </div>
         <button className="drawer-close-btn" onClick={onClose} title="Cerrar (Esc)">
           <X size={16} />
         </button>
       </div>
 
-      {/* Topic Tabs */}
-      <div className="topic-tabs-row">
-        {PHYSICS_TOPICS.map((topic) => (
-          <button
-            key={topic.id}
-            className={`topic-tab-btn ${activeTopic === topic.id ? 'active' : ''} ${!topic.active ? 'disabled' : ''}`}
-            onClick={() => topic.active && setActiveTopic(topic.id)}
-            title={topic.active ? `Tema: ${topic.name}` : `${topic.name} (Próximamente)`}
-          >
-            <span>{topic.name}</span>
-            {!topic.active && <span className="coming-tag">Pronto</span>}
-          </button>
-        ))}
+      {/* 3x2 Topic Grid: ALL 6 topics always visible */}
+      <div className="topic-grid-control">
+        {PHYSICS_TOPICS.filter((t) => t.active).map((topic) => {
+          const cfg = TOPIC_CONFIG[topic.id] || { icon: Layers, short: topic.name, color: '#475569' };
+          const IconComponent = cfg.icon;
+          const isActive = activeTopic === topic.id;
+          return (
+            <button
+              key={topic.id}
+              className={`topic-grid-btn ${isActive ? 'active' : ''}`}
+              onClick={() => setActiveTopic(topic.id)}
+              title={`Tema: ${topic.name}`}
+              style={isActive ? { borderColor: cfg.color, background: cfg.color } : {}}
+            >
+              <IconComponent size={13} className="topic-grid-icon" style={!isActive ? { color: cfg.color } : {}} />
+              <span className="topic-grid-label">{cfg.short}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Objects Content depending on Active Topic */}
+      {/* Active Topic Banner */}
+      <div className="active-topic-banner">
+        <div className="active-topic-info">
+          <span className="active-topic-title">
+            {PHYSICS_TOPICS.find((t) => t.id === activeTopic)?.name}
+          </span>
+          <span className="active-topic-tag">
+            {TOPIC_CONFIG[activeTopic]?.tag || 'Física'}
+          </span>
+        </div>
+      </div>
+
+      {/* Scrollable Content */}
       <div className="objects-scroll-area">
         {activeTopic === 'mru' && (
           <>
-            {/* Solver Promo Card */}
+            {/* Analytical Solver Card */}
             {onOpenMruSolver && (
-              <div 
+              <div
                 className="solver-promo-card"
                 onClick={() => {
                   onOpenMruSolver();
                   onClose();
                 }}
-                title="Resolver ejercicios de MRU paso a paso con los 5 problemas de clase precargados"
+                title="Abrir solucionador analítico paso a paso"
               >
-                <div className="solver-promo-icon">
-                  <Calculator size={18} />
+                <div className="solver-promo-top">
+                  <span className="solver-kicker">Módulo Analítico</span>
+                  <span className="solver-tag">Resolución Guiada</span>
                 </div>
-                <div className="solver-promo-info">
-                  <span className="solver-promo-title">Solucionador de Ejercicios MRU</span>
-                  <span className="solver-promo-desc">Resuelve tiempo, llegada y alcance paso a paso</span>
+                <h4 className="solver-promo-title">Solucionador de Problemas MRU</h4>
+                <p className="solver-promo-desc">
+                  Cálculo detallado de tiempo, velocidad, distancias y puntos de encuentro.
+                </p>
+                <div className="solver-promo-action">
+                  <span className="solver-action-text">Abrir solucionador &rarr;</span>
                 </div>
-                <button className="solver-promo-btn">Abrir</button>
               </div>
             )}
 
-            {/* Quick Pre-assembled MRU Experiment */}
-            <div className="objects-section-heading">
-              <Sparkles size={15} className="section-icon gold" />
-              <span>Experimento Listo para Demostración</span>
-            </div>
-
-            <div 
-              className="assembly-preset-card mru-banner"
-              onClick={() => {
-                if (onAddAssembly) onAddAssembly('mru');
-                onClose();
-              }}
-              title="Insertar Laboratorio Completo MRU con riel graduado, móvil y fotopuertas"
-            >
-              <div className="assembly-card-content">
-                <div className="assembly-title-row">
-                  <span className="assembly-name">Laboratorio MRU Completo</span>
-                  <span className="assembly-badge mru">1 Clic</span>
-                </div>
-                <p className="assembly-desc">
-                  Riel de 6 m + Móvil (v = 2.0 m/s con vector velocidad) + 2 Fotopuertas láser sincronizadas.
-                </p>
-              </div>
-              <button className="assembly-add-btn mru">
-                Insertar
-              </button>
-            </div>
-
             {/* Section 1: MRU Carts */}
             <div className="objects-section-heading">
-              <Gauge size={15} className="section-icon" />
-              <span>Móviles MRU (v = cte, a = 0)</span>
+              <span className="section-title">Móviles a Velocidad Constante</span>
+              <span className="section-formula">v = cte • a = 0</span>
             </div>
 
             <p className="objects-guide-text">
-              Arrastra hacia el riel o haz clic para colocar en el centro:
+              Haz clic para insertar o arrastra directamente al lienzo:
             </p>
 
-            <div className="mass-presets-list">
+            <div className="preset-cards-list">
               {mruCartDef.presets.map((preset, idx) => (
                 <div
                   key={idx}
-                  className="mass-preset-card"
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, 'mru_cart', preset)}
                   onClick={() => onAddPhysicsObject('mru_cart', preset)}
-                  title="Arrastra al lienzo o haz clic para colocar"
+                  title="Haz clic para añadir o arrastra al lienzo"
                 >
-                  <div className="cart-visual-preview">
-                    <div className="cart-preview-body" style={{ backgroundColor: preset.color }}>
-                      <span className="cart-preview-spd">{Math.abs(preset.velocity)}</span>
-                    </div>
-                    <div className="cart-preview-wheels">
-                      <div className="cart-preview-wheel" />
-                      <div className="cart-preview-wheel" />
-                    </div>
-                  </div>
-
-                  <div className="mass-preset-info">
-                    <div className="mass-preset-title-row">
-                      <span className="mass-preset-name">{preset.label}</span>
-                      <span className="drag-hint-badge">
-                        <Move size={11} /> Arrastrar
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">
+                        v = {preset.velocity > 0 ? `+${preset.velocity}` : preset.velocity} m/s
                       </span>
                     </div>
-                    <span className="mass-preset-desc">
-                      Velocidad: {preset.velocity > 0 ? `+${preset.velocity}` : preset.velocity} m/s • Aceleración: a = 0
+                    <span className="preset-card-desc">
+                      Velocidad constante • Aceleración a = 0 • Masa: 1.5 kg
                     </span>
                   </div>
-
                   <button
-                    className="mass-quick-add-btn"
-                    title="Colocar en el centro del lienzo"
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddPhysicsObject('mru_cart', preset);
                     }}
                   >
-                    <Plus size={14} />
+                    Añadir
                   </button>
                 </div>
               ))}
@@ -183,53 +192,42 @@ export default function PhysicsObjectsFlyout({
 
             {/* Section 2: Graduated Rails */}
             <div className="objects-section-heading">
-              <Layers size={15} className="section-icon" />
-              <span>Riel Graduado de Laboratorio</span>
+              <span className="section-title">Riel Graduado de Guía</span>
+              <span className="section-formula">Escala Métrica</span>
             </div>
 
-            <div className="mass-presets-list">
+            <div className="preset-cards-list">
               {mruTrackDef.presets.map((preset, idx) => (
                 <div
                   key={idx}
-                  className="mass-preset-card"
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#64748b' }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, 'mru_track', preset)}
                   onClick={() => onAddPhysicsObject('mru_track', preset)}
-                  title="Arrastra al lienzo o haz clic para colocar"
+                  title="Haz clic para añadir o arrastra al lienzo"
                 >
-                  <div className="track-visual-preview">
-                    <div className="track-preview-bar">
-                      <div className="track-preview-tick" />
-                      <div className="track-preview-tick" />
-                      <div className="track-preview-tick" />
-                    </div>
-                    <div className="track-preview-feet">
-                      <div className="track-preview-foot" />
-                      <div className="track-preview-foot" />
-                    </div>
-                  </div>
-
-                  <div className="mass-preset-info">
-                    <div className="mass-preset-title-row">
-                      <span className="mass-preset-name">{preset.label}</span>
-                      <span className="drag-hint-badge">
-                        <Move size={11} /> Arrastrar
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">
+                        L = {preset.lengthMeters.toFixed(1)} m
                       </span>
                     </div>
-                    <span className="mass-preset-desc">
-                      Regla graduada milimétrica (0 a {preset.lengthMeters.toFixed(1)} m) • Tope final
+                    <span className="preset-card-desc">
+                      Pista de baja fricción • Graduación milimétrica con tope
                     </span>
                   </div>
-
                   <button
-                    className="mass-quick-add-btn"
-                    title="Colocar en el centro del lienzo"
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddPhysicsObject('mru_track', preset);
                     }}
                   >
-                    <Plus size={14} />
+                    Añadir
                   </button>
                 </div>
               ))}
@@ -237,144 +235,926 @@ export default function PhysicsObjectsFlyout({
 
             {/* Section 3: Photogates */}
             <div className="objects-section-heading">
-              <Timer size={15} className="section-icon" />
-              <span>Fotopuertas & Sensores de Paso</span>
+              <span className="section-title">Fotopuertas y Cronometría</span>
+              <span className="section-formula">Sensor Óptico</span>
             </div>
 
-            <div className="mass-presets-list">
+            <div className="preset-cards-list">
               {mruGateDef.presets.map((preset, idx) => (
                 <div
                   key={idx}
-                  className="mass-preset-card"
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#334155' }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, 'mru_photogate', preset)}
                   onClick={() => onAddPhysicsObject('mru_photogate', preset)}
-                  title="Arrastra al lienzo o haz clic para colocar"
+                  title="Haz clic para añadir o arrastra al lienzo"
                 >
-                  <div className="gate-visual-preview">
-                    <div className="gate-preview-arch">
-                      <div className="gate-preview-laser" />
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.gateName}</span>
                     </div>
-                    <div className="gate-preview-base" />
-                  </div>
-
-                  <div className="mass-preset-info">
-                    <div className="mass-preset-title-row">
-                      <span className="mass-preset-name">{preset.label}</span>
-                      <span className="drag-hint-badge">
-                        <Move size={11} /> Arrastrar
-                      </span>
-                    </div>
-                    <span className="mass-preset-desc">
-                      Sensor óptico con haz infrarrojo y cronometraje digital
+                    <span className="preset-card-desc">
+                      Barrera infrarroja de paso • Medición de intervalo temporal
                     </span>
                   </div>
-
                   <button
-                    className="mass-quick-add-btn"
-                    title="Colocar en el centro del lienzo"
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddPhysicsObject('mru_photogate', preset);
                     }}
                   >
-                    <Plus size={14} />
+                    Añadir
                   </button>
                 </div>
               ))}
             </div>
 
-            {/* Informative Note for MRU */}
+            {/* Informative Theory Box */}
             <div className="objects-info-note">
-              <Info size={14} className="info-icon" />
-              <span>
-                En el <strong>MRU</strong> la velocidad es constante (<strong>a = 0</strong>) y la trayectoria es recta. Cumple la ley horaria <em>x(t) = x₀ + v·t</em>.
-              </span>
+              <span className="info-note-label">Fundamento Teórico</span>
+              <p className="info-note-text">
+                En el <strong>MRU</strong> la velocidad permanece constante y la aceleración es nula (<strong>a = 0</strong>). La trayectoria es rectilínea y cumple la función horaria <em>x(t) = x₀ + v·t</em>.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'mruv' && (
+          <>
+            {/* Analytical MRUV Solver Card */}
+            {onOpenMruvSolver && (
+              <div
+                className="solver-promo-card"
+                onClick={() => {
+                  onOpenMruvSolver();
+                  onClose();
+                }}
+                title="Abrir solucionador analítico MRUV (HT02 Kinal)"
+              >
+                <div className="solver-promo-top">
+                  <span className="solver-kicker">Módulo Analítico HT02</span>
+                  <span className="solver-tag">10 Problemas Resueltos</span>
+                </div>
+                <h4 className="solver-promo-title">Solucionador Cinemático MRUV</h4>
+                <p className="solver-promo-desc">
+                  Problemas HT02 Kinal, 6 preguntas conceptuales y calculadora con fórmulas cuadráticas.
+                </p>
+                <div className="solver-promo-action">
+                  <span className="solver-action-text">Abrir solucionador MRUV &rarr;</span>
+                </div>
+              </div>
+            )}
+
+            {/* Section 1: MRUV Accelerated Carts */}
+            <div className="objects-section-heading">
+              <span className="section-title">Móviles con Aceleración Constante</span>
+              <span className="section-formula">a = cte ≠ 0 • v(t) = v₀ + at</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {mruvCartDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mruv_cart', preset)}
+                  onClick={() => onAddPhysicsObject('mruv_cart', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">
+                        a = {preset.acceleration > 0 ? `+${preset.acceleration}` : preset.acceleration} m/s²
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      v₀ = {preset.velocity} m/s • Vectores v⃗ y a⃗ en tiempo real
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mruv_cart', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: Graduated Rails */}
+            <div className="objects-section-heading">
+              <span className="section-title">Riel Graduado de Guía</span>
+              <span className="section-formula">Escala Métrica</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {mruTrackDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#64748b' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mru_track', preset)}
+                  onClick={() => onAddPhysicsObject('mru_track', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.lengthMeters} m</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Superficie de aluminio anodizado de baja fricción con topes elásticos
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mru_track', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 3: Photogates */}
+            <div className="objects-section-heading">
+              <span className="section-title">Sensores de Fotopuerta Óptica</span>
+              <span className="section-formula">Cronometraje</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {mruGateDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#334155' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mru_photogate', preset)}
+                  onClick={() => onAddPhysicsObject('mru_photogate', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.gateName}</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Barrera infrarroja de paso • Medición de aceleración y tiempos
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mru_photogate', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Informative Theory Box */}
+            <div className="objects-info-note">
+              <span className="info-note-label">Fundamento Teórico MRUV</span>
+              <p className="info-note-text">
+                En el <strong>MRUV</strong> la aceleración es constante (<strong>a = cte ≠ 0</strong>). Ecuaciones horarias: <em>v(t) = v₀ + a·t</em> y <em>x(t) = x₀ + v₀·t + ½·a·t²</em>. Ecuación independiente del tiempo: <em>v_f² = v₀² + 2·a·d</em>.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'freefall' && (
+          <>
+            {/* Analytical Freefall Solver Card */}
+            {onOpenFreefallSolver && (
+              <div
+                className="solver-promo-card freefall"
+                onClick={() => {
+                  onOpenFreefallSolver();
+                  onClose();
+                }}
+                title="Abrir solucionador analítico de Caída Libre (HT03 Kinal)"
+              >
+                <div className="solver-promo-top">
+                  <span className="solver-kicker freefall">Módulo Analítico HT03</span>
+                  <span className="solver-tag freefall">10 Problemas + 5 Conceptuales</span>
+                </div>
+                <h4 className="solver-promo-title">Solucionador de Caída Libre</h4>
+                <p className="solver-promo-desc">
+                  Problemas de azoteas, torres, ventanas y canicas con fundamentación y simulador.
+                </p>
+                <div className="solver-promo-action">
+                  <span className="solver-action-text freefall">Abrir solucionador HT03 &rarr;</span>
+                </div>
+              </div>
+            )}
+
+            {/* Section 1: Freefall Bodies */}
+            <div className="objects-section-heading">
+              <span className="section-title">Cuerpos en Caída Libre</span>
+              <span className="section-formula">g = 9.80 m/s² • a = g</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {freefallBodyDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'freefall_body', preset)}
+                  onClick={() => onAddPhysicsObject('freefall_body', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">
+                        h = {preset.releaseHeight} m
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      {preset.velocity > 0 ? `Lanzado v₀ = ${preset.velocity} m/s` : 'Parte del reposo (v₀ = 0)'} • g = 9.8 m/s²
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('freefall_body', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: Drop Towers */}
+            <div className="objects-section-heading">
+              <span className="section-title">Torres y Reglas Verticales</span>
+              <span className="section-formula">Escala Vertical</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {freefallTowerDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#64748b' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'freefall_tower', preset)}
+                  onClick={() => onAddPhysicsObject('freefall_tower', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.heightMeters} m</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Estructura vertical graduada con plataforma superior y base de impacto
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('freefall_tower', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 3: Photogates */}
+            <div className="objects-section-heading">
+              <span className="section-title">Sensores de Cronometraje Vertical</span>
+              <span className="section-formula">Barrera Óptica</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {mruGateDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#334155' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mru_photogate', preset)}
+                  onClick={() => onAddPhysicsObject('mru_photogate', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.gateName}</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Fotopuerta para registro de tiempos en puntos clave de la caída
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mru_photogate', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Informative Theory Box */}
+            <div className="objects-info-note">
+              <span className="info-note-label">Fundamento Teórico Caída Libre (HT03)</span>
+              <p className="info-note-text">
+                En la <strong>Caída Libre</strong> la aceleración es constante y dirigida verticalmente hacia abajo (<strong>g = 9.80 m/s²</strong>). Ecuaciones: <em>v(t) = v₀ + g·t</em>, <em>h(t) = v₀·t + ½·g·t²</em> y <em>v_f² = v₀² + 2·g·h</em>. Todos los cuerpos caen con idéntica aceleración en el vacío sin importar su masa.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'tiro_vertical' && (
+          <>
+            {/* Analytical Tiro Vertical Solver Card */}
+            {onOpenTiroVerticalSolver && (
+              <div
+                className="solver-promo-card vertical"
+                onClick={() => {
+                  onOpenTiroVerticalSolver();
+                  onClose();
+                }}
+                title="Abrir solucionador analítico de Tiro Vertical (HT04 Kinal)"
+              >
+                <div className="solver-promo-top">
+                  <span className="solver-kicker vertical">Módulo Analítico HT04</span>
+                  <span className="solver-tag vertical">10 Problemas + 6 Conceptuales</span>
+                </div>
+                <h4 className="solver-promo-title">Solucionador de Tiro Vertical</h4>
+                <p className="solver-promo-desc">
+                  Problemas de cúspide, tiempos simétricos, saltos, béisbol terrestre y lunar.
+                </p>
+                <div className="solver-promo-action">
+                  <span className="solver-action-text vertical">Abrir solucionador HT04 &rarr;</span>
+                </div>
+              </div>
+            )}
+
+            {/* Section 1: Vertical Projectiles */}
+            <div className="objects-section-heading">
+              <span className="section-title">Proyectiles de Tiro Vertical</span>
+              <span className="section-formula">v(t) = v₀ - gt</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {verticalProjectileDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'vertical_projectile', preset)}
+                  onClick={() => onAddPhysicsObject('vertical_projectile', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">
+                        v₀ = {preset.velocity} m/s
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      g = {preset.gravity || 9.8} m/s² • h_max = {((preset.velocity * preset.velocity) / (2 * (preset.gravity || 9.8))).toFixed(1)} m
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('vertical_projectile', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: Vertical Scales & Towers */}
+            <div className="objects-section-heading">
+              <span className="section-title">Torres y Escalas de Altura</span>
+              <span className="section-formula">Graduación</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {freefallTowerDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#8b5cf6' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'freefall_tower', preset)}
+                  onClick={() => onAddPhysicsObject('freefall_tower', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.heightMeters} m</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Escala vertical para medición visual de la altura máxima alcanzada
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('freefall_tower', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 3: Photogates */}
+            <div className="objects-section-heading">
+              <span className="section-title">Sensores Bidireccionales</span>
+              <span className="section-formula">Subida & Bajada</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {mruGateDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#334155' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mru_photogate', preset)}
+                  onClick={() => onAddPhysicsObject('mru_photogate', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.gateName}</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Detecta el paso tanto en la trayectoria ascendente como descendente
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mru_photogate', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Informative Theory Box */}
+            <div className="objects-info-note vertical">
+              <span className="info-note-label vertical">Fundamento Teórico Tiro Vertical (HT04)</span>
+              <p className="info-note-text">
+                En el <strong>Tiro Vertical</strong> el proyectil se impulsa verticalmente hacia arriba con rapidez inicial <em>v₀</em> y experimenta deceleración constante debida a la gravedad (<strong>a = -g</strong>). En la cúspide la velocidad se anula instantáneamente (<em>v = 0</em>, <em>h_max = v₀² / 2g</em>). El tiempo de subida es igual al tiempo de bajada (<em>T = 2·t_subida</em>) y regresa con la misma rapidez original <em>v₀</em>.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'lanzamiento_horizontal' && (
+          <>
+            {/* Analytical Horizontal Launch Solver Card */}
+            {onOpenHorizontalLaunchSolver && (
+              <div
+                className="solver-promo-card horizontal"
+                onClick={() => {
+                  onOpenHorizontalLaunchSolver();
+                  onClose();
+                }}
+                title="Abrir solucionador analítico de Lanzamiento Horizontal (HT01 Kinal)"
+              >
+                <div className="solver-promo-top">
+                  <span className="solver-kicker horizontal">Módulo Analítico HT01</span>
+                  <span className="solver-tag horizontal">10 Problemas + 6 Conceptuales</span>
+                </div>
+                <h4 className="solver-promo-title">Solucionador de Lanzamiento Horizontal</h4>
+                <p className="solver-promo-desc">
+                  Problemas de alcances, acantilados, fuentes, bala, golf y persecución con simulación.
+                </p>
+                <div className="solver-promo-action">
+                  <span className="solver-action-text horizontal">Abrir solucionador HT01 &rarr;</span>
+                </div>
+              </div>
+            )}
+
+            {/* Section 1: Horizontal Projectiles */}
+            <div className="objects-section-heading">
+              <span className="section-title">Proyectiles Horizontales</span>
+              <span className="section-formula">vx = cte • vy = gt</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {horizontalProjectileDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'horizontal_projectile', preset)}
+                  onClick={() => onAddPhysicsObject('horizontal_projectile', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag" style={{ color: preset.color, borderColor: `${preset.color}40` }}>
+                        v₀x = {preset.velocity} m/s
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Altura h = {preset.heightMeters} m • Alcance X ≈ {(preset.velocity * Math.sqrt((2 * preset.heightMeters) / 9.8)).toFixed(1)} m
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('horizontal_projectile', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: Cliff Platforms */}
+            <div className="objects-section-heading">
+              <span className="section-title">Acantilados y Plataformas</span>
+              <span className="section-formula">h = ½gt²</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {cliffPlatformDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'cliff_platform', preset)}
+                  onClick={() => onAddPhysicsObject('cliff_platform', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">h = {preset.heightMeters}m</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Base elevada para disparo horizontal con escala métrica vertical
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('cliff_platform', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 3: Impact Sensors */}
+            <div className="objects-section-heading">
+              <span className="section-title">Dianas y Sensores de Impacto</span>
+              <span className="section-formula">Registro de Contacto</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {mruGateDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#334155' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mru_photogate', preset)}
+                  onClick={() => onAddPhysicsObject('mru_photogate', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.gateName}</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Fotopuerta para registro de tiempos en la zona de aterrizaje
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mru_photogate', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Informative Theory Box */}
+            <div className="objects-info-note horizontal">
+              <span className="info-note-label horizontal">Fundamento Teórico Lanzamiento Horizontal (HT01)</span>
+              <p className="info-note-text">
+                El <strong>Lanzamiento Horizontal</strong> es un movimiento compuesto bidimensional: en el eje X un <strong>MRU</strong> (<em>v_x = v₀x = cte</em>) y en el eje Y una <strong>Caída Libre</strong> (<em>v_y = g·t</em>, <em>h = ½·g·t²</em>). El tiempo de vuelo depende únicamente de la altura: <em>t = √(2h / g)</em> y el alcance horizontal es <em>X = v₀x · t</em>.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'movimiento_proyectiles' && (
+          <>
+            {/* Analytical Solver Card */}
+            {onOpenProjectileMotionSolver && (
+              <div
+                className="solver-promo-card"
+                style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)' }}
+                onClick={() => {
+                  onOpenProjectileMotionSolver();
+                  onClose();
+                }}
+                title="Abrir Solucionador de Problemas de Movimiento de Proyectiles HT02"
+              >
+                <div className="solver-promo-badge">Colegio Kinal • Física II</div>
+                <h4 className="solver-promo-title">Solucionador Movimiento de Proyectiles (HT02)</h4>
+                <p className="solver-promo-desc">
+                  10 Problemas resueltos paso a paso con fórmulas completas, 7 preguntas conceptuales autocorregidas y calculadora 2D de alcance y altura máxima.
+                </p>
+                <div className="solver-promo-action">
+                  <span>Abrir Solucionador HT02</span>
+                  <span className="arrow-icon">→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Section 1: Cannon Launchers */}
+            <div className="objects-section-heading">
+              <span className="section-title">Cañones Lanzadores de Laboratorio</span>
+              <span className="section-formula">θ & v₀</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {cannonLauncherDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#8b5cf6' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'cannon_launcher', preset)}
+                  onClick={() => onAddPhysicsObject('cannon_launcher', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag" style={{ background: '#f3e8ff', color: '#7c3aed' }}>
+                        θ = {preset.angleDeg}° | v₀ = {preset.initialVelocity}m/s
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Cañón graduado con transportador de ángulos y elevación ajustable
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('cannon_launcher', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: Oblique Projectiles */}
+            <div className="objects-section-heading">
+              <span className="section-title">Proyectiles Parabólicos (2D)</span>
+              <span className="section-formula">v_x = cte | v_y(t) = v₀y - gt</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {obliqueProjectileDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color || '#8b5cf6' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'oblique_projectile', preset)}
+                  onClick={() => onAddPhysicsObject('oblique_projectile', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag" style={{ background: '#f3e8ff', color: '#7c3aed' }}>
+                        {preset.angleDeg}° • {preset.initialVelocity} m/s
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Esfera violeta metálica con descomposición vectorial v⃗, vx, vy y trazado parabólico
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('oblique_projectile', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 3: Targets and Walls */}
+            <div className="objects-section-heading">
+              <span className="section-title">Dianas y Muros Objetivo</span>
+              <span className="section-formula">Obstáculos y Receptores</span>
+            </div>
+
+            <div className="preset-cards-list">
+              {targetWallDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color || '#475569' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'target_wall', preset)}
+                  onClick={() => onAddPhysicsObject('target_wall', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">
+                        d = {preset.distanceMeters}m | h = {preset.targetHeightMeters}m
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Muro con diana de impacto para problemas de alcance y tiro con obstáculo
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('target_wall', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Informative Theory Box */}
+            <div className="objects-info-note" style={{ background: '#faf5ff', borderColor: '#e9d5ff' }}>
+              <span className="info-note-label" style={{ color: '#7e22ce' }}>Fundamento Teórico Movimiento de Proyectiles (HT02)</span>
+              <p className="info-note-text">
+                En el <strong>Tiro Parabólico Oblicuo</strong>, el movimiento se desacopla en dos componentes independientes (Principio de Superposición de Galileo):
+                horizontalmente es un <strong>MRU</strong> (<em>v_x = v₀·cosθ = cte</em>, <em>x = v₀·cosθ·t</em>) y verticalmente es un <strong>MRUV / Tiro Vertical</strong> (<em>v_y = v₀·sinθ - g·t</em>, <em>y = v₀·sinθ·t - ½g·t²</em>). En el punto de máxima altura (ápice), <em>v_y = 0</em> y la velocidad total es puramente horizontal: <em>v = v_x</em>.
+              </p>
             </div>
           </>
         )}
 
         {activeTopic === 'mechanics' && (
           <>
-            {/* Quick Pre-assembled Experiments */}
-            <div className="objects-section-heading">
-              <Sparkles size={15} className="section-icon gold" />
-              <span>Experimento Listo para Demostración</span>
-            </div>
-
-            <div 
-              className="assembly-preset-card"
-              onClick={() => {
-                if (onAddAssembly) onAddAssembly('atwood');
-                onClose();
-              }}
-              title="Insertar Máquina de Atwood completa con polea y masas interconectadas"
-            >
-              <div className="assembly-card-content">
-                <div className="assembly-title-row">
-                  <span className="assembly-name">Máquina de Atwood</span>
-                  <span className="assembly-badge">1 Clic</span>
-                </div>
-                <p className="assembly-desc">
-                  Polea superior fija conectada por cuerda a Masa A (100 kg) y Masa B (60 kg).
-                </p>
-              </div>
-              <button className="assembly-add-btn">
-                Insertar
-              </button>
-            </div>
-
             {/* Section 1: Masses */}
             <div className="objects-section-heading">
-              <Weight size={15} className="section-icon" />
-              <span>Masas & Cuerpos Rígidos</span>
+              <span className="section-title">Masas y Cuerpos Rígidos</span>
+              <span className="section-formula">Inercia & Peso</span>
             </div>
 
             <p className="objects-guide-text">
-              Arrastra hacia la pizarra o haz clic para colocar en el centro:
+              Haz clic para insertar o arrastra directamente al lienzo:
             </p>
 
-            {/* Mass Preset Cards */}
-            <div className="mass-presets-list">
+            <div className="preset-cards-list">
               {massDef.presets.map((preset, idx) => (
                 <div
                   key={idx}
-                  className="mass-preset-card"
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, 'mass', preset)}
                   onClick={() => onAddPhysicsObject('mass', preset)}
-                  title="Arrastra al lienzo o haz clic para colocar"
+                  title="Haz clic para añadir o arrastra al lienzo"
                 >
-                  <div
-                    className="mass-visual-preview"
-                    style={{ backgroundColor: preset.color }}
-                  >
-                    <span className="mass-preview-kg">{preset.mass}</span>
-                    <span className="mass-preview-unit">kg</span>
-                    <div className="mass-preview-hook" />
-                  </div>
-
-                  <div className="mass-preset-info">
-                    <div className="mass-preset-title-row">
-                      <span className="mass-preset-name">{preset.label}</span>
-                      <span className="drag-hint-badge">
-                        <Move size={11} /> Arrastrar
-                      </span>
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.mass} kg</span>
                     </div>
-                    <span className="mass-preset-desc">
-                      Inercia: {preset.mass} kg • Peso: {(preset.mass * 9.8).toFixed(0)} N
+                    <span className="preset-card-desc">
+                      Inercia: {preset.mass} kg • Fuerza peso: {(preset.mass * 9.8).toFixed(0)} N
                     </span>
                   </div>
-
                   <button
-                    className="mass-quick-add-btn"
-                    title="Colocar en el centro del lienzo"
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddPhysicsObject('mass', preset);
                     }}
                   >
-                    <Plus size={14} />
+                    Añadir
                   </button>
                 </div>
               ))}
@@ -382,49 +1162,40 @@ export default function PhysicsObjectsFlyout({
 
             {/* Section 2: Pulleys */}
             <div className="objects-section-heading">
-              <CircleDot size={15} className="section-icon" />
-              <span>Poleas & Redirección</span>
+              <span className="section-title">Poleas y Transmisión</span>
+              <span className="section-formula">Redirección Ideal</span>
             </div>
 
-            <div className="mass-presets-list">
+            <div className="preset-cards-list">
               {pulleyDef.presets.map((preset, idx) => (
                 <div
                   key={idx}
-                  className="mass-preset-card"
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: '#475569' }}
                   draggable
                   onDragStart={(e) => handleDragStart(e, 'pulley', preset)}
                   onClick={() => onAddPhysicsObject('pulley', preset)}
-                  title="Arrastra al lienzo o haz clic para colocar"
+                  title="Haz clic para añadir o arrastra al lienzo"
                 >
-                  <div className="pulley-visual-preview">
-                    <div className="pulley-preview-bracket" />
-                    <div className="pulley-preview-wheel">
-                      <div className="pulley-preview-groove" />
-                      <div className="pulley-preview-pin" />
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag">{preset.isStatic ? 'Fija' : 'Móvil'}</span>
                     </div>
-                  </div>
-
-                  <div className="mass-preset-info">
-                    <div className="mass-preset-title-row">
-                      <span className="mass-preset-name">{preset.label}</span>
-                      <span className="drag-hint-badge">
-                        <Move size={11} /> Arrastrar
-                      </span>
-                    </div>
-                    <span className="mass-preset-desc">
-                      {preset.isStatic ? 'Fijación al techo • Gargantas laterales' : 'Polea móvil libre'}
+                    <span className="preset-card-desc">
+                      {preset.isStatic ? 'Anclaje superior fijo • Redirección de tensión' : 'Polea móvil libre • Ventaja mecánica'}
                     </span>
                   </div>
-
                   <button
-                    className="mass-quick-add-btn"
-                    title="Colocar en el centro del lienzo"
+                    type="button"
+                    className="preset-add-btn"
+                    title="Añadir al lienzo"
                     onClick={(e) => {
                       e.stopPropagation();
                       onAddPhysicsObject('pulley', preset);
                     }}
                   >
-                    <Plus size={14} />
+                    Añadir
                   </button>
                 </div>
               ))}
@@ -432,37 +1203,41 @@ export default function PhysicsObjectsFlyout({
 
             {/* Section 3: Connections / Rope */}
             <div className="objects-section-heading">
-              <Link2 size={15} className="section-icon" />
-              <span>Cuerdas & Conexiones Físicas</span>
+              <span className="section-title">Cuerdas y Enlaces Físicos</span>
+              <span className="section-formula">Tensión Dinámica</span>
             </div>
 
-            <div className="rope-action-box">
-              <div className="rope-action-header">
-                <span className="rope-action-title">Herramienta Cuerda</span>
-                {onSelectRopeTool && (
-                  <button 
-                    className="rope-activate-btn"
-                    onClick={() => {
-                      onSelectRopeTool();
-                      onClose();
-                    }}
-                    title="Activar herramienta de tender cuerda"
-                  >
-                    Activar
-                  </button>
-                )}
+            <div className="formal-preset-card" style={{ borderLeftColor: '#2563eb' }}>
+              <div className="preset-card-main">
+                <div className="preset-card-header">
+                  <span className="preset-card-name">Herramienta de Cuerda Ideal</span>
+                  <span className="preset-metric-tag">Conector</span>
+                </div>
+                <span className="preset-card-desc">
+                  Une puntos de anclaje de masas y poleas para transmitir tensión continua.
+                </span>
               </div>
-              <p className="rope-action-desc">
-                Haz clic o arrastra desde cualquier punto de anclaje (anillo celeste) de una masa o polea hacia otro para unirlos físicamente.
-              </p>
+              {onSelectRopeTool && (
+                <button
+                  type="button"
+                  className="preset-add-btn"
+                  onClick={() => {
+                    onSelectRopeTool();
+                    onClose();
+                  }}
+                  title="Activar herramienta de cuerda"
+                >
+                  Activar
+                </button>
+              )}
             </div>
 
-            {/* Informative Tip */}
+            {/* Informative Theory Box */}
             <div className="objects-info-note">
-              <Info size={14} className="info-icon" />
-              <span>
-                Las conexiones transmiten tensión en tiempo real. Al conectar una polea y dos masas se construye automáticamente la <strong>Máquina de Atwood</strong>.
-              </span>
+              <span className="info-note-label">Fundamento Teórico</span>
+              <p className="info-note-text">
+                Las conexiones modelan cuerdas inextensibles sin masa. El acoplamiento entre poleas y masas calcula la aceleración del sistema mediante la <strong>Segunda Ley de Newton</strong> (<em>ΣF = m·a</em>).
+              </p>
             </div>
           </>
         )}
@@ -471,47 +1246,55 @@ export default function PhysicsObjectsFlyout({
       <style>{`
         .physics-objects-drawer {
           position: absolute;
-          left: calc(100% + 12px);
+          left: calc(100% + 14px);
           top: 0;
-          width: 320px;
-          max-height: calc(100vh - 120px);
+          width: 380px;
+          max-height: calc(100vh - 90px);
           background: #ffffff;
-          border-radius: 14px;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
-          border: 1px solid #e1e3ea;
+          border-radius: 12px;
+          box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+          border: 1px solid #e2e8f0;
           display: flex;
           flex-direction: column;
           z-index: 60;
           animation: contextFadeIn 0.14s ease-out;
           overflow: hidden;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         .drawer-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
-          padding: 14px 16px 10px;
-          border-bottom: 1px solid #f1f3f7;
+          padding: 14px 18px 12px;
+          border-bottom: 1px solid #f1f5f9;
+        }
+
+        .drawer-header-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
         }
 
         .objects-badge {
           display: inline-block;
-          font-size: 0.65rem;
+          align-self: flex-start;
+          font-size: 0.62rem;
           font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.06em;
           color: #2563eb;
           background: #eff6ff;
           padding: 2px 7px;
-          border-radius: 9999px;
-          margin-bottom: 3px;
+          border-radius: 4px;
         }
 
         .drawer-title {
           margin: 0;
-          font-size: 1rem;
+          font-size: 0.95rem;
           font-weight: 700;
           color: #0f172a;
+          letter-spacing: -0.01em;
         }
 
         .drawer-close-btn {
@@ -519,12 +1302,12 @@ export default function PhysicsObjectsFlyout({
           border: none;
           color: #94a3b8;
           cursor: pointer;
-          padding: 3px;
+          padding: 4px;
           border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: background-color 0.12s;
+          transition: background-color 0.12s, color 0.12s;
         }
 
         .drawer-close-btn:hover {
@@ -532,594 +1315,391 @@ export default function PhysicsObjectsFlyout({
           color: #0f172a;
         }
 
-        .topic-tabs-row {
-          display: flex;
-          gap: 4px;
+        /* Grid Topic Selector: All 7 topics visible */
+        .topic-grid-control {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 6px;
           padding: 8px 12px;
           background: #f8fafc;
-          border-bottom: 1px solid #f1f3f7;
-          overflow-x: auto;
+          border-bottom: 1px solid #e2e8f0;
         }
 
-        .topic-tab-btn {
+        .topic-grid-btn {
           display: flex;
           align-items: center;
-          gap: 4px;
-          padding: 5px 9px;
-          border-radius: 6px;
-          border: 1px solid transparent;
-          background: transparent;
+          justify-content: center;
+          gap: 5px;
+          padding: 7px 6px;
+          border-radius: 7px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
           font-size: 0.72rem;
           font-weight: 600;
-          color: #64748b;
+          color: #334155;
           cursor: pointer;
+          transition: all 0.12s ease;
+          text-align: center;
           white-space: nowrap;
-          transition: all 0.12s;
         }
 
-        .topic-tab-btn:hover:not(.disabled) {
+        .topic-grid-btn:hover {
           color: #0f172a;
-          background: #e2e8f0;
-        }
-
-        .topic-tab-btn.active {
-          background: #ffffff;
-          color: #2563eb;
-          border-color: #e2e8f0;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-
-        .topic-tab-btn.disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-        }
-
-        .coming-tag {
-          font-size: 0.55rem;
           background: #f1f5f9;
-          color: #94a3b8;
-          padding: 1px 4px;
+          border-color: #cbd5e1;
+        }
+
+        .topic-grid-btn.active {
+          color: #ffffff !important;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+          font-weight: 700;
+        }
+
+        .topic-grid-btn.active .topic-grid-icon {
+          color: #ffffff !important;
+        }
+
+        .topic-grid-icon {
+          flex-shrink: 0;
+          transition: color 0.12s ease;
+        }
+
+        .topic-grid-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .active-topic-banner {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 6px 14px;
+          background: #f1f5f9;
+          border-bottom: 1px solid #e2e8f0;
+        }
+
+        .active-topic-info {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .active-topic-title {
+          font-size: 0.74rem;
+          font-weight: 700;
+          color: #0f172a;
+        }
+
+        .active-topic-tag {
+          font-size: 0.62rem;
+          font-weight: 700;
+          padding: 1px 6px;
           border-radius: 4px;
+          background: #e2e8f0;
+          color: #475569;
         }
 
         .objects-scroll-area {
           flex: 1;
           overflow-y: auto;
-          padding: 12px 14px;
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
         }
 
-        .objects-section-heading {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-size: 0.76rem;
-          font-weight: 700;
-          color: #1e293b;
-          margin-top: 4px;
-          text-transform: uppercase;
-          letter-spacing: 0.03em;
+        .objects-scroll-area::-webkit-scrollbar {
+          width: 5px;
         }
 
-        .section-icon {
-          color: #2563eb;
+        .objects-scroll-area::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 3px;
         }
 
-        .section-icon.gold {
-          color: #f59e0b;
-        }
-
-        .objects-guide-text {
-          font-size: 0.72rem;
-          color: #64748b;
-          line-height: 1.35;
-          margin: 0;
-        }
-
-        .assembly-preset-card {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 10px 12px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #fefce8 0%, #fffbeb 100%);
-          border: 1px solid #fde68a;
-          cursor: pointer;
-          transition: all 0.15s ease;
-        }
-
-        .assembly-preset-card:hover {
-          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
-          border-color: #f59e0b;
-          transform: translateY(-1px);
+        .objects-scroll-area::-webkit-scrollbar-track {
+          background: transparent;
         }
 
         .solver-promo-card {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 10px 12px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-          border: 1.5px solid #86efac;
+          padding: 12px 14px;
+          border-radius: 8px;
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
           cursor: pointer;
-          transition: all 0.15s ease;
+          transition: all 0.14s ease;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
         }
 
         .solver-promo-card:hover {
-          box-shadow: 0 4px 12px rgba(22, 163, 74, 0.18);
-          border-color: #16a34a;
+          background: #f1f5f9;
+          border-color: #94a3b8;
+          box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
           transform: translateY(-1px);
         }
 
-        .solver-promo-icon {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: #dcfce7;
-          color: #15803d;
+        .solver-promo-top {
           display: flex;
           align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
+          justify-content: space-between;
         }
 
-        .solver-promo-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 1px;
+        .solver-kicker {
+          font-size: 0.62rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #0284c7;
+        }
+
+        .solver-tag {
+          font-size: 0.62rem;
+          font-weight: 600;
+          color: #0369a1;
+          background: #e0f2fe;
+          padding: 1px 6px;
+          border-radius: 3px;
         }
 
         .solver-promo-title {
-          font-size: 0.78rem;
-          font-weight: 800;
-          color: #14532d;
-        }
-
-        .solver-promo-desc {
-          font-size: 0.65rem;
-          color: #166534;
-          line-height: 1.25;
-        }
-
-        .solver-promo-btn {
-          padding: 4px 8px;
-          border-radius: 6px;
-          background: #16a34a;
-          color: #ffffff;
-          border: none;
-          font-size: 0.7rem;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .assembly-card-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .assembly-title-row {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .assembly-name {
-          font-size: 0.82rem;
-          font-weight: 700;
-          color: #92400e;
-        }
-
-        .assembly-badge {
-          font-size: 0.6rem;
-          font-weight: 700;
-          background: #f59e0b;
-          color: #ffffff;
-          padding: 1px 5px;
-          border-radius: 4px;
-        }
-
-        .assembly-desc {
-          font-size: 0.68rem;
-          color: #78350f;
-          margin: 0;
-          line-height: 1.3;
-        }
-
-        .assembly-add-btn {
-          padding: 5px 10px;
-          border-radius: 6px;
-          background: #f59e0b;
-          color: #ffffff;
-          border: none;
-          font-size: 0.72rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background-color 0.12s;
-        }
-
-        .assembly-add-btn:hover {
-          background: #d97706;
-        }
-
-        .assembly-preset-card.mru-banner {
-          background: linear-gradient(135deg, #f0fdf4 0%, #ecfeff 100%);
-          border: 1px solid #a7f3d0;
-        }
-
-        .assembly-preset-card.mru-banner:hover {
-          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
-          border-color: #10b981;
-        }
-
-        .assembly-badge.mru {
-          background: #059669;
-        }
-
-        .assembly-add-btn.mru {
-          background: #059669;
-        }
-
-        .assembly-add-btn.mru:hover {
-          background: #047857;
-        }
-
-        .cart-visual-preview {
-          position: relative;
-          width: 38px;
-          height: 34px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .cart-preview-body {
-          width: 34px;
-          height: 18px;
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #ffffff;
-          font-size: 0.65rem;
-          font-weight: 800;
-          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-        }
-
-        .cart-preview-wheels {
-          display: flex;
-          justify-content: space-between;
-          width: 26px;
-          margin-top: 1px;
-        }
-
-        .cart-preview-wheel {
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #0f172a;
-          border: 1px solid #94a3b8;
-        }
-
-        .track-visual-preview {
-          position: relative;
-          width: 38px;
-          height: 34px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .track-preview-bar {
-          width: 36px;
-          height: 9px;
-          background: #e2e8f0;
-          border: 1.5px solid #64748b;
-          border-radius: 2px;
-          display: flex;
-          align-items: center;
-          justify-content: space-evenly;
-        }
-
-        .track-preview-tick {
-          width: 1px;
-          height: 5px;
-          background: #475569;
-        }
-
-        .track-preview-feet {
-          display: flex;
-          justify-content: space-between;
-          width: 30px;
-          margin-top: 2px;
-        }
-
-        .track-preview-foot {
-          width: 5px;
-          height: 4px;
-          background: #475569;
-          border-radius: 1px;
-        }
-
-        .gate-visual-preview {
-          position: relative;
-          width: 38px;
-          height: 34px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .gate-preview-arch {
-          width: 20px;
-          height: 20px;
-          border: 2.5px solid #334155;
-          border-bottom: none;
-          border-radius: 4px 4px 0 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-        }
-
-        .gate-preview-laser {
-          width: 100%;
-          height: 1.5px;
-          background: #ef4444;
-          box-shadow: 0 0 3px #ef4444;
-        }
-
-        .gate-preview-base {
-          width: 26px;
-          height: 4px;
-          background: #1e293b;
-          border-radius: 2px;
-        }
-
-        .mass-presets-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .mass-preset-card {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 10px;
-          border-radius: 10px;
-          background: #ffffff;
-          border: 1px solid #e2e8f0;
-          cursor: grab;
-          transition: all 0.14s ease;
-        }
-
-        .mass-preset-card:hover {
-          border-color: #bfdbfe;
-          background: #f8fafc;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
-
-        .mass-preset-card:active {
-          cursor: grabbing;
-        }
-
-        .mass-visual-preview {
-          position: relative;
-          width: 36px;
-          height: 36px;
-          border-radius: 6px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: #ffffff;
-          font-weight: 800;
-          line-height: 1;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-          flex-shrink: 0;
-        }
-
-        .mass-preview-kg {
-          font-size: 0.85rem;
-        }
-
-        .mass-preview-unit {
-          font-size: 0.55rem;
-          opacity: 0.85;
-        }
-
-        .mass-preview-hook {
-          position: absolute;
-          top: -3px;
-          width: 7px;
-          height: 4px;
-          border: 1.5px solid #475569;
-          border-bottom: none;
-          border-radius: 4px 4px 0 0;
-          background: #ffffff;
-        }
-
-        .pulley-visual-preview {
-          position: relative;
-          width: 36px;
-          height: 36px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .pulley-preview-bracket {
-          width: 14px;
-          height: 5px;
-          border-top: 2px solid #475569;
-          border-left: 1.5px solid #64748b;
-          border-right: 1.5px solid #64748b;
-          margin-bottom: -1px;
-        }
-
-        .pulley-preview-wheel {
-          position: relative;
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: #e2e8f0;
-          border: 1.5px solid #475569;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
-        }
-
-        .pulley-preview-groove {
-          position: absolute;
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          background: #cbd5e1;
-          border: 1px solid rgba(0, 0, 0, 0.15);
-        }
-
-        .pulley-preview-pin {
-          position: relative;
-          z-index: 1;
-          width: 6px;
-          height: 6px;
-          border-radius: 50%;
-          background: #1e293b;
-          border: 1px solid #ffffff;
-        }
-
-        .mass-preset-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .mass-preset-title-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-
-        .mass-preset-name {
-          font-size: 0.8rem;
+          margin: 2px 0 0;
+          font-size: 0.84rem;
           font-weight: 700;
           color: #0f172a;
         }
 
-        .drag-hint-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          font-size: 0.64rem;
-          font-weight: 600;
+        .solver-promo-desc {
+          margin: 0;
+          font-size: 0.7rem;
           color: #64748b;
-          background: #f1f5f9;
-          padding: 1px 5px;
-          border-radius: 4px;
+          line-height: 1.35;
         }
 
-        .mass-preset-desc {
-          font-size: 0.68rem;
-          color: #64748b;
-        }
-
-        .mass-quick-add-btn {
-          width: 26px;
-          height: 26px;
-          border-radius: 6px;
-          background: #eff6ff;
-          color: #2563eb;
-          border: 1px solid #bfdbfe;
+        .solver-promo-action {
+          margin-top: 4px;
           display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: all 0.12s;
+          justify-content: flex-end;
         }
 
-        .mass-quick-add-btn:hover {
-          background: #2563eb;
-          color: #ffffff;
+        .solver-action-text {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #0284c7;
         }
 
-        .rope-action-box {
-          padding: 10px 12px;
-          background: #f1f5f9;
-          border-radius: 10px;
-          border: 1px dashed #cbd5e1;
+        .solver-promo-card.vertical {
+          border-color: #ddd6fe;
+          background: #fdfcff;
+        }
+
+        .solver-promo-card.vertical:hover {
+          background: #f5f3ff;
+          border-color: #c4b5fd;
+          box-shadow: 0 3px 10px rgba(124, 58, 237, 0.08);
+        }
+
+        .solver-kicker.vertical {
+          color: #7c3aed;
+        }
+
+        .solver-tag.vertical {
+          background: #f5f3ff;
+          color: #6d28d9;
+        }
+
+        .solver-action-text.vertical {
+          color: #7c3aed;
+        }
+
+        .objects-info-note.vertical {
+          border-left-color: #8b5cf6;
+        }
+
+        .info-note-label.vertical {
+          color: #7c3aed;
+        }
+
+        .solver-promo-card.horizontal {
+          border-color: #bae6fd;
+          background: #f0f9ff;
+        }
+
+        .solver-promo-card.horizontal:hover {
+          background: #e0f2fe;
+          border-color: #7dd3fc;
+          box-shadow: 0 3px 10px rgba(2, 132, 199, 0.1);
+        }
+
+        .solver-kicker.horizontal {
+          color: #0284c7;
+        }
+
+        .solver-tag.horizontal {
+          background: #e0f2fe;
+          color: #0369a1;
+        }
+
+        .solver-action-text.horizontal {
+          color: #0284c7;
+        }
+
+        .objects-info-note.horizontal {
+          border-left-color: #0284c7;
+        }
+
+        .info-note-label.horizontal {
+          color: #0284c7;
+        }
+
+        .objects-section-heading {
+          display: flex;
+          align-items: baseline;
+          justify-content: space-between;
+          padding-bottom: 4px;
+          border-bottom: 1px solid #f1f5f9;
+          margin-top: 4px;
+        }
+
+        .section-title {
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #334155;
+        }
+
+        .section-formula {
+          font-size: 0.67rem;
+          font-weight: 500;
+          color: #64748b;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .objects-guide-text {
+          font-size: 0.7rem;
+          color: #64748b;
+          line-height: 1.35;
+          margin: -4px 0 2px;
+        }
+
+        .preset-cards-list {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 7px;
         }
 
-        .rope-action-header {
+        .formal-preset-card {
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 12px;
+          padding: 9px 12px;
+          border-radius: 7px;
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-left-width: 4px;
+          cursor: grab;
+          transition: all 0.12s ease;
         }
 
-        .rope-action-title {
+        .formal-preset-card:hover {
+          border-color: #cbd5e1;
+          background: #f8fafc;
+          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+        }
+
+        .formal-preset-card:active {
+          cursor: grabbing;
+        }
+
+        .preset-card-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          min-width: 0;
+        }
+
+        .preset-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+
+        .preset-card-name {
           font-size: 0.78rem;
           font-weight: 700;
-          color: #1e293b;
+          color: #0f172a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
-        .rope-activate-btn {
-          padding: 3px 8px;
+        .preset-metric-tag {
+          font-size: 0.67rem;
+          font-weight: 600;
+          color: #334155;
+          background: #f1f5f9;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        .preset-card-desc {
+          font-size: 0.67rem;
+          color: #64748b;
+          line-height: 1.25;
+        }
+
+        .preset-add-btn {
+          padding: 5px 10px;
           border-radius: 5px;
-          background: #2563eb;
-          color: #ffffff;
-          border: none;
-          font-size: 0.7rem;
+          background: #f8fafc;
+          color: #334155;
+          border: 1px solid #cbd5e1;
+          font-size: 0.69rem;
           font-weight: 600;
           cursor: pointer;
+          flex-shrink: 0;
+          transition: all 0.12s ease;
         }
 
-        .rope-activate-btn:hover {
-          background: #1d4ed8;
-        }
-
-        .rope-action-desc {
-          font-size: 0.68rem;
-          color: #64748b;
-          line-height: 1.35;
-          margin: 0;
+        .preset-add-btn:hover {
+          background: #0f172a;
+          color: #ffffff;
+          border-color: #0f172a;
         }
 
         .objects-info-note {
           display: flex;
-          align-items: flex-start;
-          gap: 6px;
-          padding: 8px 10px;
+          flex-direction: column;
+          gap: 3px;
+          padding: 9px 12px;
           background: #f8fafc;
-          border-radius: 8px;
+          border-radius: 7px;
           border: 1px solid #e2e8f0;
-          font-size: 0.68rem;
-          color: #64748b;
-          line-height: 1.35;
+          border-left: 3px solid #3b82f6;
           margin-top: 4px;
         }
 
-        .info-icon {
-          color: #3b82f6;
-          flex-shrink: 0;
-          margin-top: 1px;
+        .info-note-label {
+          font-size: 0.64rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #2563eb;
+        }
+
+        .info-note-text {
+          font-size: 0.68rem;
+          color: #475569;
+          line-height: 1.35;
+          margin: 0;
         }
       `}</style>
     </div>
