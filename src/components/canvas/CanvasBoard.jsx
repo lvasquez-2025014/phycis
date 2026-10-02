@@ -1473,16 +1473,19 @@ export default function CanvasBoard({
           );
           const minH = Math.min(lastBounds.h, sBounds.h);
 
-          // Strokes meet or touch within normal character width:
-          const isMultiStrokeMeeting =
-            gapX < 14 &&
-            combinedW < Math.max(line.avgH * 1.05, 55) &&
-            overlapY > minH * 0.35;
+          // Two strokes belong to the SAME character ONLY if they significantly overlap in horizontal span
+          // (such as '=' parallel stacked, '+' crossing, 'x' crossing, or top horizontal bar of '5'/'π')
+          const hasSignificantOverlapX =
+            (overlapX > minW * 0.35 && centerDiffX < maxW * 0.5) ||
+            (centerDiffX < maxW * 0.35);
 
-          const isSameChar =
-            (overlapX > minW * 0.45 && centerDiffX < maxW * 0.55) ||
-            (centerDiffX < maxW * 0.4 && sBounds.minX >= lastBounds.minX - 4 && sBounds.maxX <= lastBounds.maxX + 4) ||
-            isMultiStrokeMeeting;
+          // Strokes meet or cross each other directly (e.g. crossing diagonals of 'x' or crossbar of '+')
+          const isTouchingMeeting =
+            gapX <= 2 &&
+            overlapY > minH * 0.3 &&
+            centerDiffX < maxW * 0.45;
+
+          const isSameChar = hasSignificantOverlapX || isTouchingMeeting;
 
           if (isSameChar && lastCluster.length < 3) {
             lastCluster.push(s);

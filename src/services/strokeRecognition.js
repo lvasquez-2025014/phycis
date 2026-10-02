@@ -990,32 +990,9 @@ function getStrokeOrientation(s) {
   return { isDiag, dir: dx > 0 ? 1 : -1, dx, dy, topPt, btmPt };
 }
 
-// Single-stroke 'y' detector (lowercase cursive, printed, or uppercase Y)
-function isSingleStrokeY(pts, norm) {
-  if (!pts || pts.length < 5) return false;
-  const pStart = pts[0];
-  const pEnd = pts[pts.length - 1];
-  const w = norm.w;
-  const h = norm.h;
-  const cx = norm.cx;
-  const cy = norm.cy;
-
-  // Must not be a closed shape (like 0, 8, o)
-  const startEndDist = Math.hypot(pEnd.x - pStart.x, pEnd.y - pStart.y);
-  if (startEndDist < Math.max(16, h * 0.18)) return false;
-
-  // Start is in upper 65% of the box
-  if (pStart.y > cy + h * 0.2) return false;
-
-  // End is in lower half (descender tail)
-  if (pEnd.y < cy) return false;
-
-  // Has points on both left and right
-  const hasLeft = pts.some((p) => p.x < cx - w * 0.05);
-  const hasRight = pts.some((p) => p.x > cx + w * 0.05);
-  if (!hasLeft || !hasRight) return false;
-
-  // Check for upper cup or V (a dip in the first 75% that rises to the right)
+// Check if stroke has a U-cup that climbs upwards (characteristic of 'y')
+function hasCupClimbUpwards(pts, norm) {
+  const { h } = norm;
   let lowestCupY = -Infinity;
   let lowestCupIdx = -1;
   const searchLimit = Math.floor(pts.length * 0.75);
@@ -1025,29 +1002,232 @@ function isSingleStrokeY(pts, norm) {
       lowestCupIdx = i;
     }
   }
+  if (lowestCupIdx < 0) return false;
 
-  // After the cup bottom, does it rise back up on the right?
-  let risesAfterCup = false;
+  // Check if stroke climbs significantly back UP towards top-right
   for (let i = lowestCupIdx + 1; i < pts.length; i++) {
-    if (pts[i].y < lowestCupY - h * 0.12 && pts[i].x > cx - w * 0.15) {
-      risesAfterCup = true;
-      break;
+    if (pts[i].y < lowestCupY - h * 0.22) {
+      return true;
     }
   }
-
-  if (risesAfterCup && pEnd.y > cy + h * 0.08) {
-    return true;
-  }
-
-  // Printed y: starts left, reaches top right, ends bottom
-  const startsLeft = pStart.x < cx + w * 0.15 && pStart.y < cy;
-  const reachesTopRight = pts.some((p) => p.x > cx + w * 0.15 && p.y < cy);
-  const endsBottom = pEnd.y > cy + h * 0.15;
-  if (startsLeft && reachesTopRight && endsBottom) {
-    return true;
-  }
-
   return false;
+}
+
+// Single-stroke digit '2' detector (arch over top, diagonal down-left, horizontal base to bottom-right)
+function isSingleStrokeDigit2(pts, norm) {
+  if (!pts || pts.length < 5) return false;
+  // A '2' never climbs back upwards like a U-cup in 'y'
+  if (hasCupClimbUpwards(pts, norm)) return false;
+  // NEVER confuse with Greek Sigma (zig-zag with inward apex)!
+  if (isSingleStrokeSigma(pts, norm)) return false;
+
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.3 || aspectRatio > 2.0) return false;
+
+  // 1. Must reach the upper region (the top arch)
+  const reachesTop = pts.some((p) => p.y < cy - h * 0.15);
+  const reachesTopRight = pts.some((p) => p.x > cx && p.y < cy);
+  if (!reachesTop || !reachesTopRight) return false;
+
+  // 2. Must reach bottom-left before the base
+  const reachesBottomLeft = pts.some((p) => p.x < cx - w * 0.05 && p.y > cy);
+  if (!reachesBottomLeft) return false;
+
+  // 3. Bottom horizontal base traversing to the right:
+  const endInLowerSection = pEnd.y > cy + h * 0.08;
+  const endToRight = pEnd.x > cx - w * 0.15;
+  if (!endInLowerSection || !endToRight) return false;
+
+  // The base must traverse rightward from bottom-left to bottom-right
+  const lowerPts = pts.filter((p) => p.y > cy);
+  const minLowerX = Math.min(...lowerPts.map((p) => p.x));
+  const hasBaseTraversingRight = (pEnd.x - minLowerX) > w * 0.35;
+
+  return hasBaseTraversingRight;
+}
+
+// Single-stroke digit '3' detector (two lobes to the right + inner waist pointing left)
+function isSingleStrokeDigit3(pts, norm) {
+  if (!pts || pts.length < 5) return false;
+  // If stroke climbs back up like a U-cup, it is 'y', NOT 3
+  if (hasCupClimbUpwards(pts, norm)) return false;
+
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.3 || aspectRatio > 1.6) return false;
+
+  // Start in upper 65%
+  if (pStart.y > cy + h * 0.2) return false;
+
+  // Upper lobe bulging right
+  const hasUpperRightLobe = pts.some((p) => p.x > cx + w * 0.12 && p.y < cy);
+  // Lower lobe bulging right
+  const hasLowerRightLobe = pts.some((p) => p.x > cx + w * 0.12 && p.y > cy);
+  if (!hasUpperRightLobe || !hasLowerRightLobe) return false;
+
+  // Center waist/cusp: points near cy that indent back left relative to lobes
+  const midPoints = pts.filter((p) => Math.abs(p.y - cy) < h * 0.28);
+  if (midPoints.length === 0) return false;
+  const minMidX = Math.min(...midPoints.map((p) => p.x));
+  const maxUpperX = Math.max(...pts.filter((p) => p.y < cy).map((p) => p.x));
+  const maxLowerX = Math.max(...pts.filter((p) => p.y > cy).map((p) => p.x));
+
+  const indentsAtWaist = minMidX < maxUpperX - w * 0.08 && minMidX < maxLowerX - w * 0.08;
+
+  // End curves down and to the left (not continuing to the right like 2)
+  const endsBottom = pEnd.y > cy + h * 0.08;
+  const endsNotFarRight = pEnd.x < cx + w * 0.35;
+
+  return indentsAtWaist && endsBottom && endsNotFarRight;
+}
+
+// Single-stroke 'y' detector (lowercase cursive, printed, or uppercase Y)
+function isSingleStrokeY(pts, norm) {
+  if (!pts || pts.length < 5) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.25 || aspectRatio > 1.6) return false;
+
+  // A 'y' starts in the upper 60% of the box (the top of the cup)
+  if (pStart.y > cy + h * 0.1) return false;
+
+  // Must not be a closed shape (like 0, 8, o)
+  const startEndDist = Math.hypot(pEnd.x - pStart.x, pEnd.y - pStart.y);
+  if (startEndDist < Math.max(16, h * 0.18)) return false;
+
+  // End is in lower half (descender tail)
+  if (pEnd.y < cy + h * 0.1) return false;
+
+  // Has points on both left and right
+  const hasLeft = pts.some((p) => p.x < cx - w * 0.05);
+  const hasRight = pts.some((p) => p.x > cx + w * 0.05);
+  if (!hasLeft || !hasRight) return false;
+
+  // Must have the cup that climbs upwards before the descender
+  return hasCupClimbUpwards(pts, norm);
+}
+
+// Single-stroke digit '9' detector (upper loop + descending stem on right side ending at bottom)
+function isSingleStrokeDigit9(pts, norm) {
+  if (!pts || pts.length < 5) return false;
+  // Cannot be Sigma (zig-zag with inward apex)
+  if (isSingleStrokeSigma(pts, norm)) return false;
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.35 || aspectRatio > 1.45) return false;
+
+  // Starts in upper 65%
+  if (pStart.y > cy + h * 0.15) return false;
+
+  // Ends in lower half (descending stem)
+  if (pEnd.y < cy + h * 0.18) return false;
+
+  // Upper loop: points in top-left and top-right
+  const hasTopLeft = pts.some((p) => p.x < cx && p.y < cy);
+  const hasTopRight = pts.some((p) => p.x > cx && p.y < cy);
+  if (!hasTopLeft || !hasTopRight) return false;
+
+  // Descending stem is on the middle or right half
+  const stemNearCenterOrRight = pEnd.x > cx - w * 0.35;
+
+  // Start and end must not be completely closed circle
+  const startEndGap = Math.hypot(pEnd.x - pStart.x, pEnd.y - pStart.y);
+  if (startEndGap < 10) return false;
+
+  return stemNearCenterOrRight;
+}
+
+// Single-stroke digit '0' detector (clean closed loop with hollow interior core)
+function isSingleStrokeDigit0(pts, norm) {
+  if (!pts || pts.length < 6) return false;
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.45 || aspectRatio > 1.5) return false;
+
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const startEndDist = Math.hypot(pEnd.x - pStart.x, pEnd.y - pStart.y);
+  if (startEndDist > Math.max(26, Math.hypot(w, h) * 0.36)) return false;
+
+  const hasTL = pts.some((p) => p.x < cx && p.y < cy);
+  const hasTR = pts.some((p) => p.x > cx && p.y < cy);
+  const hasBL = pts.some((p) => p.x < cx && p.y > cy);
+  const hasBR = pts.some((p) => p.x > cx && p.y > cy);
+  if (!hasTL || !hasTR || !hasBL || !hasBR) return false;
+
+  // Hollow center: no points traversing through central core (distinguishes from Theta 'θ')
+  const corePts = pts.filter((p) => Math.abs(p.x - cx) < w * 0.18 && Math.abs(p.y - cy) < h * 0.18);
+  return corePts.length <= 1;
+}
+
+// Single-stroke digit '7' detector (top horizontal bar + diagonal down-left)
+function isSingleStrokeDigit7(pts, norm) {
+  if (!pts || pts.length < 4) return false;
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.35 || aspectRatio > 1.3) return false;
+
+  if (pStart.y > cy - h * 0.15 || pStart.x > cx + w * 0.15) return false;
+
+  const reachesTopRight = pts.some((p) => p.x > cx + w * 0.15 && p.y < cy - h * 0.1);
+  if (!reachesTopRight) return false;
+
+  const endsBottomLeft = pEnd.y > cy + h * 0.2 && pEnd.x < cx + w * 0.1;
+  if (!endsBottomLeft) return false;
+
+  const hasLowerRight = pts.some((p) => p.x > cx + w * 0.15 && p.y > cy + h * 0.15);
+  return !hasLowerRight;
+}
+
+// Single-stroke digit '6' detector (arch from top down into lower closed loop)
+function isSingleStrokeDigit6(pts, norm) {
+  if (!pts || pts.length < 6) return false;
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.35 || aspectRatio > 1.4) return false;
+
+  if (pStart.y > cy - h * 0.1) return false;
+
+  const reachesFarLeft = pts.some((p) => p.x < cx - w * 0.15);
+  if (!reachesFarLeft) return false;
+
+  const hasBottomLoop =
+    pts.some((p) => p.y > cy && p.x < cx) &&
+    pts.some((p) => p.y > cy && p.x > cx);
+  if (!hasBottomLoop) return false;
+
+  const endInMiddle = Math.abs(pEnd.y - (cy + h * 0.1)) < h * 0.28 && Math.abs(pEnd.x - cx) < w * 0.35;
+  return endInMiddle;
+}
+
+// Single-stroke digit '8' detector (crossings with upper and lower loops)
+function isSingleStrokeDigit8(pts, norm) {
+  if (!pts || pts.length < 8) return false;
+  const { w, h, cx, cy, aspectRatio } = norm;
+  if (aspectRatio < 0.35 || aspectRatio > 1.3) return false;
+
+  const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
+  const startEndDist = Math.hypot(pEnd.x - pStart.x, pEnd.y - pStart.y);
+  if (startEndDist > Math.max(30, h * 0.4)) return false;
+
+  const hasTL = pts.some((p) => p.x < cx && p.y < cy);
+  const hasTR = pts.some((p) => p.x > cx && p.y < cy);
+  const hasBL = pts.some((p) => p.x < cx && p.y > cy);
+  const hasBR = pts.some((p) => p.x > cx && p.y > cy);
+  if (!hasTL || !hasTR || !hasBL || !hasBR) return false;
+
+  const centerPts = pts.filter((p) => Math.abs(p.x - cx) < w * 0.22 && Math.abs(p.y - cy) < h * 0.22);
+  return centerPts.length >= 2;
 }
 
 // ===========================================================================
@@ -1121,7 +1301,9 @@ function findSelfIntersection(pts) {
 // 2. Greek Alpha 'α' (Single stroke fish ribbon: support BOTH tails-on-left and tails-on-right!)
 function isSingleStrokeAlpha(pts, norm) {
   if (!pts || pts.length < 5) return false;
-  // NEVER confuse with Sigma!
+  // NEVER confuse with Digit 2, 3, or Sigma!
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
   if (isSingleStrokeSigma(pts, norm)) return false;
 
   const pStart = pts[0];
@@ -1173,13 +1355,16 @@ function isSingleStrokeAlpha(pts, norm) {
   return false;
 }
 
-// 3. Greek Theta 'θ' (Single stroke: perimeter loop + central horizontal crossing, NEVER an alpha or pi)
+// 3. Greek Theta 'θ' (Single stroke: perimeter loop + central horizontal crossing, NEVER an alpha, pi, or zero)
 function isSingleStrokeTheta(pts, norm) {
   if (!pts || pts.length < 6) return false;
   const { w, h, cx, cy, aspectRatio } = norm;
   if (aspectRatio < 0.55 || aspectRatio > 1.65) return false;
 
-  // Cannot be an alpha
+  // Cannot be digit 0, 2, 3, or alpha
+  if (isSingleStrokeDigit0(pts, norm)) return false;
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
   if (isSingleStrokeAlpha(pts, norm)) return false;
 
   const pStart = pts[0];
@@ -1213,19 +1398,19 @@ function isSingleStrokeTheta(pts, norm) {
   const hasBottomArc = pts.some((p) => Math.abs(p.x - cx) < w * 0.25 && p.y > cy + h * 0.25);
   if (!hasBottomArc) return false; // Pi has empty space at bottom center
 
-  // Central horizontal crossing: MUST pass through the center (not empty space between two legs)
-  const hasCrossingNearCenter = pts.some((p) => Math.abs(p.x - cx) < w * 0.2 && Math.abs(p.y - cy) < h * 0.25);
+  // Central horizontal crossing: passes through the middle/upper region
+  const hasCrossingNearCenter = pts.some((p) => Math.abs(p.x - cx) < w * 0.25 && Math.abs(p.y - cy) < h * 0.35);
   if (!hasCrossingNearCenter) return false;
 
-  // Has horizontal crossing traversal near the vertical center (|y - cy| < 0.28h)
-  const centerPts = pts.filter((p) => Math.abs(p.y - cy) < h * 0.28);
+  // Has horizontal crossing traversal near the vertical center/upper area (|y - cy| < 0.35h)
+  const centerPts = pts.filter((p) => Math.abs(p.y - cy) < h * 0.35);
   if (centerPts.length < 3) return false;
   const minCenterPtX = Math.min(...centerPts.map((p) => p.x));
   const maxCenterPtX = Math.max(...centerPts.map((p) => p.x));
   const centerSpanX = maxCenterPtX - minCenterPtX;
 
-  // The center crossing must span at least 45% of total character width
-  return centerSpanX > w * 0.45;
+  // The center crossing must span at least 40% of total character width
+  return centerSpanX > w * 0.4;
 }
 
 // 4. Greek Lowercase Sigma 'σ' (Single stroke: circular body + top-right horizontal ear)
@@ -1253,7 +1438,19 @@ function isSingleStrokeLowercaseSigma(pts, norm) {
 // 5. Greek Psi 'ψ' / 'Ψ' (Single stroke trident / fork: left and right top prongs + vertical center stem)
 function isSingleStrokePsi(pts, norm) {
   if (!pts || pts.length < 6) return false;
+  // Cannot be digit 2, 3, or variable y, or theta
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
+  if (isSingleStrokeY(pts, norm)) return false;
+  if (isSingleStrokeTheta(pts, norm)) return false;
+
   const { w, h, cx, cy } = norm;
+  const pEnd = pts[pts.length - 1];
+
+  // If stroke has a bottom horizontal base traversing to the right, it is NOT Psi!
+  const lowerPts = pts.filter((p) => p.y > cy);
+  const minLowerX = Math.min(...lowerPts.map((p) => p.x));
+  if (pEnd.y > cy + h * 0.1 && (pEnd.x - minLowerX) > w * 0.35) return false;
 
   // Prongs on left and right in upper half
   const leftProng = pts.some((p) => p.x < cx - w * 0.16 && p.y < cy);
@@ -1282,6 +1479,8 @@ function isSingleStrokePsi(pts, norm) {
 // 6. Greek Phi 'φ' / 'Φ' (Single stroke: circular/oval loop with vertical stroke passing through center)
 function isSingleStrokePhi(pts, norm) {
   if (!pts || pts.length < 6) return false;
+  // Cannot be digit 9
+  if (isSingleStrokeDigit9(pts, norm)) return false;
   const { w, h, cx, cy } = norm;
 
   // Cannot be a psi
@@ -1335,17 +1534,25 @@ function isSingleStrokeDelta(pts, norm) {
   return hasTopApex && hasBottomLeft && hasBottomRight && bottomSpanX > w * 0.48;
 }
 
-// 8. Greek Lowercase Delta 'δ' (Single stroke: top hook/curl down into circular base)
+// 8. Greek Lowercase Delta 'δ' (Single stroke: top hook/curl down into circular closed base)
 function isSingleStrokeLowercaseDelta(pts, norm) {
   if (!pts || pts.length < 6) return false;
+  // Must NOT be digit 2
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+
   const pStart = pts[0];
+  const pEnd = pts[pts.length - 1];
   const { w, h, cx, cy } = norm;
 
   const startsAtTopHook = pStart.y < cy - h * 0.2;
   const hasCircularBase =
     pts.some((p) => p.y > cy && p.x < cx - w * 0.12) &&
     pts.some((p) => p.y > cy && p.x > cx + w * 0.12);
-  return startsAtTopHook && hasCircularBase;
+
+  const cross = findSelfIntersection(pts);
+  const endsNearLoop = Math.hypot(pEnd.x - cx, pEnd.y - cy) < Math.max(w, h) * 0.35;
+
+  return startsAtTopHook && hasCircularBase && (cross !== null || endsNearLoop);
 }
 
 // 9. Greek Omega 'ω' (Single stroke: double rounded cup / 'w')
@@ -1382,8 +1589,14 @@ function isSingleStrokeCapitalOmega(pts, norm) {
 // 11. Greek Beta 'β' (Single stroke tall left ascender/descender + 2 rounded right lobes)
 function isSingleStrokeBeta(pts, norm) {
   if (!pts || pts.length < 6) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
+  if (isSingleStrokeDigit8(pts, norm)) return false;
   const { w, h, cx, cy, aspectRatio } = norm;
   if (aspectRatio > 1.2) return false;
+
+  // Beta must start from bottom-left descender and rise up
+  const pStart = pts[0];
+  if (pStart.y < cy) return false;
 
   const leftPts = pts.filter((p) => p.x < cx - w * 0.1);
   if (leftPts.length < 3) return false;
@@ -1413,10 +1626,19 @@ function isSingleStrokeMu(pts, norm) {
 // 13. Greek Pi 'π' (Single stroke arch/table: bottom-left up, top bar across, down bottom-right)
 function isSingleStrokePi(pts, norm) {
   if (!pts || pts.length < 5) return false;
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
+
   const pStart = pts[0];
   const pEnd = pts[pts.length - 1];
   const { cx, cy, h, w, aspectRatio } = norm;
   if (aspectRatio < 0.45 || aspectRatio > 2.0) return false;
+
+  // If stroke has horizontal base traversing bottom center moving right, it's not Pi!
+  const lowerPts = pts.filter((p) => p.y > cy);
+  const minLowerX = Math.min(...lowerPts.map((p) => p.x));
+  const traversesBottomCenter = pts.some((p) => Math.abs(p.x - cx) < w * 0.18 && p.y > cy + h * 0.18);
+  if (traversesBottomCenter && pEnd.y > cy + h * 0.1 && (pEnd.x - minLowerX) > w * 0.35) return false;
 
   // Both ends at bottom (two legs), separated horizontally
   const startAtBottom = pStart.y > cy + h * 0.08;
@@ -1462,14 +1684,15 @@ function isSingleStrokeLambda(pts, norm) {
 // 15. Greek Gamma 'γ' (Single stroke ribbon crossing at bottom)
 function isSingleStrokeGamma(pts, norm) {
   if (!pts || pts.length < 6) return false;
-  const pEnd = pts[pts.length - 1];
-  const { w, h, cx, cy } = norm;
+  // Must NOT be variable 'y' or digit 2 or digit 3
+  if (isSingleStrokeY(pts, norm)) return false;
+  if (isSingleStrokeDigit2(pts, norm)) return false;
+  if (isSingleStrokeDigit3(pts, norm)) return false;
 
-  const hasTopArms =
-    pts.some((p) => p.x < cx && p.y < cy - h * 0.1) &&
-    pts.some((p) => p.x > cx && p.y < cy - h * 0.1);
-  const hasBottomCrossing = pEnd.y > cy + h * 0.18;
-  return hasTopArms && hasBottomCrossing;
+  const { cx, cy } = norm;
+  const cross = findSelfIntersection(pts);
+  if (!cross) return false;
+  return cross.y > cy;
 }
 
 // 16. Greek Eta 'η' (lowercase n with long descending right leg)
@@ -1534,6 +1757,8 @@ function isSingleStrokeTau(pts, norm) {
 // 20. Greek Epsilon 'ε' (backward 3 shape with center cusp)
 function isSingleStrokeEpsilon(pts, norm) {
   if (!pts || pts.length < 5) return false;
+  // If it's a digit 3, it is NEVER Epsilon!
+  if (isSingleStrokeDigit3(pts, norm)) return false;
   const pStart = pts[0];
   const pEnd = pts[pts.length - 1];
   const { w, h, cx, cy, aspectRatio } = norm;
@@ -1549,19 +1774,21 @@ function isSingleStrokeEpsilon(pts, norm) {
 // 21. Greek Rho 'ρ' (descending left stem + top-right loop)
 function isSingleStrokeRho(pts, norm) {
   if (!pts || pts.length < 4) return false;
+  // Must NOT be digit 9
+  if (isSingleStrokeDigit9(pts, norm)) return false;
+
   const pStart = pts[0];
-  const pEnd = pts[pts.length - 1];
   const { w, h, cx, cy, aspectRatio } = norm;
   if (aspectRatio > 1.25) return false;
 
-  const startIsDescender = pStart.x < cx && pStart.y > cy + h * 0.22;
-  const endIsDescender = pEnd.x < cx && pEnd.y > cy + h * 0.22;
-  const hasDescender = startIsDescender || endIsDescender;
+  // Real Greek Rho starts from bottom-left descender, goes up, loops right, and closes back
+  const startIsDescender = pStart.x < cx && pStart.y > cy + h * 0.2;
+  if (!startIsDescender) return false;
 
   const hasTopRightLoop = pts.some((p) => p.x > cx + w * 0.12 && p.y < cy);
   const hasLeftVerticalStem = pts.filter((p) => p.x < cx - w * 0.05).length >= 2;
 
-  return hasDescender && hasTopRightLoop && hasLeftVerticalStem;
+  return hasTopRightLoop && hasLeftVerticalStem;
 }
 
 // 22. Greek Upsilon 'υ' (curved U shape basin)
@@ -1674,7 +1901,12 @@ function classifyGreekCharacter(clusterStrokes, norm) {
       return b && b.w > b.h * 1.15 && b.cy < cy - h * 0.08;
     });
     if (horizTopStrokes.length === 1) {
-      return 'π';
+      const otherStrokes = clusterStrokes.filter((s) => s !== horizTopStrokes[0]);
+      const legs = otherStrokes.map((s) => s.bounds || getElementBounds(s));
+      const legsAreVertical = legs.every((b) => b && b.h > b.w * 0.85 && b.cy > cy);
+      if (legsAreVertical && legs.length === 2 && Math.abs(legs[0].cx - legs[1].cx) > w * 0.2) {
+        return 'π';
+      }
     }
   }
 
@@ -1694,7 +1926,8 @@ function classifyGreekCharacter(clusterStrokes, norm) {
       if ((isS1Bar && isS2Stem) || (isS2Bar && isS1Stem)) {
         const bar = isS1Bar ? b1 : b2;
         const stem = isS1Stem ? b1 : b2;
-        if (bar.cy < stem.minY + stem.h * 0.4 && Math.abs(stem.cx - bar.cx) < bar.w * 0.4) {
+        // Bar must be at top edge (T-shape), not in the middle like '+'
+        if (bar.cy < stem.minY + stem.h * 0.22 && Math.abs(stem.cx - bar.cx) < bar.w * 0.35) {
           return 'τ';
         }
       }
@@ -1766,18 +1999,7 @@ function classifyGreekCharacter(clusterStrokes, norm) {
         }
       }
 
-      // 5. Greek Chi 'χ' (Two crossing diagonal strokes)
-      const isBothSlanted = b1.w > b1.h * 0.3 && b2.w > b2.h * 0.3;
-      if (isBothSlanted) {
-        const diffMaxY = Math.abs(b1.maxY - b2.maxY);
-        const diffMinY = Math.abs(b1.minY - b2.minY);
-        const minH = Math.min(b1.h, b2.h);
-        if (diffMaxY < minH * 0.4 && diffMinY < minH * 0.4 && Math.abs(b1.cx - b2.cx) < minH * 0.4) {
-          return 'χ';
-        }
-      }
-
-      // 6. Greek Pi 'π' (Top bar + leg)
+      // 5. Greek Pi 'π' (Top bar + leg)
       const horizTopStrokes = clusterStrokes.filter((s) => {
         const b = s.bounds || getElementBounds(s);
         return b && b.w > b.h * 1.15 && b.cy < cy - h * 0.08;
@@ -1790,7 +2012,7 @@ function classifyGreekCharacter(clusterStrokes, norm) {
         }
       }
 
-      // 7. Greek Lambda 'λ' (Meeting diagonals)
+      // 6. Greek Lambda 'λ' (Meeting diagonals)
       const o1 = getStrokeOrientation(s1);
       const o2 = getStrokeOrientation(s2);
       if (o1.isDiag && o2.isDiag && o1.dir * o2.dir < 0) {
@@ -1803,7 +2025,7 @@ function classifyGreekCharacter(clusterStrokes, norm) {
         }
       }
 
-      // 8. Greek Alpha 'α' (Loop + tail)
+      // 7. Greek Alpha 'α' (Loop + tail)
       if (bLeft && bRight && !isLeftStem) {
         const isLeftRound = Math.abs(bLeft.w - bLeft.h) < Math.max(bLeft.w, bLeft.h) * 0.65;
         const isRightRound = Math.abs(bRight.w - bRight.h) < Math.max(bRight.w, bRight.h) * 0.65;
@@ -1812,11 +2034,16 @@ function classifyGreekCharacter(clusterStrokes, norm) {
         }
       }
 
-      // 9. Greek Lowercase Sigma 'σ' (Circle on left/bottom + top-right ear)
-      const isS1Ear = b1.w > b1.h && b1.cy < cy - h * 0.15 && b1.cx > cx;
-      const isS2Ear = b2.w > b2.h && b2.cy < cy - h * 0.15 && b2.cx > cx;
-      if (isS1Ear || isS2Ear) {
-        return 'σ';
+      // 8. Greek Lowercase Sigma 'σ' (Circle on left/bottom + top-right ear)
+      const isS1Wide = b1.w > b1.h * 1.1;
+      const isS2Wide = b2.w > b2.h * 1.1;
+      // If both strokes are wide horizontal bars, it is an equals sign '=', NEVER sigma!
+      if (!isS1Wide || !isS2Wide) {
+        const isS1Ear = b1.w > b1.h && b1.cy < cy - h * 0.15 && b1.cx > cx;
+        const isS2Ear = b2.w > b2.h && b2.cy < cy - h * 0.15 && b2.cx > cx;
+        if (isS1Ear || isS2Ear) {
+          return 'σ';
+        }
       }
     }
   }
@@ -1828,15 +2055,15 @@ function classifyGreekCharacter(clusterStrokes, norm) {
 
     // 1. Sigma FIRST (distinct zig-zag with inward apex, never confused with alpha)
     if (isSingleStrokeSigma(pts, norm)) return 'Σ';
-    // 2. Alpha (guaranteed not Sigma, Theta, or Epsilon)
+    // 2. Theta (perimeter loop + central crossing)
+    if (isSingleStrokeTheta(pts, norm)) return 'θ';
+    // 3. Alpha (guaranteed not Sigma, Theta, or Epsilon)
     if (isSingleStrokeAlpha(pts, norm)) return 'α';
-    // 3. Pi (open arch/table with two separate legs)
+    // 4. Pi (open arch/table with two separate legs)
     if (isSingleStrokePi(pts, norm)) return 'π';
-    // 4. Psi & Phi with mutually distinct criteria
+    // 5. Psi & Phi with mutually distinct criteria
     if (isSingleStrokePsi(pts, norm)) return 'ψ';
     if (isSingleStrokePhi(pts, norm)) return 'φ';
-    // 5. Theta (perimeter loop + central crossing)
-    if (isSingleStrokeTheta(pts, norm)) return 'θ';
     if (isSingleStrokeLowercaseSigma(pts, norm)) return 'σ';
     // 6. Delta
     if (isSingleStrokeDelta(pts, norm)) return 'Δ';
@@ -1852,28 +2079,8 @@ function classifyGreekCharacter(clusterStrokes, norm) {
     if (isSingleStrokeLambda(pts, norm)) return 'λ';
     // 11. Gamma
     if (isSingleStrokeGamma(pts, norm)) return 'γ';
-    // 12. Eta
-    if (isSingleStrokeEta(pts, norm)) return 'η';
-    // 13. Nu
-    if (isSingleStrokeNu(pts, norm)) return 'ν';
-    // 14. Zeta
-    if (isSingleStrokeZeta(pts, norm)) return 'ζ';
-    // 15. Tau
-    if (isSingleStrokeTau(pts, norm)) return 'τ';
-    // 16. Epsilon
-    if (isSingleStrokeEpsilon(pts, norm)) return 'ε';
-    // 17. Rho
+    // 12. Rho
     if (isSingleStrokeRho(pts, norm)) return 'ρ';
-    // 18. Upsilon
-    if (isSingleStrokeUpsilon(pts, norm)) return 'υ';
-    // 19. Kappa
-    if (isSingleStrokeKappa(pts, norm)) return 'κ';
-    // 20. Xi
-    if (isSingleStrokeXi(pts, norm)) return 'ξ';
-    // 21. Chi
-    if (isSingleStrokeChi(pts, norm)) return 'χ';
-    // 22. Iota
-    if (isSingleStrokeIota(pts, norm)) return 'ι';
   }
 
   return null;
@@ -1892,13 +2099,10 @@ export function classifyCharacterCluster(clusterStrokes) {
   const h = norm.h;
   const aspectRatio = norm.aspectRatio;
 
-  // 0. Dedicated High-Precision Greek Character Recognition (Sigma, Theta, Alpha, Beta, Delta, Pi, Phi, Lambda, etc.)
-  const greekChar = classifyGreekCharacter(clusterStrokes, norm);
-  if (greekChar) {
-    return greekChar;
-  }
-
-  // Case 1: Multi-stroke character (2 or more strokes)
+  // =========================================================================
+  // PRIORITY 1: MULTI-STROKE MATHEMATICAL OPERATORS & ESSENTIAL VARIABLES
+  // (Prevents Greek letters like Sigma, Tau, Chi from hijacking '=', '+', 'x', 'y')
+  // =========================================================================
   if (numStrokes >= 2) {
     const s1 = clusterStrokes[0];
     const s2 = clusterStrokes[1];
@@ -1906,22 +2110,70 @@ export function classifyCharacterCluster(clusterStrokes) {
     const b2 = s2.bounds || getElementBounds(s2);
 
     if (b1 && b2) {
-      // 1. Greek 'Σ' (2 or 3 strokes: horizontal top, diagonal angles, horizontal bottom)
-      if (numStrokes === 3 || numStrokes === 2) {
-        const hasTopHoriz = clusterStrokes.some((s) => {
-          const b = s.bounds || getElementBounds(s);
-          return b && b.w > b.h * 1.15 && b.cy < norm.cy - norm.h * 0.15;
-        });
-        const hasBottomHoriz = clusterStrokes.some((s) => {
-          const b = s.bounds || getElementBounds(s);
-          return b && b.w > b.h * 1.15 && b.cy > norm.cy + norm.h * 0.15;
-        });
-        if (hasTopHoriz && hasBottomHoriz) {
-          return 'Σ';
+      // 0. GREEK THETA 'θ' (2 strokes: one 2D loop + one horizontal bar inside it)
+      const isS1ThinBar = b1.w > b1.h * 1.5 && b1.h < Math.max(30, b2.h * 0.65);
+      const isS2ThinBar = b2.w > b2.h * 1.5 && b2.h < Math.max(30, b1.h * 0.65);
+      if ((isS1ThinBar && !isS2ThinBar) || (isS2ThinBar && !isS1ThinBar)) {
+        const bar = isS1ThinBar ? b1 : b2;
+        const loop = isS1ThinBar ? b2 : b1;
+        // Loop must be a 2D body, NOT a vertical stem (which would be a '+' cross)
+        const isLoop2D = loop.w > 18 && loop.h > 18 && loop.w > loop.h * 0.45;
+        // Bar is inside the vertical span of the loop
+        const barInsideLoopY = bar.cy > loop.minY + loop.h * 0.05 && bar.cy < loop.maxY - loop.h * 0.05;
+        const alignedX = Math.abs(bar.cx - loop.cx) < Math.max(bar.w, loop.w) * 0.45;
+        if (isLoop2D && barInsideLoopY && alignedX) {
+          return 'θ';
         }
       }
 
-      // 2. Multi-stroke 'y' or 'Y' (3 strokes: left arm, right arm, vertical stem)
+      // 1. EQUALS '=': two roughly horizontal parallel strokes stacked vertically
+      const isS1Wide = b1.w > b1.h * 1.35;
+      const isS2Wide = b2.w > b2.h * 1.35;
+      const comparableHeight = Math.max(b1.h, b2.h) < Math.min(b1.h, b2.h) * 2.8;
+      const isStackedSeparatedY = (b1.maxY < b2.cy || b2.maxY < b1.cy);
+      const alignedX = Math.abs(b1.cx - b2.cx) < Math.max(b1.w, b2.w) * 0.55;
+      if (isS1Wide && isS2Wide && comparableHeight && isStackedSeparatedY && alignedX) {
+        return '=';
+      }
+
+      // 2. PLUS '+': one horizontal, one vertical, intersecting near center
+      const isS1Horiz = b1.w > b1.h * 1.15;
+      const isS2Horiz = b2.w > b2.h * 1.15;
+      const isS1Vert = b1.h > b1.w * 1.15;
+      const isS2Vert = b2.h > b2.w * 1.15;
+      const centerCloseX = Math.abs(b1.cx - b2.cx) < Math.max(b1.w, b2.w) * 0.5;
+      const centerCloseY = Math.abs(b1.cy - b2.cy) < Math.max(b1.h, b2.h) * 0.5;
+      if (((isS1Horiz && isS2Vert) || (isS1Vert && isS2Horiz)) && centerCloseX && centerCloseY) {
+        return '+';
+      }
+
+      // 3. 2-stroke Variable 'x': two crossing diagonal strokes
+      const o1 = getStrokeOrientation(s1);
+      const o2 = getStrokeOrientation(s2);
+      if (o1.isDiag && o2.isDiag && o1.dir * o2.dir < 0) {
+        const diffMaxY = Math.abs(b1.maxY - b2.maxY);
+        const minH = Math.min(b1.h, b2.h);
+        const maxH = Math.max(b1.h, b2.h);
+
+        const isSymmetricX =
+          diffMaxY < minH * 0.35 &&
+          Math.abs(b1.minY - b2.minY) < maxH * 0.35 &&
+          Math.abs(b1.cy - b2.cy) < maxH * 0.35;
+
+        if (isSymmetricX) {
+          return 'x';
+        }
+        return 'y';
+      }
+
+      // 4. 2-stroke 'y': stroke 1 is a cup/V and stroke 2 is a descender tail
+      const diffMaxY = Math.abs(b1.maxY - b2.maxY);
+      const minH = Math.min(b1.h, b2.h);
+      if (diffMaxY > minH * 0.25 && (b1.cy < norm.cy || b2.cy < norm.cy)) {
+        return 'y';
+      }
+
+      // 5. 3-stroke 'y' or 'Y' (left arm, right arm, vertical stem)
       if (numStrokes === 3) {
         const topStrokes = clusterStrokes.filter((s) => {
           const b = s.bounds || getElementBounds(s);
@@ -1936,52 +2188,7 @@ export function classifyCharacterCluster(clusterStrokes) {
         }
       }
 
-      // 3. EQUALS '=': two roughly horizontal parallel strokes stacked vertically
-      const isS1Wide = b1.w / (b1.h || 1) > 1.15;
-      const isS2Wide = b2.w / (b2.h || 1) > 1.15;
-      if (isS1Wide && isS2Wide && Math.abs(b1.cy - b2.cy) > Math.min(b1.h, b2.h) * 0.3) {
-        return '=';
-      }
-
-      // 4. PLUS '+': one horizontal, one vertical, intersecting
-      const isS1Horiz = b1.w > b1.h * 1.2;
-      const isS2Horiz = b2.w > b2.h * 1.2;
-      const isS1Vert = b1.h > b1.w * 1.2;
-      const isS2Vert = b2.h > b2.w * 1.2;
-      if ((isS1Horiz && isS2Vert) || (isS1Vert && isS2Horiz)) {
-        return '+';
-      }
-
-      // 5. 2-stroke Variable 'x' vs Variable 'y':
-      const o1 = getStrokeOrientation(s1);
-      const o2 = getStrokeOrientation(s2);
-      if (o1.isDiag && o2.isDiag && o1.dir * o2.dir < 0) {
-        const diffMaxY = Math.abs(b1.maxY - b2.maxY);
-        const minH = Math.min(b1.h, b2.h);
-        const maxH = Math.max(b1.h, b2.h);
-
-        // In 'x', both strokes start at nearly the same Y and end at nearly the same Y, crossing in center
-        const isSymmetricX =
-          diffMaxY < minH * 0.22 &&
-          Math.abs(b1.minY - b2.minY) < maxH * 0.25 &&
-          Math.abs(b1.cy - b2.cy) < maxH * 0.25;
-
-        if (isSymmetricX) {
-          return 'x';
-        }
-
-        // If one stroke extends down lower (descender tail) or they meet near bottom/middle -> 'y'
-        return 'y';
-      }
-
-      // 6. 2-stroke 'y': stroke 1 is a cup/V and stroke 2 is a descender tail
-      const diffMaxY = Math.abs(b1.maxY - b2.maxY);
-      const minH = Math.min(b1.h, b2.h);
-      if (diffMaxY > minH * 0.22 && (b1.cy < norm.cy || b2.cy < norm.cy)) {
-        return 'y';
-      }
-
-      // 7. Digit '4' (2 strokes: L-shape + vertical stroke)
+      // 6. Digit '4' (2 strokes: L-shape + vertical stroke)
       if ((isS1Vert && !isS2Vert) || (isS2Vert && !isS1Vert)) {
         const vert = isS1Vert ? b1 : b2;
         const other = isS1Vert ? b2 : b1;
@@ -1990,24 +2197,110 @@ export function classifyCharacterCluster(clusterStrokes) {
         }
       }
 
-      // 8. Digit '5' (body stroke + top horizontal bar aligned directly above it)
+      // 7. Digit '5' (body stroke + top horizontal bar aligned directly above it)
       if (isS1Horiz && b1.cy < norm.cy && Math.abs(b1.cx - b2.cx) < Math.max(b1.w, b2.w) * 0.45) {
         return '5';
       }
     }
   }
 
-  // Case 2: Single-stroke character
+  // =========================================================================
+  // PRIORITY 2: SINGLE-STROKE FUNDAMENTAL DIGITS & OPERATORS
+  // (Prevents Greek letters like Delta, Rho, Gamma from hijacking '2', '9', 'y', '1', '-')
+  // =========================================================================
+  if (numStrokes === 1) {
+    const pts = clusterStrokes[0].points;
+    if (!pts || pts.length === 0) return '';
+
+    // Digit '2' (arch over top, diagonal down-left, horizontal base to bottom-right)
+    if (isSingleStrokeDigit2(pts, norm)) {
+      return '2';
+    }
+
+    // Digit '3' (two right lobes + center waist)
+    if (isSingleStrokeDigit3(pts, norm)) {
+      return '3';
+    }
+
+    // Single-stroke 'y' (cup + descender tail)
+    if (isSingleStrokeY(pts, norm)) {
+      return 'y';
+    }
+
+    // Digit '9' (upper loop + right descending stem)
+    if (isSingleStrokeDigit9(pts, norm)) {
+      return '9';
+    }
+
+    // Digit '0' (clean closed hollow loop)
+    if (isSingleStrokeDigit0(pts, norm)) {
+      return '0';
+    }
+
+    // Digit '7' (top horizontal bar + diagonal down-left)
+    if (isSingleStrokeDigit7(pts, norm)) {
+      return '7';
+    }
+
+    // Digit '6' (arch from top down into lower closed loop)
+    if (isSingleStrokeDigit6(pts, norm)) {
+      return '6';
+    }
+
+    // Digit '8' (figure 8 crossings)
+    if (isSingleStrokeDigit8(pts, norm)) {
+      return '8';
+    }
+
+    // 1. One '1': Narrow vertical stroke
+    if (aspectRatio < 0.38 && h > 20) {
+      return '1';
+    }
+
+    // 2. Minus '-': Wide, flat horizontal stroke
+    if (aspectRatio > 2.0 && h < 32 && w < 180) {
+      return '-';
+    }
+
+    // 3. Slash '/': Diagonal slope with high straightness
+    if (aspectRatio > 0.35 && aspectRatio < 1.25 && h > 25) {
+      const pStart = pts[0];
+      const pEnd = pts[pts.length - 1];
+      const isDiag1 = pStart.x > norm.cx && pEnd.x < norm.cx && pStart.y < norm.cy && pEnd.y > norm.cy;
+      const isDiag2 = pStart.x < norm.cx && pEnd.x > norm.cx && pStart.y > norm.cy && pEnd.y < norm.cy;
+      if (isDiag1 || isDiag2) {
+        let straight = true;
+        for (const p of pts) {
+          const d = distToSegment(p.x, p.y, pStart.x, pStart.y, pEnd.x, pEnd.y);
+          if (d > Math.max(w, h) * 0.22) {
+            straight = false;
+            break;
+          }
+        }
+        if (straight) return '/';
+      }
+    }
+
+    // 4. Dot '.' (very small stroke)
+    if (w < 12 && h < 12) {
+      return '.';
+    }
+  }
+
+  // =========================================================================
+  // PRIORITY 3: DEDICATED HIGH-PRECISION GREEK CHARACTERS
+  // (Sigma, Theta, Alpha, Beta, Delta, Pi, Phi, Lambda, etc.)
+  // =========================================================================
+  const greekChar = classifyGreekCharacter(clusterStrokes, norm);
+  if (greekChar) {
+    return greekChar;
+  }
+
+  // Case 2 continuation: Single-stroke character fallback analysis
   const pts = clusterStrokes[0].points;
   if (!pts || pts.length === 0) return '';
   const pStart = pts[0];
   const pEnd = pts[pts.length - 1];
-
-  // Geometric Fast Paths
-  // Fast Path: Single-stroke 'y' (Direct high-confidence recognition)
-  if (isSingleStrokeY(pts, norm)) {
-    return 'y';
-  }
 
   // 1. One '1': Narrow vertical stroke
   if (aspectRatio < 0.38 && h > 20) {
