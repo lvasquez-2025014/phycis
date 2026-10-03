@@ -36,12 +36,27 @@ export default function PhysicsObjectInspector({
   const isCannon = element.physicsType === 'cannon_launcher';
   const isObliqueProj = element.physicsType === 'oblique_projectile';
   const isTargetWall = element.physicsType === 'target_wall';
+  const isMcuTurntable = element.physicsType === 'mcu_turntable';
+  const isMcuParticle = element.physicsType === 'mcu_particle';
+  const isMcuvTurntable = element.physicsType === 'mcuv_turntable';
+  const isMcuvParticle = element.physicsType === 'mcuv_particle';
 
   // Form states initialized from element
   const [label, setLabel] = useState(
     props.label || element.name || 
-    (isMruv ? 'Móvil MRUV' : isFreefallBody ? 'Cuerpo en Caída Libre' : isVerticalProj ? 'Proyectil Tiro Vertical' : isHorizontalProj ? 'Proyectil Horizontal' : isCliffPlatform ? 'Acantilado de Lanzamiento' : isFreefallTower ? 'Torre de Caída Libre' : isCannon ? 'Cañón Lanzador Angular' : isObliqueProj ? 'Proyectil Oblicuo (2D)' : isTargetWall ? 'Muro Diana / Objetivo' : 'Móvil MRU')
+    (isMruv ? 'Móvil MRUV' : isFreefallBody ? 'Cuerpo en Caída Libre' : isVerticalProj ? 'Proyectil Tiro Vertical' : isHorizontalProj ? 'Proyectil Horizontal' : isCliffPlatform ? 'Acantilado de Lanzamiento' : isFreefallTower ? 'Torre de Caída Libre' : isCannon ? 'Cañón Lanzador Angular' : isObliqueProj ? 'Proyectil Oblicuo (2D)' : isTargetWall ? 'Muro Diana / Objetivo' : isMcuTurntable ? 'Plataforma Giratoria MCU' : isMcuParticle ? 'Masa Orbitante MCU' : isMcuvTurntable ? 'Rotor Acelerado MCUV' : isMcuvParticle ? 'Masa en MCUV' : 'Móvil MRU')
   );
+
+  // MCU & MCUV States (ω in rad/s, r in m, direction, α in rad/s²)
+  const [omegaRadSValue, setOmegaRadSValue] = useState(props.omega0 !== undefined ? props.omega0 : (props.omega !== undefined ? props.omega : (isMcuvTurntable || isMcuvParticle ? 0.0 : 3.0)));
+  const [radiusMetersValue, setRadiusMetersValue] = useState(props.radiusMeters !== undefined ? props.radiusMeters : 1.0);
+  const [mcuDirection, setMcuDirection] = useState(props.direction || 'ccw');
+  const [mcuvAlphaValue, setMcuvAlphaValue] = useState(props.alpha !== undefined ? props.alpha : 2.0);
+  const [showTangentialVector, setShowTangentialVector] = useState(props.showTangentialVector !== false);
+  const [showCentripetalVector, setShowCentripetalVector] = useState(props.showCentripetalVector !== false);
+  const [showTangentialAccelVector, setShowTangentialAccelVector] = useState(props.showTangentialAccelVector !== false);
+  const [showTotalAccelVector, setShowTotalAccelVector] = useState(props.showTotalAccelVector !== false);
+
   
   // Speed (v for MRU, v0 for MRUV/Freefall/VerticalLaunch/HorizontalLaunch/Oblique)
   const rawVel = props.displayVelocity !== undefined 
@@ -136,6 +151,14 @@ export default function PhysicsObjectInspector({
     setTrackLength(p.lengthMeters || p.heightMeters || 6.0);
     setTrackUnit(p.lengthUnit || 'm');
     setMassKg(p.mass || (element.physicsType === 'mru_cart' || currIsMruv ? 1.5 : currIsFfBody ? 1.0 : currIsVertProj || currIsHzProj || currIsOblique ? 0.5 : 100));
+    setOmegaRadSValue(p.omega0 !== undefined ? p.omega0 : (p.omega !== undefined ? p.omega : (element.physicsType === 'mcuv_turntable' || element.physicsType === 'mcuv_particle' ? 0.0 : 3.0)));
+    setRadiusMetersValue(p.radiusMeters !== undefined ? p.radiusMeters : 1.0);
+    setMcuDirection(p.direction || 'ccw');
+    setMcuvAlphaValue(p.alpha !== undefined ? p.alpha : 2.0);
+    setShowTangentialVector(p.showTangentialVector !== false);
+    setShowCentripetalVector(p.showCentripetalVector !== false);
+    setShowTangentialAccelVector(p.showTangentialAccelVector !== false);
+    setShowTotalAccelVector(p.showTotalAccelVector !== false);
   }, [element]);
 
   // Compute live conversions for velocity
@@ -320,6 +343,78 @@ export default function PhysicsObjectInspector({
         mass: parseFloat(massKg) || 0.5,
         showVector,
         showTrajectory,
+        color,
+      };
+      updatedElement.color = color;
+    } else if (element.physicsType === 'mcu_turntable') {
+      const numOmega = parseFloat(omegaRadSValue) || 3.0;
+      const numR = parseFloat(radiusMetersValue) || 1.0;
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        omega: numOmega,
+        initialOmega: numOmega,
+        radiusMeters: numR,
+        direction: mcuDirection || 'ccw',
+        color,
+      };
+      updatedElement.color = color;
+    } else if (element.physicsType === 'mcu_particle') {
+      const numOmega = parseFloat(omegaRadSValue) || 3.0;
+      const numR = parseFloat(radiusMetersValue) || 1.0;
+      const numAngle = parseFloat(angleDegValue) || 0.0;
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        omega: numOmega,
+        initialOmega: numOmega,
+        radiusMeters: numR,
+        angleRad: (numAngle * Math.PI) / 180,
+        initialAngleRad: (numAngle * Math.PI) / 180,
+        showTangentialVector,
+        showCentripetalVector,
+        showOrbit: showTrajectory,
+        color,
+      };
+      updatedElement.color = color;
+    } else if (element.physicsType === 'mcuv_turntable') {
+      const numOmega = parseFloat(omegaRadSValue) || 0.0;
+      const numAlpha = parseFloat(mcuvAlphaValue) || 2.0;
+      const numR = parseFloat(radiusMetersValue) || 1.0;
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        omega0: numOmega,
+        omega: numOmega,
+        initialOmega: numOmega,
+        alpha: numAlpha,
+        initialAlpha: numAlpha,
+        radiusMeters: numR,
+        direction: mcuDirection || 'ccw',
+        color,
+      };
+      updatedElement.color = color;
+    } else if (element.physicsType === 'mcuv_particle') {
+      const numOmega = parseFloat(omegaRadSValue) || 0.0;
+      const numAlpha = parseFloat(mcuvAlphaValue) || 2.0;
+      const numR = parseFloat(radiusMetersValue) || 1.0;
+      const numAngle = parseFloat(angleDegValue) || 0.0;
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        omega0: numOmega,
+        omega: numOmega,
+        initialOmega: numOmega,
+        alpha: numAlpha,
+        initialAlpha: numAlpha,
+        radiusMeters: numR,
+        angleRad: (numAngle * Math.PI) / 180,
+        initialAngleRad: (numAngle * Math.PI) / 180,
+        showTangentialVector,
+        showCentripetalVector,
+        showTangentialAccelVector,
+        showTotalAccelVector,
+        showOrbit: showTrajectory,
         color,
       };
       updatedElement.color = color;
@@ -2002,6 +2097,340 @@ export default function PhysicsObjectInspector({
                 Sensor óptico infrarrojo de laboratorio. Registra automáticamente el instante temporal en que el móvil atraviesa el haz.
               </span>
             </div>
+          )}
+          {/* ------------------------------------------------------------- */}
+          {/* 7. MOVIMIENTO CIRCULAR UNIFORME (MCU)                         */}
+          {/* ------------------------------------------------------------- */}
+          {(element.physicsType === 'mcu_turntable' || element.physicsType === 'mcu_particle') && (
+            <>
+              {/* Angular speed omega */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Velocidad Angular (ω en rad/s):</label>
+                  <span className="field-badge-mru" style={{ background: '#e0f2fe', color: '#0284c7', borderColor: '#bae6fd' }}>
+                    Constante (MCU)
+                  </span>
+                </div>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="inspector-input number-input"
+                    value={omegaRadSValue}
+                    onChange={(e) => setOmegaRadSValue(e.target.value)}
+                    placeholder="3.0"
+                    required
+                  />
+                  <div className="static-unit-box">rad/s</div>
+                </div>
+                <div className="quick-presets-row">
+                  <span className="quick-presets-label">Valores HT03:</span>
+                  {[
+                    { label: 'ω = 18 (P1)', w: 18.0 },
+                    { label: 'ω = 4 (P6)', w: 4.0 },
+                    { label: 'ω = 0.52 (P3)', w: 0.52 },
+                    { label: '1200 RPM (P4)', w: 125.66 },
+                    { label: '3200 RPM (P9)', w: 335.1 },
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`quick-pill-btn ${parseFloat(omegaRadSValue) === p.w ? 'active' : ''}`}
+                      onClick={() => setOmegaRadSValue(p.w)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Radius in meters */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Radio de Giro (r en metros):</label>
+                  <span className="field-badge-mru" style={{ background: '#f8fafc', color: '#475569' }}>
+                    Distancia al eje
+                  </span>
+                </div>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0.01"
+                    className="inspector-input number-input"
+                    value={radiusMetersValue}
+                    onChange={(e) => setRadiusMetersValue(e.target.value)}
+                    placeholder="1.0"
+                    required
+                  />
+                  <div className="static-unit-box">metros (m)</div>
+                </div>
+              </div>
+
+              {/* Rotational Direction */}
+              <div className="inspector-field">
+                <label className="inspector-label">Sentido de Rotación:</label>
+                <div className="toggle-group" style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`quick-pill-btn ${mcuDirection === 'ccw' ? 'active' : ''}`}
+                    onClick={() => setMcuDirection('ccw')}
+                  >
+                    Antihorario (CCW ↺)
+                  </button>
+                  <button
+                    type="button"
+                    className={`quick-pill-btn ${mcuDirection === 'cw' ? 'active' : ''}`}
+                    onClick={() => setMcuDirection('cw')}
+                  >
+                    Horario (CW ↻)
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Vectors Checkboxes */}
+              {element.physicsType === 'mcu_particle' && (
+                <div className="inspector-field">
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={showTangentialVector}
+                      onChange={(e) => setShowTangentialVector(e.target.checked)}
+                    />
+                    <span>Mostrar Vector Velocidad Tangencial (v⃗_t, esmeralda)</span>
+                  </label>
+                  <label className="checkbox-row" style={{ marginTop: '6px' }}>
+                    <input
+                      type="checkbox"
+                      checked={showCentripetalVector}
+                      onChange={(e) => setShowCentripetalVector(e.target.checked)}
+                    />
+                    <span>Mostrar Vector Aceleración Centrípeta (a⃗_c, carmesí al centro)</span>
+                  </label>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 8. MOVIMIENTO CIRCULAR ACELERADO (MCUV / MCUA)                */}
+          {/* ------------------------------------------------------------- */}
+          {(element.physicsType === 'mcuv_turntable' || element.physicsType === 'mcuv_particle') && (
+            <>
+              {/* Initial Angular speed omega0 */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Velocidad Angular Inicial (ω₀ en rad/s):</label>
+                  <span className="field-badge-mruv">ω(t) = ω₀ + α·t</span>
+                </div>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="inspector-input number-input"
+                    value={omegaRadSValue}
+                    onChange={(e) => setOmegaRadSValue(e.target.value)}
+                    placeholder="0.0"
+                    required
+                  />
+                  <div className="static-unit-box">rad/s</div>
+                </div>
+                <div className="quick-presets-row">
+                  <span className="quick-presets-label">Valores ω₀:</span>
+                  {[
+                    { label: '0 rad/s (Reposo P11, P13)', w: 0.0 },
+                    { label: '2 rad/s (P15)', w: 2.0 },
+                    { label: '15 rad/s (P12)', w: 15.0 },
+                    { label: '30 rad/s (P23)', w: 30.0 },
+                    { label: '50 rad/s (P14)', w: 50.0 },
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`quick-pill-btn ${parseFloat(omegaRadSValue) === p.w ? 'active' : ''}`}
+                      onClick={() => setOmegaRadSValue(p.w)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Constant Angular Acceleration alpha */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Aceleración Angular (α en rad/s²):</label>
+                  <span className="field-badge-accel">α = cte</span>
+                </div>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="inspector-input number-input"
+                    value={mcuvAlphaValue}
+                    onChange={(e) => setMcuvAlphaValue(e.target.value)}
+                    placeholder="2.0"
+                    required
+                  />
+                  <div className="static-unit-box">rad/s²</div>
+                </div>
+                <div className="quick-presets-row">
+                  <span className="quick-presets-label">Valores α Kinal:</span>
+                  {[
+                    { label: '+3.5 rad/s² (P11)', a: 3.5 },
+                    { label: '+4.0 rad/s² (P13)', a: 4.0 },
+                    { label: '+5.0 rad/s² (P18)', a: 5.0 },
+                    { label: '+8.0 rad/s² (P25)', a: 8.0 },
+                    { label: '-2.5 rad/s² (Freno P12)', a: -2.5 },
+                    { label: '-5.0 rad/s² (Freno P14)', a: -5.0 },
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`quick-pill-btn ${parseFloat(mcuvAlphaValue) === p.a ? 'active' : ''}`}
+                      onClick={() => setMcuvAlphaValue(p.a)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Radius in meters */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Radio de Giro (r en metros):</label>
+                  <span className="field-badge-mru" style={{ background: '#f8fafc', color: '#475569' }}>
+                    Distancia al eje
+                  </span>
+                </div>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0.01"
+                    className="inspector-input number-input"
+                    value={radiusMetersValue}
+                    onChange={(e) => setRadiusMetersValue(e.target.value)}
+                    placeholder="1.0"
+                    required
+                  />
+                  <div className="static-unit-box">metros (m)</div>
+                </div>
+                <div className="quick-presets-row">
+                  <span className="quick-presets-label">Radios Unidad 2:</span>
+                  {[
+                    { label: '0.15 m (P14)', r: 0.15 },
+                    { label: '0.20 m (P18)', r: 0.2 },
+                    { label: '0.28 m (P25)', r: 0.28 },
+                    { label: '0.30 m (P13)', r: 0.3 },
+                    { label: '0.40 m (P11)', r: 0.4 },
+                    { label: '0.60 m (P12)', r: 0.6 },
+                    { label: '1.50 m (P23)', r: 1.5 },
+                  ].map((p, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`quick-pill-btn ${parseFloat(radiusMetersValue) === p.r ? 'active' : ''}`}
+                      onClick={() => setRadiusMetersValue(p.r)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Rotational Direction */}
+              <div className="inspector-field">
+                <label className="inspector-label">Sentido de Rotación Inicial:</label>
+                <div className="toggle-group" style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`quick-pill-btn ${mcuDirection === 'ccw' ? 'active' : ''}`}
+                    onClick={() => setMcuDirection('ccw')}
+                  >
+                    Antihorario (CCW ↺)
+                  </button>
+                  <button
+                    type="button"
+                    className={`quick-pill-btn ${mcuDirection === 'cw' ? 'active' : ''}`}
+                    onClick={() => setMcuDirection('cw')}
+                  >
+                    Horario (CW ↻)
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Vectors Checkboxes for Particle */}
+              {element.physicsType === 'mcuv_particle' && (
+                <div className="inspector-field">
+                  <label className="inspector-label">Vectores Dinámicos en Tiempo Real:</label>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={showTangentialVector}
+                      onChange={(e) => setShowTangentialVector(e.target.checked)}
+                    />
+                    <span>Mostrar Vector Rapidez Tangencial (v⃗_t, esmeralda)</span>
+                  </label>
+                  <label className="checkbox-row" style={{ marginTop: '6px' }}>
+                    <input
+                      type="checkbox"
+                      checked={showCentripetalVector}
+                      onChange={(e) => setShowCentripetalVector(e.target.checked)}
+                    />
+                    <span>Mostrar Vector Aceleración Centrípeta (a⃗_c, carmesí al centro)</span>
+                  </label>
+                  <label className="checkbox-row" style={{ marginTop: '6px' }}>
+                    <input
+                      type="checkbox"
+                      checked={showTangentialAccelVector}
+                      onChange={(e) => setShowTangentialAccelVector(e.target.checked)}
+                    />
+                    <span>Mostrar Vector Aceleración Tangencial (a⃗_t, ámbar tangencial)</span>
+                  </label>
+                  <label className="checkbox-row" style={{ marginTop: '6px' }}>
+                    <input
+                      type="checkbox"
+                      checked={showTotalAccelVector}
+                      onChange={(e) => setShowTotalAccelVector(e.target.checked)}
+                    />
+                    <span>Mostrar Vector Aceleración Total (a⃗_total, violeta resultante)</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Theoretical Kinematic Calculations Card */}
+              {(() => {
+                const w0Val = parseFloat(omegaRadSValue) || 0.0;
+                const aVal = parseFloat(mcuvAlphaValue) || 0.0;
+                const rVal = parseFloat(radiusMetersValue) || 1.0;
+                const vt0 = Math.abs(w0Val) * rVal;
+                const at = Math.abs(aVal) * rVal;
+                const ac0 = w0Val * w0Val * rVal;
+                const aTot0 = Math.hypot(ac0, at);
+                return (
+                  <div className="conversions-box" style={{ background: '#f0fdfa', borderColor: '#ccfbf1' }}>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#0d9488' }}>Rapidez Tangencial v_t(0):</span>
+                      <span className="conv-value" style={{ color: '#0f766e', fontWeight: 800 }}>{vt0.toFixed(2)} m/s</span>
+                    </div>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#0d9488' }}>Aceleración Tangencial a_t:</span>
+                      <span className="conv-value" style={{ color: '#0f766e', fontWeight: 800 }}>{at.toFixed(2)} m/s² (cte)</span>
+                    </div>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#0d9488' }}>Aceleración Centrípeta a_c(0):</span>
+                      <span className="conv-value" style={{ color: '#0f766e', fontWeight: 800 }}>{ac0.toFixed(2)} m/s²</span>
+                    </div>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#0d9488' }}>Aceleración Total a_tot(0):</span>
+                      <span className="conv-value" style={{ color: '#0f766e', fontWeight: 800 }}>{aTot0.toFixed(2)} m/s²</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           )}
 
           {/* Actions */}

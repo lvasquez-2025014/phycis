@@ -44,6 +44,8 @@ export default function LeftToolbar({
   onOpenTiroVerticalSolver,
   onOpenHorizontalLaunchSolver,
   onOpenProjectileMotionSolver,
+  onOpenMcuSolver,
+  onOpenMcuvSolver,
 }) {
   // Flyout submenu visibility states ('pen' | 'templates' | 'sticky' | 'shapes' | 'greek_symbols' | 'physics_objects' | null)
   const [activeFlyout, setActiveFlyout] = useState(null);
@@ -257,6 +259,8 @@ export default function LeftToolbar({
         onOpenTiroVerticalSolver={onOpenTiroVerticalSolver}
         onOpenHorizontalLaunchSolver={onOpenHorizontalLaunchSolver}
         onOpenProjectileMotionSolver={onOpenProjectileMotionSolver}
+        onOpenMcuSolver={onOpenMcuSolver}
+        onOpenMcuvSolver={onOpenMcuvSolver}
       />
 
       <PenFlyout

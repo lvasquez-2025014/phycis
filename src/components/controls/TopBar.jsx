@@ -19,7 +19,8 @@ import {
   ArrowUpCircle,
   Navigation,
   GraduationCap,
-  Target
+  Target,
+  RotateCw
 } from 'lucide-react';
 
 export default function TopBar({
@@ -40,6 +41,8 @@ export default function TopBar({
   onOpenTiroVerticalSolver,
   onOpenHorizontalLaunchSolver,
   onOpenProjectileMotionSolver,
+  onOpenMcuSolver,
+  onOpenMcuvSolver,
   onOpenPhysicsSandbox,
   onClearBoard,
 }) {
@@ -103,23 +106,6 @@ export default function TopBar({
     <header className="phy-studio-header">
       {/* 1. LEFT: Brand & Board Name */}
       <div className="studio-header-left">
-        {/* Brand Logo */}
-        <div className="studio-brand-box" title="Physics Studio — Laboratorio Digital de Física y Matemáticas">
-          <div className="studio-brand-symbol">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-              <path d="M12 2a10 5 0 0 1 10 5c0 2.76-4.48 5-10 5S2 9.76 2 7a10 5 0 0 1 10-5z" />
-              <path d="M2.5 14.5c2.4 1.4 5.9 2.5 9.5 2.5s7.1-1.1 9.5-2.5" />
-              <path d="M6 19c1.7.6 3.8 1 6 1s4.3-.4 6-1" />
-            </svg>
-          </div>
-          <div className="studio-brand-text">
-            <span className="studio-brand-title">PHYSICS LAB</span>
-            <span className="studio-brand-sub">Estudio de Cinemática</span>
-          </div>
-        </div>
-
-        <div className="studio-v-divider" />
 
         {/* Board Title */}
         <div className="studio-title-box">
@@ -317,29 +303,51 @@ export default function TopBar({
                 </button>
               )}
 
-              {/* Category: Tools & Syllabus */}
-              <div className="topics-dropdown-header">SIMULACIÓN & TEMARIO</div>
-
-              {onOpenPhysicsSandbox && (
+              {onOpenMcuSolver && (
                 <button
                   className="studio-dropdown-item topic-item"
                   onClick={() => {
                     setIsTopicsMenuOpen(false);
-                    onOpenPhysicsSandbox();
+                    onOpenMcuSolver();
                   }}
                 >
-                  <div className="topic-icon-badge badge-sandbox">
-                    <Sparkles size={14} />
+                  <div className="topic-icon-badge badge-mcu">
+                    <RotateCw size={14} />
                   </div>
                   <div className="dropdown-item-meta">
                     <div className="topic-item-header">
-                      <span className="dropdown-item-title">Sandbox Dinámico</span>
-                      <span className="topic-tag tag-sandbox">Matter.js</span>
+                      <span className="dropdown-item-title">Movimiento Circular Uniforme (MCU)</span>
+                      <span className="topic-tag tag-mcu">HT03 MCU</span>
                     </div>
-                    <span className="dropdown-item-sub">Laboratorio de cuerpos rígidos, masas y máquina de Atwood</span>
+                    <span className="dropdown-item-sub">Radio, período, frecuencia, velocidad angular y tangencial • 10 problemas y 9 conceptuales</span>
                   </div>
                 </button>
               )}
+
+              {onOpenMcuvSolver && (
+                <button
+                  className="studio-dropdown-item topic-item"
+                  onClick={() => {
+                    setIsTopicsMenuOpen(false);
+                    onOpenMcuvSolver();
+                  }}
+                >
+                  <div className="topic-icon-badge badge-mcuv">
+                    <RotateCw size={14} />
+                  </div>
+                  <div className="dropdown-item-meta">
+                    <div className="topic-item-header">
+                      <span className="dropdown-item-title">Movimiento Circular Variado (MCUV)</span>
+                      <span className="topic-tag tag-mcuv">Unidad 2</span>
+                    </div>
+                    <span className="dropdown-item-sub">Aceleración angular α, ω(t), at, ac, atotal • 15 problemas y 10 conceptuales</span>
+                  </div>
+                </button>
+              )}
+
+              {/* Category: Tools & Syllabus */}
+              <div className="topics-dropdown-header">SIMULACIÓN & TEMARIO</div>
+
 
               {onOpenTemplates && (
                 <button
@@ -377,17 +385,6 @@ export default function TopBar({
           </button>
         )}
 
-        {/* Quick Access: Physics Sandbox */}
-        {onOpenPhysicsSandbox && (
-          <button
-            className="studio-module-btn accent-sandbox"
-            onClick={onOpenPhysicsSandbox}
-            title="Laboratorio de simulación dinámica (Matter.js)"
-          >
-            <Sparkles size={14} />
-            <span>Sandbox</span>
-          </button>
-        )}
 
         {/* Clear Board Button */}
         {onClearBoard && (
@@ -426,67 +423,7 @@ export default function TopBar({
 
       {/* 3. RIGHT: Session, Export & Actions */}
       <div className="studio-header-right">
-        {/* Session Status */}
-        <div className="studio-session-tag" onClick={onOpenSaveModal} title="Sesión local activa (24h)">
-          <Clock size={12} />
-          <span>24h Activa</span>
-        </div>
 
-        {/* Export Dropdown */}
-        <div className="studio-dropdown-wrapper" ref={exportMenuRef}>
-          <button
-            className="studio-module-btn"
-            onClick={() => setIsExportMenuOpen((prev) => !prev)}
-            title="Exportar laboratorio"
-          >
-            <Download size={14} />
-            <span>Exportar</span>
-            <ChevronDown size={12} className={`chevron-indicator ${isExportMenuOpen ? 'open' : ''}`} />
-          </button>
-
-          {isExportMenuOpen && (
-            <div className="studio-dropdown-menu">
-              <button
-                className="studio-dropdown-item"
-                onClick={() => {
-                  setIsExportMenuOpen(false);
-                  if (onExportPNG) onExportPNG();
-                }}
-              >
-                <ImageIcon size={14} />
-                <div className="dropdown-item-meta">
-                  <span className="dropdown-item-title">Imagen PNG (HD)</span>
-                  <span className="dropdown-item-sub">Captura completa en alta resolución</span>
-                </div>
-              </button>
-              <button
-                className="studio-dropdown-item"
-                onClick={() => {
-                  setIsExportMenuOpen(false);
-                  if (onExportJSON) onExportJSON();
-                }}
-              >
-                <FileText size={14} />
-                <div className="dropdown-item-meta">
-                  <span className="dropdown-item-title">Archivo de Datos JSON</span>
-                  <span className="dropdown-item-sub">Guarda objetos, fórmulas y estado</span>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* User Badge */}
-        <div className="studio-user-badge" title="Sesión de laboratorio activa">
-          <span className="user-initials">LAB</span>
-          <span className="user-online-dot" />
-        </div>
-
-        {/* Share Button */}
-        <button className="studio-action-btn primary" onClick={onOpenShare} title="Compartir enlace del laboratorio">
-          <Share2 size={13} strokeWidth={2.4} />
-          <span>Compartir</span>
-        </button>
 
         {/* Save Button */}
         <button className="studio-action-btn secondary" onClick={onOpenSaveModal} title="Guardar pizarra">
@@ -965,6 +902,18 @@ export default function TopBar({
           border: 1px solid #ddd6fe;
         }
 
+        .topic-icon-badge.badge-mcu {
+          background: #e0f2fe;
+          color: #0284c7;
+          border: 1px solid #bae6fd;
+        }
+
+        .topic-icon-badge.badge-mcuv {
+          background: #fef3c7;
+          color: #d97706;
+          border: 1px solid #fde68a;
+        }
+
         .topic-icon-badge.badge-sandbox {
           background: #eef2ff;
           color: #4f46e5;
@@ -996,6 +945,8 @@ export default function TopBar({
         .tag-tiro { background: #fce7f3; color: #9d174d; }
         .tag-horizontal { background: #cffafe; color: #155e75; }
         .tag-proyectiles { background: #ede9fe; color: #6d28d9; }
+        .tag-mcu { background: #e0f2fe; color: #0369a1; }
+        .tag-mcuv { background: #fef3c7; color: #b45309; }
         .tag-sandbox { background: #e0e7ff; color: #3730a3; }
         .tag-templates { background: #e2e8f0; color: #334155; }
 

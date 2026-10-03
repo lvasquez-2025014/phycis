@@ -393,6 +393,221 @@ export function createHeadlessSimulation(elements, options = {}) {
   });
 
   // -------------------------------------------------------------------------
+  // 2.5 COMPILE MOVIMIENTO CIRCULAR UNIFORME (HT03 MCU)
+  // -------------------------------------------------------------------------
+  const mcuSystems = [];
+  const mcuParticles = physicsObjects.filter((el) => el.physicsType === 'mcu_particle');
+  const mcuTurntables = physicsObjects.filter((el) => el.physicsType === 'mcu_turntable');
+
+  mcuParticles.forEach((particleEl) => {
+    const rM = particleEl.properties?.radiusMeters !== undefined ? particleEl.properties.radiusMeters : 1.0;
+    const rPx = particleEl.properties?.radiusPx !== undefined ? particleEl.properties.radiusPx : 110;
+    const omega = particleEl.properties?.initialOmega !== undefined
+      ? particleEl.properties.initialOmega
+      : (particleEl.properties?.omega !== undefined ? particleEl.properties.omega : 3.0);
+    const angleRad = particleEl.properties?.initialAngleRad !== undefined
+      ? particleEl.properties.initialAngleRad
+      : (particleEl.properties?.angleRad !== undefined ? particleEl.properties.angleRad : 0.0);
+
+    // Find nearest matching turntable or use particle's center reference
+    let turntable = null;
+    if (mcuTurntables.length > 0) {
+      turntable = [...mcuTurntables].sort(
+        (a, b) => Math.hypot((a.x + a.width / 2) - particleEl.x, (a.y + a.height / 2) - particleEl.y) -
+                  Math.hypot((b.x + b.width / 2) - particleEl.x, (b.y + b.height / 2) - particleEl.y)
+      )[0];
+    }
+
+    let cx, cy;
+    if (turntable) {
+      cx = turntable.x + turntable.width / 2;
+      cy = turntable.y + turntable.height / 2;
+    } else if (particleEl.properties?.centerX !== undefined && particleEl.properties?.centerY !== undefined) {
+      cx = particleEl.properties.centerX;
+      cy = particleEl.properties.centerY;
+    } else {
+      cx = particleEl.x + particleEl.width / 2 - rPx * Math.cos(angleRad);
+      cy = particleEl.y + particleEl.height / 2 + rPx * Math.sin(angleRad);
+    }
+
+    const vt = Math.abs(omega) * rM;
+    const ac = omega * omega * rM;
+    const period = Math.abs(omega) > 0 ? (2 * Math.PI) / Math.abs(omega) : Infinity;
+    const frequency = Math.abs(omega) > 0 ? Math.abs(omega) / (2 * Math.PI) : 0;
+    const rpm = frequency * 60;
+
+    mcuSystems.push({
+      bodyId: particleEl.id,
+      turntableId: turntable ? turntable.id : null,
+      centerX: cx,
+      centerY: cy,
+      radiusMeters: rM,
+      radiusPx: rPx,
+      omega,
+      initialOmega: omega,
+      angleRad,
+      initialAngleRad: angleRad,
+      vt,
+      ac,
+      period,
+      frequency,
+      rpm,
+      revolutions: 0.0,
+      totalAngleRotated: 0.0,
+      width: particleEl.width,
+      height: particleEl.height,
+      initialX: particleEl.x,
+      initialY: particleEl.y,
+      currentX: particleEl.x,
+      currentY: particleEl.y,
+      isFinished: false,
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // 2.6 COMPILE MOVIMIENTO CIRCULAR ACELERADO (MCUV / MCUA)
+  // Unidad 2 Kinal - Diversificado
+  // -------------------------------------------------------------------------
+  const mcuvSystems = [];
+  const mcuvParticles = physicsObjects.filter((el) => el.physicsType === 'mcuv_particle');
+  const mcuvTurntables = physicsObjects.filter((el) => el.physicsType === 'mcuv_turntable');
+  const pairedTurntableIds = new Set();
+
+  mcuvParticles.forEach((particleEl) => {
+    const rM = particleEl.properties?.radiusMeters !== undefined ? particleEl.properties.radiusMeters : 1.0;
+    const rPx = particleEl.properties?.radiusPx !== undefined ? particleEl.properties.radiusPx : 110;
+    const omega0 = particleEl.properties?.omega0 !== undefined
+      ? particleEl.properties.omega0
+      : (particleEl.properties?.initialOmega !== undefined
+        ? particleEl.properties.initialOmega
+        : (particleEl.properties?.omega !== undefined ? particleEl.properties.omega : 0.0));
+    const alpha = particleEl.properties?.alpha !== undefined
+      ? particleEl.properties.alpha
+      : (particleEl.properties?.initialAlpha !== undefined ? particleEl.properties.initialAlpha : 2.0);
+    const angleRad = particleEl.properties?.angleRad !== undefined
+      ? particleEl.properties.angleRad
+      : (particleEl.properties?.initialAngleRad !== undefined ? particleEl.properties.initialAngleRad : 0.0);
+
+    // Find nearest matching turntable or use particle's center reference
+    let turntable = null;
+    if (mcuvTurntables.length > 0) {
+      turntable = [...mcuvTurntables].sort(
+        (a, b) => Math.hypot((a.x + a.width / 2) - particleEl.x, (a.y + a.height / 2) - particleEl.y) -
+                  Math.hypot((b.x + b.width / 2) - particleEl.x, (b.y + b.height / 2) - particleEl.y)
+      )[0];
+    }
+
+    if (turntable) {
+      pairedTurntableIds.add(turntable.id);
+    }
+
+    let cx, cy;
+    if (turntable) {
+      cx = turntable.x + turntable.width / 2;
+      cy = turntable.y + turntable.height / 2;
+    } else if (particleEl.properties?.centerX !== undefined && particleEl.properties?.centerY !== undefined) {
+      cx = particleEl.properties.centerX;
+      cy = particleEl.properties.centerY;
+    } else {
+      cx = particleEl.x + particleEl.width / 2 - rPx * Math.cos(angleRad);
+      cy = particleEl.y + particleEl.height / 2 + rPx * Math.sin(angleRad);
+    }
+
+    const vt = Math.abs(omega0) * rM;
+    const ac = omega0 * omega0 * rM;
+    const at = Math.abs(alpha) * rM;
+    const aTotal = Math.hypot(ac, at);
+    const rpm = (Math.abs(omega0) * 60) / (2 * Math.PI);
+
+    mcuvSystems.push({
+      bodyId: particleEl.id,
+      turntableId: turntable ? turntable.id : null,
+      centerX: cx,
+      centerY: cy,
+      radiusMeters: rM,
+      radiusPx: rPx,
+      omega0,
+      initialOmega: omega0,
+      omega: omega0,
+      alpha,
+      initialAlpha: alpha,
+      angleRad,
+      initialAngleRad: angleRad,
+      vt,
+      ac,
+      at,
+      aTotal,
+      rpm,
+      revolutions: 0.0,
+      totalAngleRotated: 0.0,
+      width: particleEl.width,
+      height: particleEl.height,
+      initialX: particleEl.x,
+      initialY: particleEl.y,
+      currentX: particleEl.x,
+      currentY: particleEl.y,
+      isFinished: false,
+    });
+  });
+
+  // Also compile standalone MCUV Turntables (rotors with no orbiting particle)
+  mcuvTurntables.forEach((turntableEl) => {
+    if (pairedTurntableIds.has(turntableEl.id)) return;
+
+    const rM = turntableEl.properties?.radiusMeters !== undefined ? turntableEl.properties.radiusMeters : 1.0;
+    const rPx = turntableEl.width / 2;
+    const omega0 = turntableEl.properties?.omega0 !== undefined
+      ? turntableEl.properties.omega0
+      : (turntableEl.properties?.initialOmega !== undefined
+        ? turntableEl.properties.initialOmega
+        : (turntableEl.properties?.omega !== undefined ? turntableEl.properties.omega : 0.0));
+    const alpha = turntableEl.properties?.alpha !== undefined
+      ? turntableEl.properties.alpha
+      : (turntableEl.properties?.initialAlpha !== undefined ? turntableEl.properties.initialAlpha : 2.0);
+    const angleRad = turntableEl.properties?.angleRad !== undefined
+      ? turntableEl.properties.angleRad
+      : (turntableEl.properties?.initialAngleRad !== undefined ? turntableEl.properties.initialAngleRad : 0.0);
+
+    const cx = turntableEl.x + turntableEl.width / 2;
+    const cy = turntableEl.y + turntableEl.height / 2;
+    const vt = Math.abs(omega0) * rM;
+    const ac = omega0 * omega0 * rM;
+    const at = Math.abs(alpha) * rM;
+    const aTotal = Math.hypot(ac, at);
+    const rpm = (Math.abs(omega0) * 60) / (2 * Math.PI);
+
+    mcuvSystems.push({
+      bodyId: null,
+      turntableId: turntableEl.id,
+      centerX: cx,
+      centerY: cy,
+      radiusMeters: rM,
+      radiusPx: rPx,
+      omega0,
+      initialOmega: omega0,
+      omega: omega0,
+      alpha,
+      initialAlpha: alpha,
+      angleRad,
+      initialAngleRad: angleRad,
+      vt,
+      ac,
+      at,
+      aTotal,
+      rpm,
+      revolutions: 0.0,
+      totalAngleRotated: 0.0,
+      width: turntableEl.width,
+      height: turntableEl.height,
+      initialX: turntableEl.x,
+      initialY: turntableEl.y,
+      currentX: turntableEl.x,
+      currentY: turntableEl.y,
+      isFinished: false,
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // 3. COMPILE DINÁMICA: MASAS & POLEAS (ATWOOD)
   // -------------------------------------------------------------------------
   physicsObjects.forEach((el) => {
@@ -726,6 +941,45 @@ export function createHeadlessSimulation(elements, options = {}) {
       isFinished: false,
       isSimulationComplete: false,
     };
+  } else if (mcuSystems.length > 0) {
+    const primary = mcuSystems[0];
+    const primaryEl = elements.find((e) => e.id === primary.bodyId);
+    initialTelemetry = {
+      type: 'mcu',
+      omega: Number(primary.omega.toFixed(2)),
+      vt: Number(primary.vt.toFixed(2)),
+      ac: Number(primary.ac.toFixed(2)),
+      radiusM: Number(primary.radiusMeters.toFixed(2)),
+      period: Number(primary.period.toFixed(2)),
+      frequency: Number(primary.frequency.toFixed(2)),
+      rpm: Number(primary.rpm.toFixed(1)),
+      revolutions: '0.00',
+      time: '0.0',
+      label: primaryEl?.properties?.label || 'Movimiento Circular Uniforme',
+      stage: 'Listo para Rotación',
+      isFinished: false,
+      isSimulationComplete: false,
+    };
+  } else if (mcuvSystems.length > 0) {
+    const primary = mcuvSystems[0];
+    const primaryEl = elements.find((e) => e.id === primary.bodyId);
+    initialTelemetry = {
+      type: 'mcuv',
+      omega: Number(primary.omega.toFixed(2)),
+      alpha: Number(primary.alpha.toFixed(2)),
+      vt: Number(primary.vt.toFixed(2)),
+      at: Number(primary.at.toFixed(2)),
+      ac: Number(primary.ac.toFixed(2)),
+      aTotal: Number(primary.aTotal.toFixed(2)),
+      radiusM: Number(primary.radiusMeters.toFixed(2)),
+      rpm: Number(primary.rpm.toFixed(1)),
+      revolutions: '0.00',
+      time: '0.0',
+      label: primaryEl?.properties?.label || 'Movimiento Circular Variado',
+      stage: 'Listo para Aceleración',
+      isFinished: false,
+      isSimulationComplete: false,
+    };
   } else if (atwoodSystems.length > 0) {
     const primary = atwoodSystems[0];
     initialTelemetry = {
@@ -748,6 +1002,8 @@ export function createHeadlessSimulation(elements, options = {}) {
     verticalLaunchSystems,
     horizontalLaunchSystems,
     projectileMotionSystems,
+    mcuSystems,
+    mcuvSystems,
     mruGates,
     standardConstraints,
     initialSnapshot,
@@ -1117,6 +1373,135 @@ export function stepHeadlessSimulation(simState, elements, dtMs = 1000 / 60) {
   }
 
   // -------------------------------------------------------------------------
+  // 1.5 UPDATE MOVIMIENTO CIRCULAR UNIFORME (HT03 MCU)
+  // θ(t) = θ₀ + ω·t,  v_t = |ω|·r,  a_c = ω²·r,  x(t) = cx + R·cosθ, y(t) = cy - R·sinθ
+  // -------------------------------------------------------------------------
+  if (simState.mcuSystems && simState.mcuSystems.length > 0) {
+    simState.mcuSystems.forEach((mcuSys) => {
+      const dTheta = mcuSys.omega * dtSec;
+      mcuSys.angleRad += dTheta;
+      mcuSys.totalAngleRotated += Math.abs(dTheta);
+      mcuSys.revolutions = mcuSys.totalAngleRotated / (2 * Math.PI);
+
+      // Coordinates on canvas:
+      // X = cx + R * cos(θ)
+      // Y = cy - R * sin(θ) (Cartesian trigonometry: positive angle is counter-clockwise)
+      const centerProjX = mcuSys.centerX + mcuSys.radiusPx * Math.cos(mcuSys.angleRad);
+      const centerProjY = mcuSys.centerY - mcuSys.radiusPx * Math.sin(mcuSys.angleRad);
+
+      mcuSys.currentX = centerProjX - mcuSys.width / 2;
+      mcuSys.currentY = centerProjY - mcuSys.height / 2;
+
+      // Check Photogate lap trigger
+      simState.mruGates?.forEach((gate) => {
+        const gateCenterX = gate.x + gate.width / 2;
+        const gateCenterY = gate.y + gate.height / 2;
+        const dist = Math.hypot(centerProjX - gateCenterX, centerProjY - gateCenterY);
+        if (dist < 34) {
+          if (!gate.properties?.triggered) {
+            const lapNum = Math.max(1, Math.floor(mcuSys.revolutions));
+            gate.properties = {
+              ...gate.properties,
+              triggered: true,
+              recordedTime: `${simState.elapsedTime.toFixed(2)}s (Lap ${lapNum})`,
+            };
+          }
+        } else if (dist > 52) {
+          // Re-arm gate once particle moves away so subsequent laps trigger correctly
+          if (gate.properties?.triggered) {
+            gate.properties = {
+              ...gate.properties,
+              triggered: false,
+            };
+          }
+        }
+      });
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // 1.6 UPDATE MOVIMIENTO CIRCULAR ACELERADO (MCUV / MCUA)
+  // ω(t) = ω₀ + α·t, Δθ = ω·dt + 0.5·α·dt², v_t = |ω|·r, a_c = ω²·r, a_t = α·r, a_tot = √(ac² + at²)
+  // -------------------------------------------------------------------------
+  if (simState.mcuvSystems && simState.mcuvSystems.length > 0) {
+    simState.mcuvSystems.forEach((mcuvSys) => {
+      if (mcuvSys.isFinished) return;
+
+      const dTheta = mcuvSys.omega * dtSec + 0.5 * mcuvSys.alpha * dtSec * dtSec;
+      mcuvSys.angleRad += dTheta;
+
+      // Normalize angleRad to [0, 2π) to prevent floating-point catastrophic precision loss
+      mcuvSys.angleRad = ((mcuvSys.angleRad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+      // Braking detection: if initial omega and alpha have opposite signs,
+      // the rotor stops when omega reaches or crosses 0
+      const isBraking = (mcuvSys.initialOmega > 0 && mcuvSys.alpha < 0) ||
+                        (mcuvSys.initialOmega < 0 && mcuvSys.alpha > 0);
+
+      mcuvSys.omega += mcuvSys.alpha * dtSec;
+
+      if (isBraking) {
+        if ((mcuvSys.initialOmega > 0 && mcuvSys.omega <= 0) ||
+            (mcuvSys.initialOmega < 0 && mcuvSys.omega >= 0)) {
+          mcuvSys.omega = 0;
+          mcuvSys.isFinished = true;
+        }
+      } else {
+        // Visual stability cap for accelerating systems:
+        // Cap visual omega at 35 rad/s (~335 RPM). This ensures smooth 60 FPS animation
+        // without Nyquist-Shannon stroboscopic aliasing ("wagon-wheel" stutter/lag).
+        const MAX_VISUAL_OMEGA = 35.0;
+        if (mcuvSys.omega > MAX_VISUAL_OMEGA) {
+          mcuvSys.omega = MAX_VISUAL_OMEGA;
+        } else if (mcuvSys.omega < -MAX_VISUAL_OMEGA) {
+          mcuvSys.omega = -MAX_VISUAL_OMEGA;
+        }
+      }
+
+      mcuvSys.totalAngleRotated += Math.abs(dTheta);
+      mcuvSys.revolutions = mcuvSys.totalAngleRotated / (2 * Math.PI);
+
+      // Dynamic physical magnitudes
+      mcuvSys.vt = Math.abs(mcuvSys.omega) * mcuvSys.radiusMeters;
+      mcuvSys.ac = mcuvSys.omega * mcuvSys.omega * mcuvSys.radiusMeters;
+      mcuvSys.at = mcuvSys.isFinished ? 0 : Math.abs(mcuvSys.alpha) * mcuvSys.radiusMeters;
+      mcuvSys.aTotal = Math.hypot(mcuvSys.ac, mcuvSys.at);
+      mcuvSys.rpm = (Math.abs(mcuvSys.omega) * 60) / (2 * Math.PI);
+
+      // Coordinates on canvas
+      const centerProjX = mcuvSys.centerX + mcuvSys.radiusPx * Math.cos(mcuvSys.angleRad);
+      const centerProjY = mcuvSys.centerY - mcuvSys.radiusPx * Math.sin(mcuvSys.angleRad);
+
+      mcuvSys.currentX = centerProjX - mcuvSys.width / 2;
+      mcuvSys.currentY = centerProjY - mcuvSys.height / 2;
+
+      // Check Photogate lap trigger (with distance threshold)
+      simState.mruGates?.forEach((gate) => {
+        const gateCenterX = gate.x + gate.width / 2;
+        const gateCenterY = gate.y + gate.height / 2;
+        const dist = Math.hypot(centerProjX - gateCenterX, centerProjY - gateCenterY);
+        if (dist < 34) {
+          if (!gate.properties?.triggered) {
+            const lapNum = Math.max(1, Math.floor(mcuvSys.revolutions));
+            gate.properties = {
+              ...gate.properties,
+              triggered: true,
+              recordedTime: `${simState.elapsedTime.toFixed(2)}s (Lap ${lapNum})`,
+            };
+          }
+        } else if (dist > 52) {
+          if (gate.properties?.triggered) {
+            gate.properties = {
+              ...gate.properties,
+              triggered: false,
+            };
+          }
+        }
+      });
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // 2. CHECK GLOBAL SIMULATION COMPLETION
   // -------------------------------------------------------------------------
   const hasMru = simState.mruSystems.length > 0;
@@ -1125,6 +1510,7 @@ export function stepHeadlessSimulation(simState, elements, dtMs = 1000 / 60) {
   const hasVertical = simState.verticalLaunchSystems && simState.verticalLaunchSystems.length > 0;
   const hasHorizontal = simState.horizontalLaunchSystems && simState.horizontalLaunchSystems.length > 0;
   const hasProjectile = simState.projectileMotionSystems && simState.projectileMotionSystems.length > 0;
+  const hasMcuv = simState.mcuvSystems && simState.mcuvSystems.length > 0;
 
   // Tracked carts (on a rail with bumpers) complete when they hit bumper or encounter.
   // Free carts (off-track) only finish if an encounter occurred or all carts finish.
@@ -1145,15 +1531,17 @@ export function stepHeadlessSimulation(simState, elements, dtMs = 1000 / 60) {
   const allVerticalFinished = hasVertical && simState.verticalLaunchSystems.every((s) => s.isFinished);
   const allHorizontalFinished = hasHorizontal && simState.horizontalLaunchSystems.every((s) => s.isFinished);
   const allProjectileFinished = hasProjectile && simState.projectileMotionSystems.every((s) => s.isFinished);
+  const allMcuvFinished = hasMcuv && simState.mcuvSystems.every((s) => s.isFinished);
 
   const isComplete =
-    (hasMru || hasAtwood || hasFreefall || hasVertical || hasHorizontal || hasProjectile) &&
+    (hasMru || hasAtwood || hasFreefall || hasVertical || hasHorizontal || hasProjectile || (hasMcuv && allMcuvFinished)) &&
     (!hasMru || allMruFinished) &&
     (!hasAtwood || allAtwoodStopped) &&
     (!hasFreefall || allFreefallFinished) &&
     (!hasVertical || allVerticalFinished) &&
     (!hasHorizontal || allHorizontalFinished) &&
-    (!hasProjectile || allProjectileFinished);
+    (!hasProjectile || allProjectileFinished) &&
+    (!hasMcuv || allMcuvFinished);
 
   if (isComplete) {
     simState.isSimulationComplete = true;
@@ -1287,6 +1675,51 @@ export function stepHeadlessSimulation(simState, elements, dtMs = 1000 / 60) {
       isFinished: simState.isSimulationComplete,
       isSimulationComplete: simState.isSimulationComplete,
     };
+  } else if (simState.mcuSystems && simState.mcuSystems.length > 0) {
+    const primary = simState.mcuSystems[0];
+    const primaryEl = elements.find((e) => e.id === primary.bodyId);
+    simState.telemetry = {
+      type: 'mcu',
+      omega: Number(primary.omega.toFixed(2)),
+      vt: Number(primary.vt.toFixed(2)),
+      ac: Number(primary.ac.toFixed(2)),
+      radiusM: Number(primary.radiusMeters.toFixed(2)),
+      period: Number(primary.period.toFixed(2)),
+      frequency: Number(primary.frequency.toFixed(2)),
+      rpm: Number(primary.rpm.toFixed(1)),
+      revolutions: primary.revolutions.toFixed(2),
+      time: simState.elapsedTime.toFixed(1),
+      label: primaryEl?.properties?.label || 'Movimiento Circular Uniforme',
+      stage: 'En Rotación Continua 🔄',
+      isFinished: false,
+      isSimulationComplete: false,
+    };
+  } else if (simState.mcuvSystems && simState.mcuvSystems.length > 0) {
+    const primary = simState.mcuvSystems[0];
+    const primaryEl = elements.find((e) => e.id === (primary.bodyId || primary.turntableId));
+    let stageText = 'Acelerando Rotación 🔄⚡';
+    if (primary.alpha < 0) {
+      stageText = primary.isFinished ? 'Detenido por Frenado 🛑' : 'Frenando Rotación 🔄🛑';
+    } else if (primary.omega >= 34.9) {
+      stageText = 'Velocidad Terminal Estable 🔄⚡';
+    }
+    simState.telemetry = {
+      type: 'mcuv',
+      omega: Number(primary.omega.toFixed(2)),
+      alpha: Number(primary.alpha.toFixed(2)),
+      vt: Number(primary.vt.toFixed(2)),
+      at: Number(primary.at.toFixed(2)),
+      ac: Number(primary.ac.toFixed(2)),
+      aTotal: Number(primary.aTotal.toFixed(2)),
+      radiusM: Number(primary.radiusMeters.toFixed(2)),
+      rpm: Number(primary.rpm.toFixed(1)),
+      revolutions: primary.revolutions.toFixed(2),
+      time: simState.elapsedTime.toFixed(1),
+      label: primaryEl?.properties?.label || 'Movimiento Circular Variado',
+      stage: stageText,
+      isFinished: simState.isSimulationComplete,
+      isSimulationComplete: simState.isSimulationComplete,
+    };
   } else if (simState.atwoodSystems.length > 0) {
     const primary = simState.atwoodSystems[0];
     simState.telemetry = {
@@ -1396,6 +1829,85 @@ export function stepHeadlessSimulation(simState, elements, dtMs = 1000 / 60) {
             reachedApex: pSys.reachedApex,
             isFinished: pSys.isFinished,
             trailPoints: pSys.trailPoints ? [...pSys.trailPoints] : [],
+          },
+        };
+      }
+    }
+
+    // Sync MCU Particle
+    if (el.type === 'physics_object' && el.physicsType === 'mcu_particle') {
+      const mSys = simState.mcuSystems?.find((s) => s.bodyId === el.id);
+      if (mSys) {
+        return {
+          ...el,
+          x: mSys.currentX,
+          y: mSys.currentY,
+          properties: {
+            ...el.properties,
+            angleRad: mSys.angleRad,
+            omega: mSys.omega,
+            tangentialVelocity: mSys.vt,
+            centripetalAccel: mSys.ac,
+            revolutions: mSys.revolutions,
+            period: mSys.period,
+            frequency: mSys.frequency,
+            rpm: mSys.rpm,
+          },
+        };
+      }
+    }
+
+    // Sync MCU Turntable
+    if (el.type === 'physics_object' && el.physicsType === 'mcu_turntable') {
+      const mSys = simState.mcuSystems?.find((s) => s.turntableId === el.id);
+      if (mSys) {
+        return {
+          ...el,
+          properties: {
+            ...el.properties,
+            omega: mSys.omega,
+            rpm: mSys.rpm,
+          },
+        };
+      }
+    }
+
+    // Sync MCUV Particle
+    if (el.type === 'physics_object' && el.physicsType === 'mcuv_particle') {
+      const mSys = simState.mcuvSystems?.find((s) => s.bodyId === el.id);
+      if (mSys) {
+        return {
+          ...el,
+          x: mSys.currentX,
+          y: mSys.currentY,
+          properties: {
+            ...el.properties,
+            angleRad: mSys.angleRad,
+            omega: mSys.omega,
+            alpha: mSys.alpha,
+            tangentialVelocity: mSys.vt,
+            tangentialAccel: mSys.at,
+            centripetalAccel: mSys.ac,
+            totalAccel: mSys.aTotal,
+            revolutions: mSys.revolutions,
+            rpm: mSys.rpm,
+          },
+        };
+      }
+    }
+
+    // Sync MCUV Turntable
+    if (el.type === 'physics_object' && el.physicsType === 'mcuv_turntable') {
+      const mSys = simState.mcuvSystems?.find((s) => s.turntableId === el.id);
+      if (mSys) {
+        return {
+          ...el,
+          properties: {
+            ...el.properties,
+            angleRad: mSys.angleRad,
+            omega: mSys.omega,
+            alpha: mSys.alpha,
+            rpm: mSys.rpm,
           },
         };
       }
@@ -1548,6 +2060,35 @@ export function resetHeadlessSimulation(simState, elements) {
     });
   }
 
+  if (simState.mcuSystems) {
+    simState.mcuSystems.forEach((sys) => {
+      sys.currentX = sys.initialX;
+      sys.currentY = sys.initialY;
+      sys.angleRad = sys.initialAngleRad;
+      sys.revolutions = 0.0;
+      sys.totalAngleRotated = 0.0;
+      sys.isFinished = false;
+    });
+  }
+
+  if (simState.mcuvSystems) {
+    simState.mcuvSystems.forEach((sys) => {
+      sys.currentX = sys.initialX;
+      sys.currentY = sys.initialY;
+      sys.angleRad = sys.initialAngleRad;
+      sys.omega = sys.initialOmega;
+      sys.alpha = sys.initialAlpha;
+      sys.vt = Math.abs(sys.initialOmega) * sys.radiusMeters;
+      sys.ac = sys.initialOmega * sys.initialOmega * sys.radiusMeters;
+      sys.at = Math.abs(sys.initialAlpha) * sys.radiusMeters;
+      sys.aTotal = Math.hypot(sys.ac, sys.at);
+      sys.rpm = (Math.abs(sys.initialOmega) * 60) / (2 * Math.PI);
+      sys.revolutions = 0.0;
+      sys.totalAngleRotated = 0.0;
+      sys.isFinished = false;
+    });
+  }
+
   simState.mruGates.forEach((gate) => {
     gate.properties = {
       ...gate.properties,
@@ -1665,6 +2206,60 @@ export function resetHeadlessSimulation(simState, elements) {
       flightTimeTheoretical: primaryProj.flightTimeTheoretical.toFixed(2),
       time: '0.0',
       stage: 'Listo para Disparo',
+      isFinished: false,
+      isSimulationComplete: false,
+    };
+  } else if (simState.mcuSystems && simState.mcuSystems.length > 0) {
+    const primary = simState.mcuSystems[0];
+    const snapMcu = snapshotMap.get(primary.bodyId);
+    const initOmega = snapMcu?.properties?.initialOmega !== undefined
+      ? snapMcu.properties.initialOmega
+      : (snapMcu?.properties?.omega !== undefined ? snapMcu.properties.omega : primary.initialOmega);
+    simState.telemetry = {
+      type: 'mcu',
+      omega: Number(initOmega.toFixed(2)),
+      vt: Number((Math.abs(initOmega) * primary.radiusMeters).toFixed(2)),
+      ac: Number((initOmega * initOmega * primary.radiusMeters).toFixed(2)),
+      radiusM: Number(primary.radiusMeters.toFixed(2)),
+      period: Number(primary.period.toFixed(2)),
+      frequency: Number(primary.frequency.toFixed(2)),
+      rpm: Number(primary.rpm.toFixed(1)),
+      revolutions: '0.00',
+      time: '0.0',
+      label: snapMcu?.properties?.label || 'Movimiento Circular Uniforme',
+      stage: 'Listo para Rotación',
+      isFinished: false,
+      isSimulationComplete: false,
+    };
+  } else if (simState.mcuvSystems && simState.mcuvSystems.length > 0) {
+    const primary = simState.mcuvSystems[0];
+    const snapMcuv = snapshotMap.get(primary.bodyId);
+    const initOmega = snapMcuv?.properties?.initialOmega !== undefined
+      ? snapMcuv.properties.initialOmega
+      : (snapMcuv?.properties?.omega !== undefined ? snapMcuv.properties.omega : primary.initialOmega);
+    const initAlpha = snapMcuv?.properties?.initialAlpha !== undefined
+      ? snapMcuv.properties.initialAlpha
+      : (snapMcuv?.properties?.alpha !== undefined ? snapMcuv.properties.alpha : primary.initialAlpha);
+    const rM = primary.radiusMeters;
+    const vt = Math.abs(initOmega) * rM;
+    const ac = initOmega * initOmega * rM;
+    const at = Math.abs(initAlpha) * rM;
+    const aTot = Math.hypot(ac, at);
+    const rpm = (Math.abs(initOmega) * 60) / (2 * Math.PI);
+    simState.telemetry = {
+      type: 'mcuv',
+      omega: Number(initOmega.toFixed(2)),
+      alpha: Number(initAlpha.toFixed(2)),
+      vt: Number(vt.toFixed(2)),
+      at: Number(at.toFixed(2)),
+      ac: Number(ac.toFixed(2)),
+      aTotal: Number(aTot.toFixed(2)),
+      radiusM: Number(rM.toFixed(2)),
+      rpm: Number(rpm.toFixed(1)),
+      revolutions: '0.00',
+      time: '0.0',
+      label: snapMcuv?.properties?.label || 'Movimiento Circular Variado',
+      stage: 'Listo para Aceleración',
       isFinished: false,
       isSimulationComplete: false,
     };
@@ -1808,6 +2403,96 @@ export function resetHeadlessSimulation(simState, elements) {
               ...baseProps,
               velocity: initV,
               distance: 0.0,
+            },
+          };
+        }
+
+        if (el.physicsType === 'mcu_particle') {
+          const initOmega = snap.properties?.initialOmega !== undefined
+            ? snap.properties.initialOmega
+            : (snap.properties?.omega !== undefined ? snap.properties.omega : 3.0);
+          const initAngle = snap.properties?.initialAngleRad !== undefined
+            ? snap.properties.initialAngleRad
+            : (snap.properties?.angleRad !== undefined ? snap.properties.angleRad : 0.0);
+          const rM = snap.properties?.radiusMeters || 1.0;
+          return {
+            ...el,
+            x: snap.x,
+            y: snap.y,
+            properties: {
+              ...baseProps,
+              omega: initOmega,
+              initialOmega: initOmega,
+              angleRad: initAngle,
+              initialAngleRad: initAngle,
+              revolutions: 0.0,
+              tangentialVelocity: Math.abs(initOmega) * rM,
+              centripetalAccel: initOmega * initOmega * rM,
+            },
+          };
+        }
+
+        if (el.physicsType === 'mcuv_particle') {
+          const initOmega = snap.properties?.omega0 !== undefined
+            ? snap.properties.omega0
+            : (snap.properties?.initialOmega !== undefined
+              ? snap.properties.initialOmega
+              : (snap.properties?.omega !== undefined ? snap.properties.omega : 0.0));
+          const initAlpha = snap.properties?.alpha !== undefined
+            ? snap.properties.alpha
+            : (snap.properties?.initialAlpha !== undefined ? snap.properties.initialAlpha : 2.0);
+          const initAngle = snap.properties?.initialAngleRad !== undefined
+            ? snap.properties.initialAngleRad
+            : (snap.properties?.angleRad !== undefined ? snap.properties.angleRad : 0.0);
+          const rM = snap.properties?.radiusMeters || 1.0;
+          return {
+            ...el,
+            x: snap.x,
+            y: snap.y,
+            properties: {
+              ...baseProps,
+              omega: initOmega,
+              initialOmega: initOmega,
+              omega0: initOmega,
+              alpha: initAlpha,
+              initialAlpha: initAlpha,
+              angleRad: initAngle,
+              initialAngleRad: initAngle,
+              revolutions: 0.0,
+              tangentialVelocity: Math.abs(initOmega) * rM,
+              centripetalAccel: initOmega * initOmega * rM,
+              tangentialAccel: Math.abs(initAlpha) * rM,
+              totalAccel: Math.hypot(initOmega * initOmega * rM, Math.abs(initAlpha) * rM),
+            },
+          };
+        }
+
+        if (el.physicsType === 'mcuv_turntable') {
+          const initOmega = snap.properties?.omega0 !== undefined
+            ? snap.properties.omega0
+            : (snap.properties?.initialOmega !== undefined
+              ? snap.properties.initialOmega
+              : (snap.properties?.omega !== undefined ? snap.properties.omega : 0.0));
+          const initAlpha = snap.properties?.alpha !== undefined
+            ? snap.properties.alpha
+            : (snap.properties?.initialAlpha !== undefined ? snap.properties.initialAlpha : 2.0);
+          const initAngle = snap.properties?.initialAngleRad !== undefined
+            ? snap.properties.initialAngleRad
+            : (snap.properties?.angleRad !== undefined ? snap.properties.angleRad : 0.0);
+          return {
+            ...el,
+            x: snap.x,
+            y: snap.y,
+            properties: {
+              ...baseProps,
+              omega: initOmega,
+              initialOmega: initOmega,
+              omega0: initOmega,
+              alpha: initAlpha,
+              initialAlpha: initAlpha,
+              angleRad: initAngle,
+              initialAngleRad: initAngle,
+              rpm: (Math.abs(initOmega) * 60) / (2 * Math.PI),
             },
           };
         }
@@ -1977,6 +2662,48 @@ export function isSimStateCompatible(simState, elements) {
   }
 
   if (currentObliqueProjectiles.length > 0 && (!simState.projectileMotionSystems || simState.projectileMotionSystems.length === 0)) {
+    return false;
+  }
+
+  // Check MCU consistency
+  const currentMcuParticles = currentPhysicsObjs.filter((o) => o.physicsType === 'mcu_particle');
+  const simMcuParticles = simState.mcuSystems || [];
+  if (simMcuParticles.length !== currentMcuParticles.length) return false;
+  for (const sys of simMcuParticles) {
+    const match = currentMcuParticles.find((o) => o.id === sys.bodyId);
+    if (!match) return false;
+    const targetOmega = match.properties?.initialOmega !== undefined
+      ? match.properties.initialOmega
+      : (match.properties?.omega !== undefined ? match.properties.omega : 3.0);
+    const targetR = match.properties?.radiusMeters !== undefined ? match.properties.radiusMeters : 1.0;
+    if (Math.abs(sys.omega - targetOmega) > 0.001) return false;
+    if (Math.abs(sys.radiusMeters - targetR) > 0.001) return false;
+  }
+
+  if (currentMcuParticles.length > 0 && (!simState.mcuSystems || simState.mcuSystems.length === 0)) {
+    return false;
+  }
+
+  // Check MCUV consistency
+  const currentMcuvParticles = currentPhysicsObjs.filter((o) => o.physicsType === 'mcuv_particle');
+  const simMcuvParticles = simState.mcuvSystems || [];
+  if (simMcuvParticles.length !== currentMcuvParticles.length) return false;
+  for (const sys of simMcuvParticles) {
+    const match = currentMcuvParticles.find((o) => o.id === sys.bodyId);
+    if (!match) return false;
+    const targetOmega = match.properties?.initialOmega !== undefined
+      ? match.properties.initialOmega
+      : (match.properties?.omega !== undefined ? match.properties.omega : 0.0);
+    const targetAlpha = match.properties?.initialAlpha !== undefined
+      ? match.properties.initialAlpha
+      : (match.properties?.alpha !== undefined ? match.properties.alpha : 2.0);
+    const targetR = match.properties?.radiusMeters !== undefined ? match.properties.radiusMeters : 1.0;
+    if (Math.abs(sys.initialOmega - targetOmega) > 0.001) return false;
+    if (Math.abs(sys.initialAlpha - targetAlpha) > 0.001) return false;
+    if (Math.abs(sys.radiusMeters - targetR) > 0.001) return false;
+  }
+
+  if (currentMcuvParticles.length > 0 && (!simState.mcuvSystems || simState.mcuvSystems.length === 0)) {
     return false;
   }
 

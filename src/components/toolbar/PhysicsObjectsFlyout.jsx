@@ -8,7 +8,8 @@ import {
   Navigation, 
   Weight, 
   Layers,
-  Target
+  Target,
+  RotateCw
 } from 'lucide-react';
 import { PHYSICS_TOPICS, PHYSICS_OBJECT_DEFINITIONS } from '../../physics/physicsRegistry';
 
@@ -19,6 +20,8 @@ const TOPIC_CONFIG = {
   tiro_vertical: { icon: ArrowUpCircle, short: 'Tiro Vertical', tag: 'HT04', color: '#db2777' },
   lanzamiento_horizontal: { icon: Navigation, short: 'Lanz. Horiz.', tag: 'HT01 2D', color: '#0891b2' },
   movimiento_proyectiles: { icon: Target, short: 'Proyectiles', tag: 'HT02 2D', color: '#8b5cf6' },
+  mcu: { icon: RotateCw, short: 'MCU', tag: 'HT03 MCU', color: '#0284c7' },
+  mcuv: { icon: RotateCw, short: 'MCUV', tag: 'Unidad 2', color: '#0891b2' },
   mechanics: { icon: Weight, short: 'Dinámica', tag: 'Atwood', color: '#4f46e5' },
 };
 
@@ -26,6 +29,7 @@ export default function PhysicsObjectsFlyout({
   isOpen,
   onClose,
   onAddPhysicsObject,
+  onAddAssembly,
   _onAddAssembly,
   onSelectRopeTool,
   onOpenMruSolver,
@@ -34,8 +38,11 @@ export default function PhysicsObjectsFlyout({
   onOpenTiroVerticalSolver,
   onOpenHorizontalLaunchSolver,
   onOpenProjectileMotionSolver,
+  onOpenMcuSolver,
+  onOpenMcuvSolver,
 }) {
   const [activeTopic, setActiveTopic] = useState('mru');
+  const handleAddAssembly = onAddAssembly || _onAddAssembly;
 
   if (!isOpen) return null;
 
@@ -49,6 +56,10 @@ export default function PhysicsObjectsFlyout({
   const cannonLauncherDef = PHYSICS_OBJECT_DEFINITIONS.cannon_launcher;
   const obliqueProjectileDef = PHYSICS_OBJECT_DEFINITIONS.oblique_projectile;
   const targetWallDef = PHYSICS_OBJECT_DEFINITIONS.target_wall;
+  const mcuTurntableDef = PHYSICS_OBJECT_DEFINITIONS.mcu_turntable;
+  const mcuParticleDef = PHYSICS_OBJECT_DEFINITIONS.mcu_particle;
+  const mcuvTurntableDef = PHYSICS_OBJECT_DEFINITIONS.mcuv_turntable;
+  const mcuvParticleDef = PHYSICS_OBJECT_DEFINITIONS.mcuv_particle;
   const mruTrackDef = PHYSICS_OBJECT_DEFINITIONS.mru_track;
   const mruGateDef = PHYSICS_OBJECT_DEFINITIONS.mru_photogate;
   const massDef = PHYSICS_OBJECT_DEFINITIONS.mass;
@@ -1108,6 +1119,277 @@ export default function PhysicsObjectsFlyout({
               <p className="info-note-text">
                 En el <strong>Tiro Parabólico Oblicuo</strong>, el movimiento se desacopla en dos componentes independientes (Principio de Superposición de Galileo):
                 horizontalmente es un <strong>MRU</strong> (<em>v_x = v₀·cosθ = cte</em>, <em>x = v₀·cosθ·t</em>) y verticalmente es un <strong>MRUV / Tiro Vertical</strong> (<em>v_y = v₀·sinθ - g·t</em>, <em>y = v₀·sinθ·t - ½g·t²</em>). En el punto de máxima altura (ápice), <em>v_y = 0</em> y la velocidad total es puramente horizontal: <em>v = v_x</em>.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'mcu' && (
+          <>
+            {/* Analytical Solver Card */}
+            {onOpenMcuSolver && (
+              <div
+                className="solver-promo-card solver-promo-mcu"
+                onClick={() => {
+                  if (onClose) onClose();
+                  onOpenMcuSolver();
+                }}
+                title="Abrir Solucionador de Problemas de MCU HT03"
+              >
+                <div className="solver-promo-badge">Colegio Kinal • Física II</div>
+                <h4 className="solver-promo-title">Solucionador MCU (HT03)</h4>
+                <p className="solver-promo-desc">
+                  10 Problemas resueltos paso a paso con fórmulas completas, 9 preguntas conceptuales autocorregidas y calculadora interactiva de velocidad angular y aceleración centrípeta.
+                </p>
+                <div className="solver-promo-action">
+                  <span>Abrir Solucionador HT03</span>
+                  <span className="arrow-icon">→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Section 1: Turntables / Rotors */}
+            <div className="objects-section-heading">
+              <span className="section-title">Plataformas y Rotores Giratorios</span>
+              <span className="section-formula">ω = cte</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {mcuTurntableDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mcu_turntable', preset)}
+                  onClick={() => onAddPhysicsObject('mcu_turntable', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">{preset.omega} rad/s</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      Radio: {preset.radiusMeters} m • Frecuencia: {preset.rpm} RPM
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mcu_turntable', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: Orbiting Particles */}
+            <div className="objects-section-heading">
+              <span className="section-title">Partículas y Masas en Órbita</span>
+              <span className="section-formula">v = ω·r | ac = ω²·r</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Móviles circulares con vectores de velocidad tangencial y aceleración centrípeta:
+            </p>
+
+            <div className="preset-cards-list">
+              {mcuParticleDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mcu_particle', preset)}
+                  onClick={() => onAddPhysicsObject('mcu_particle', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">{(preset.omega * preset.radiusMeters).toFixed(1)} m/s</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      ω: {preset.omega} rad/s • ac: {(preset.omega * preset.omega * preset.radiusMeters).toFixed(1)} m/s²
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mcu_particle', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Theoretical note */}
+            <div className="objects-info-note" style={{ background: '#f0f9ff', borderColor: '#bae6fd' }}>
+              <span className="info-note-label" style={{ color: '#0284c7' }}>Fundamento Teórico MCU (HT03)</span>
+              <p className="info-note-text">
+                En el <strong>Movimiento Circular Uniforme</strong>, la rapidez lineal es rigurosamente constante (<em>v = cte</em>).
+                Sin embargo, la dirección del vector velocidad cambia continuamente, produciendo una <strong>aceleración centrípeta</strong> (<em>ac = v²/r = ω²·r</em>) dirigida perpendicularmente hacia el eje central.
+                El período es el tiempo de 1 revolución (<em>T = 2π/ω</em>) y la frecuencia es su recíproco (<em>f = 1/T</em>).
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'mcuv' && (
+          <>
+            {/* Analytical Solver Card */}
+            {onOpenMcuvSolver && (
+              <div
+                className="solver-promo-card solver-promo-mcuv"
+                onClick={() => {
+                  if (onClose) onClose();
+                  onOpenMcuvSolver();
+                }}
+                title="Abrir Solucionador de Problemas de MCUV Unidad 2"
+                style={{ borderColor: '#a5f3fc', background: '#f0fdfa' }}
+              >
+                <div className="solver-promo-badge" style={{ background: '#cffafe', color: '#0e7490' }}>Colegio Kinal • Unidad 2</div>
+                <h4 className="solver-promo-title">Solucionador MCUV (Acelerado)</h4>
+                <p className="solver-promo-desc">
+                  15 Problemas de aplicación (#11-#25) resueltos paso a paso, 10 preguntas conceptuales evaluadas y calculadora universal (α, ω₀, ωf, Δθ, t, at, ac, atotal).
+                </p>
+                <div className="solver-promo-action">
+                  <span style={{ color: '#0891b2', fontWeight: 700, fontSize: '0.72rem' }}>Abrir Solucionador Unidad 2</span>
+                  <span className="arrow-icon" style={{ color: '#0891b2', marginLeft: 4 }}>→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Assembly / Lab Setup */}
+            {handleAddAssembly && (
+              <div className="assembly-quick-card" style={{ border: '1px solid #67e8f9', background: '#ecfeff', padding: '10px 12px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0e7490' }}>Montaje de Laboratorio MCUV</div>
+                  <div style={{ fontSize: '0.68rem', color: '#155e75' }}>Disco rotatorio + partícula sincronizada</div>
+                </div>
+                <button
+                  type="button"
+                  className="add-preset-btn"
+                  style={{ background: '#0891b2', color: '#ffffff', border: 'none', padding: '4px 10px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
+                  onClick={() => {
+                    handleAddAssembly('mcuv_assembly');
+                    if (onClose) onClose();
+                  }}
+                >
+                  Insertar
+                </button>
+              </div>
+            )}
+
+            {/* Section 1: MCUV Turntables / Rotors */}
+            <div className="objects-section-heading">
+              <span className="section-title">Discos y Rotores con Aceleración</span>
+              <span className="section-formula">ω(t) = ω₀ + α·t</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Haz clic para insertar o arrastra directamente al lienzo:
+            </p>
+
+            <div className="preset-cards-list">
+              {mcuvTurntableDef?.presets?.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color || '#0891b2' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mcuv_turntable', preset)}
+                  onClick={() => onAddPhysicsObject('mcuv_turntable', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">α = {preset.alpha} rad/s²</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      ω₀: {preset.omega0} rad/s ({preset.rpm0} RPM) • R: {preset.radiusMeters} m
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mcuv_turntable', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2: MCUV Orbiting Particles */}
+            <div className="objects-section-heading">
+              <span className="section-title">Móviles con Aceleración Total</span>
+              <span className="section-formula">at = α·r | atot = √(at² + ac²)</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Móviles circulares acelerados con descomposición vectorial completa:
+            </p>
+
+            <div className="preset-cards-list">
+              {mcuvParticleDef?.presets?.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color || '#06b6d4' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mcuv_particle', preset)}
+                  onClick={() => onAddPhysicsObject('mcuv_particle', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag">at = {(preset.alpha * preset.radiusMeters).toFixed(2)} m/s²</span>
+                    </div>
+                    <span className="preset-card-desc">
+                      ω₀: {preset.omega0} rad/s • α: {preset.alpha} rad/s² • R: {preset.radiusMeters} m
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mcuv_particle', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Theoretical note */}
+            <div className="objects-info-note" style={{ background: '#ecfeff', borderColor: '#a5f3fc' }}>
+              <span className="info-note-label" style={{ color: '#0891b2' }}>Fundamento Teórico MCUV (Unidad 2 Kinal)</span>
+              <p className="info-note-text">
+                En el <strong>Movimiento Circular Uniformemente Variado (MCUV / MCUA)</strong> la aceleración angular es constante (<em>α = cte</em>).
+                La aceleración lineal total de la partícula se compone de dos vectores perpendiculares:
+                la <strong>aceleración tangencial</strong> (<em>at = α·r</em>) que modifica la magnitud de la rapidez tangencial, y la <strong>aceleración centrípeta o normal</strong> (<em>ac = vt²/r = ω²·r</em>) que modifica la dirección del movimiento hacia el centro.
+                La resultante es <em>atot = √(at² + ac²)</em>.
               </p>
             </div>
           </>

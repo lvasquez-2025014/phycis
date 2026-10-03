@@ -15,6 +15,8 @@ import FreefallExerciseSolverModal from './components/modals/FreefallExerciseSol
 import TiroVerticalExerciseSolverModal from './components/modals/TiroVerticalExerciseSolverModal';
 import HorizontalLaunchExerciseSolverModal from './components/modals/HorizontalLaunchExerciseSolverModal';
 import ProjectileMotionExerciseSolverModal from './components/modals/ProjectileMotionExerciseSolverModal';
+import McuExerciseSolverModal from './components/modals/McuExerciseSolverModal';
+import McuvExerciseSolverModal from './components/modals/McuvExerciseSolverModal';
 import { getMruTemplate } from './data/mruTemplates';
 import { 
   createPhysicsElement, 
@@ -25,6 +27,8 @@ import {
   createVerticalLaunchLabAssembly,
   createHorizontalLaunchLabAssembly,
   createProjectileMotionLabAssembly,
+  createMcuLabAssembly,
+  createMcuvLabAssembly,
   getCannonMuzzlePosition,
 } from './physics/physicsRegistry';
 import { buildExerciseBoardElements } from './services/mruExerciseSolver';
@@ -33,6 +37,8 @@ import { buildFreefallExerciseBoardElements } from './services/freefallExerciseS
 import { buildVerticalLaunchExerciseBoardElements } from './services/tiroVerticalExerciseSolver';
 import { buildHorizontalLaunchExerciseBoardElements } from './services/horizontalLaunchExerciseSolver';
 import { buildProjectileMotionExerciseBoardElements } from './services/projectileMotionExerciseSolver';
+import { buildMcuExerciseBoardElements } from './services/mcuExerciseSolver';
+import { buildMcuvExerciseBoardElements } from './services/mcuvExerciseSolver';
 
 class SandboxErrorBoundary extends React.Component {
   constructor(props) {
@@ -113,6 +119,8 @@ export default function App() {
   const [isTiroVerticalSolverOpen, setIsTiroVerticalSolverOpen] = useState(false);
   const [isHorizontalLaunchSolverOpen, setIsHorizontalLaunchSolverOpen] = useState(false);
   const [isProjectileMotionSolverOpen, setIsProjectileMotionSolverOpen] = useState(false);
+  const [isMcuSolverOpen, setIsMcuSolverOpen] = useState(false);
+  const [isMcuvSolverOpen, setIsMcuvSolverOpen] = useState(false);
   const [isPhysicsSandboxOpen, setIsPhysicsSandboxOpen] = useState(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState(false);
 
@@ -483,6 +491,16 @@ export default function App() {
         setElements((prev) => [...prev, ...projElements]);
         setActiveTool('select');
         addToast('🎯 Laboratorio de Movimiento de Proyectiles montado en el lienzo');
+      } else if (assemblyType === 'mcu') {
+        const mcuElements = createMcuLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...mcuElements]);
+        setActiveTool('select');
+        addToast('🔄 Laboratorio MCU montado en el lienzo');
+      } else if (assemblyType === 'mcuv_assembly' || assemblyType === 'mcuv') {
+        const mcuvElements = createMcuvLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...mcuvElements]);
+        setActiveTool('select');
+        addToast('🔄 Laboratorio MCUV montado en el lienzo');
       }
     },
     [pushHistory, transform, setActiveTool, addToast]
@@ -572,6 +590,34 @@ export default function App() {
     [pushHistory, transform, setActiveTool, addToast]
   );
 
+  const handleMountMcuExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildMcuExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`🔄 Ejercicio MCU montado en el lienzo: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountMcuvExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildMcuvExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`🔄 Ejercicio MCUV montado en el lienzo: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
   return (
     <div className="webwhiteboard-app">
       {/* Top Bar with PhyBoard / Physics branding */}
@@ -593,6 +639,8 @@ export default function App() {
         onOpenTiroVerticalSolver={() => setIsTiroVerticalSolverOpen(true)}
         onOpenHorizontalLaunchSolver={() => setIsHorizontalLaunchSolverOpen(true)}
         onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
+        onOpenMcuSolver={() => setIsMcuSolverOpen(true)}
+        onOpenMcuvSolver={() => setIsMcuvSolverOpen(true)}
         onOpenPhysicsSandbox={() => setIsPhysicsSandboxOpen(true)}
         onClearBoard={handleClearBoard}
       />
@@ -624,6 +672,8 @@ export default function App() {
         onOpenTiroVerticalSolver={() => setIsTiroVerticalSolverOpen(true)}
         onOpenHorizontalLaunchSolver={() => setIsHorizontalLaunchSolverOpen(true)}
         onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
+        onOpenMcuSolver={() => setIsMcuSolverOpen(true)}
+        onOpenMcuvSolver={() => setIsMcuvSolverOpen(true)}
         onLoadTemplate={(tplArg) => {
           pushHistory();
           // 1. Direct object format from modal { elements, boardName, toast }
@@ -748,6 +798,20 @@ export default function App() {
         isOpen={isProjectileMotionSolverOpen}
         onClose={() => setIsProjectileMotionSolverOpen(false)}
         onMountExerciseOnBoard={handleMountProjectileMotionExercise}
+      />
+
+      {/* MCU Exercise Solver (HT03 Kinal) & Circular Motion Laboratory Modal */}
+      <McuExerciseSolverModal
+        isOpen={isMcuSolverOpen}
+        onClose={() => setIsMcuSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountMcuExercise}
+      />
+
+      {/* MCUV Exercise Solver (Unidad 2 Kinal) & Accelerated Circular Motion Laboratory Modal */}
+      <McuvExerciseSolverModal
+        isOpen={isMcuvSolverOpen}
+        onClose={() => setIsMcuvSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountMcuvExercise}
       />
 
       {/* Physics Sandbox Modal (Matter.js Atwood Machine) */}

@@ -108,7 +108,89 @@ export default function PhysicsSimulationBar({
       {/* Real-time Educational Physics Telemetry HUD */}
       {isExpanded && metrics && (
         <div className="sim-telemetry-strip">
-          {metrics.type === 'movimiento_proyectiles' ? (
+          {metrics.type === 'mcuv' ? (
+            <>
+              <div className="telemetry-badge mcuv-mode">
+                <span className="telemetry-label">Estado:</span>
+                <span className="telemetry-value cyan">
+                  {metrics.stage || 'Aceleración Circular 🔄⚡'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">α:</span>
+                <span className="telemetry-value amber">{metrics.alpha !== undefined ? `${metrics.alpha} rad/s²` : '0.0 rad/s²'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">ω(t):</span>
+                <span className="telemetry-value highlight">{metrics.omega !== undefined ? `${metrics.omega} rad/s` : '0.0 rad/s'} ({metrics.rpm || 0} RPM)</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_t(t):</span>
+                <span className="telemetry-value emerald">{metrics.vt !== undefined ? `${metrics.vt} m/s` : '0.0 m/s'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">a_t:</span>
+                <span className="telemetry-value amber">{metrics.at !== undefined ? `${metrics.at} m/s²` : '0.0 m/s²'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">a_c(t):</span>
+                <span className="telemetry-value rose">{metrics.ac !== undefined ? `${metrics.ac} m/s²` : '0.0 m/s²'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">a_total:</span>
+                <span className="telemetry-value purple">{metrics.aTotal !== undefined ? `${metrics.aTotal} m/s²` : '0.0 m/s²'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">R:</span>
+                <span className="telemetry-value sky">{metrics.radiusM !== undefined ? `${metrics.radiusM} m` : '1.0 m'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Vueltas:</span>
+                <span className="telemetry-value amber">{metrics.revolutions || '0.00'} rev</span>
+              </div>
+              <div className="telemetry-badge time-badge">
+                <span className="telemetry-label">t:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'}s</span>
+              </div>
+            </>
+          ) : metrics.type === 'mcu' ? (
+            <>
+              <div className="telemetry-badge mcu-mode">
+                <span className="telemetry-label">Estado:</span>
+                <span className="telemetry-value cyan">
+                  {metrics.stage || 'En Rotación 🔄'}
+                </span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">ω:</span>
+                <span className="telemetry-value highlight">{metrics.omega !== undefined ? `${metrics.omega} rad/s` : '0.0 rad/s'} ({metrics.rpm || 0} RPM)</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">v_t:</span>
+                <span className="telemetry-value emerald">{metrics.vt !== undefined ? `${metrics.vt} m/s` : '0.0 m/s'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">a_c:</span>
+                <span className="telemetry-value rose">{metrics.ac !== undefined ? `${metrics.ac} m/s²` : '0.0 m/s²'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">R:</span>
+                <span className="telemetry-value sky">{metrics.radiusM !== undefined ? `${metrics.radiusM} m` : '1.0 m'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">T:</span>
+                <span className="telemetry-value purple">{metrics.period !== undefined ? `${metrics.period} s` : '0.0 s'}</span>
+              </div>
+              <div className="telemetry-badge">
+                <span className="telemetry-label">Vueltas:</span>
+                <span className="telemetry-value amber">{metrics.revolutions || '0.00'} rev</span>
+              </div>
+              <div className="telemetry-badge time-badge">
+                <span className="telemetry-label">t:</span>
+                <span className="telemetry-value">{metrics.time || '0.0'}s</span>
+              </div>
+            </>
+          ) : metrics.type === 'movimiento_proyectiles' ? (
             <>
               <div className="telemetry-badge proyectil-mode">
                 <span className="telemetry-label">Fase:</span>
@@ -581,6 +663,28 @@ export default function PhysicsSimulationBar({
           border: 1px solid #d8b4fe;
           padding: 2px 6px;
           border-radius: 4px;
+        }
+
+        .telemetry-badge.mcu-mode {
+          background: #e0f2fe;
+          border: 1px solid #7dd3fc;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-badge.mcuv-mode {
+          background: #fef3c7;
+          border: 1px solid #fcd34d;
+          padding: 2px 6px;
+          border-radius: 4px;
+        }
+
+        .telemetry-value.cyan {
+          color: #0284c7;
+        }
+
+        .telemetry-value.sky {
+          color: #0369a1;
         }
 
         .telemetry-value.math-eq {

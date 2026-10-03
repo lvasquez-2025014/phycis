@@ -272,6 +272,8 @@ export default function CanvasBoard({
       const hzProj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'horizontal_projectile');
       const vertProj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'vertical_projectile');
       const ffBody = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'freefall_body');
+      const mcuP = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mcu_particle');
+      const mcuvP = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mcuv_particle');
 
       if (proj) {
         const v0 = proj.properties?.initialVelocity ?? proj.properties?.velocity ?? 25.0;
@@ -324,6 +326,51 @@ export default function CanvasBoard({
           vel: v0,
           dist: '0.00',
           time: '0.0',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (mcuvP) {
+        const omega0 = mcuvP.properties?.initialOmega ?? mcuvP.properties?.omega ?? 0.0;
+        const alpha = mcuvP.properties?.initialAlpha ?? mcuvP.properties?.alpha ?? 2.0;
+        const rM = mcuvP.properties?.radiusMeters ?? 1.0;
+        const vt = Math.abs(omega0) * rM;
+        const ac = omega0 * omega0 * rM;
+        const at = Math.abs(alpha) * rM;
+        const aTot = Math.hypot(ac, at);
+        const rpm = (Math.abs(omega0) * 60) / (2 * Math.PI);
+        setSimMetrics({
+          type: 'mcuv',
+          omega: Number(omega0.toFixed(2)),
+          alpha: Number(alpha.toFixed(2)),
+          vt: Number(vt.toFixed(2)),
+          at: Number(at.toFixed(2)),
+          ac: Number(ac.toFixed(2)),
+          aTotal: Number(aTot.toFixed(2)),
+          radiusM: Number(rM.toFixed(2)),
+          rpm: Number(rpm.toFixed(1)),
+          revolutions: '0.00',
+          time: '0.0',
+          stage: 'Listo para Aceleración',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (mcuP) {
+        const omega = mcuP.properties?.initialOmega ?? mcuP.properties?.omega ?? 3.0;
+        const rM = mcuP.properties?.radiusMeters ?? 1.0;
+        const period = Math.abs(omega) > 0 ? (2 * Math.PI) / Math.abs(omega) : 0;
+        const freq = Math.abs(omega) > 0 ? Math.abs(omega) / (2 * Math.PI) : 0;
+        setSimMetrics({
+          type: 'mcu',
+          omega: Number(omega.toFixed(2)),
+          vt: Number((Math.abs(omega) * rM).toFixed(2)),
+          ac: Number((omega * omega * rM).toFixed(2)),
+          radiusM: Number(rM.toFixed(2)),
+          period: Number(period.toFixed(2)),
+          frequency: Number(freq.toFixed(2)),
+          rpm: Number((freq * 60).toFixed(1)),
+          revolutions: '0.00',
+          time: '0.0',
+          stage: 'Listo para Rotación',
           isFinished: false,
           isSimulationComplete: false,
         });

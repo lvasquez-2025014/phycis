@@ -10,6 +10,8 @@ export const PHYSICS_TOPICS = [
   { id: 'tiro_vertical', name: 'Tiro Vertical (HT04)', active: true, icon: 'ArrowUpCircle' },
   { id: 'lanzamiento_horizontal', name: 'Lanzamiento Horizontal (HT01)', active: true, icon: 'Navigation' },
   { id: 'movimiento_proyectiles', name: 'Mov. Proyectiles (HT02)', active: true, icon: 'Target' },
+  { id: 'mcu', name: 'Mov. Circular Uniforme (MCU)', active: true, icon: 'RotateCw' },
+  { id: 'mcuv', name: 'Mov. Circular Acelerado (MCUV)', active: true, icon: 'RotateCw' },
   { id: 'mechanics', name: 'Dinámica (Atwood & Poleas)', active: true, icon: 'Weight' },
   { id: 'electricity', name: 'Electricidad', active: false, icon: 'Zap' },
   { id: 'waves', name: 'Ondas y Óptica', active: false, icon: 'Radio' },
@@ -594,6 +596,168 @@ export const PHYSICS_OBJECT_DEFINITIONS = {
     ],
   },
 
+  mcu_turntable: {
+    type: 'mcu_turntable',
+    name: 'Plataforma Giratoria / Disco MCU',
+    category: 'movimiento_circular',
+    desc: 'Rotor, disco o plataforma giratoria con eje central graduado para experimentos de Movimiento Circular Uniforme (MCU).',
+    defaultWidth: 220,
+    defaultHeight: 220,
+    defaultColor: '#0284c7',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega: 3.0,
+      initialOmega: 3.0,
+      rpm: 28.65,
+      direction: 'ccw',
+      showGrid: true,
+      showVectors: true,
+      isStatic: true,
+      label: 'Plataforma Giratoria MCU',
+    },
+    presets: [
+      { label: 'Rueda Bicicleta (HT03 P1: ω = 18 rad/s, r = 0.35m)', radiusMeters: 0.35, omega: 18.0, rpm: 171.89, color: '#2563eb' },
+      { label: 'Satélite LEO (HT03 P2: T = 100min, r = 7.2×10⁶m)', radiusMeters: 7.2e6, omega: 0.001047, rpm: 0.01, color: '#0284c7' },
+      { label: 'Juego Mecánico (HT03 P3: T = 12s, r = 8m)', radiusMeters: 8.0, omega: 0.5236, rpm: 5.0, color: '#7c3aed' },
+      { label: 'Lavadora 1200 RPM (HT03 P4: r = 0.25m)', radiusMeters: 0.25, omega: 125.66, rpm: 1200.0, color: '#06b6d4' },
+      { label: 'Órbita Lunar (HT03 P5: T = 28 días)', radiusMeters: 3.84e8, omega: 2.6e-6, rpm: 0.000025, color: '#64748b' },
+      { label: 'Plataforma Disco (HT03 P6: ω = 4 rad/s, r = 1.2m)', radiusMeters: 1.2, omega: 4.0, rpm: 38.2, color: '#10b981' },
+      { label: 'Rueda A Alta Frecuencia (HT03 P8: ω = 60 rad/s, r = 0.2m)', radiusMeters: 0.2, omega: 60.0, rpm: 572.96, color: '#f59e0b' },
+      { label: 'Centrífuga Clínica (HT03 P9: 3200 RPM, r = 0.18m)', radiusMeters: 0.18, omega: 335.10, rpm: 3200.0, color: '#ef4444' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Eje de Giro', relX: 0.5, relY: 0.5 },
+      { id: 'rim_0', label: 'Borde 0° (Este)', relX: 1.0, relY: 0.5 },
+      { id: 'rim_90', label: 'Borde 90° (Norte)', relX: 0.5, relY: 0.0 },
+      { id: 'rim_180', label: 'Borde 180° (Oeste)', relX: 0.0, relY: 0.5 },
+      { id: 'rim_270', label: 'Borde 270° (Sur)', relX: 0.5, relY: 1.0 },
+    ],
+  },
+
+  mcu_particle: {
+    type: 'mcu_particle',
+    name: 'Partícula / Masa Orbitante MCU',
+    category: 'movimiento_circular',
+    desc: 'Cuerpo en trayectoria circular uniforme con vectores dinámicos de velocidad tangencial (v⃗_t) y aceleración centrípeta (a⃗_c).',
+    defaultWidth: 28,
+    defaultHeight: 28,
+    defaultColor: '#3b82f6',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega: 3.0,
+      initialOmega: 3.0,
+      angleRad: 0.0,
+      mass: 0.5,
+      showTangentialVector: true,
+      showCentripetalVector: true,
+      showOrbit: true,
+      showRadiusLine: true,
+      isStatic: false,
+      label: 'Masa Orbitante MCU',
+    },
+    presets: [
+      { label: 'Punto en Borde (HT03 P1: v_t = 6.3 m/s, r = 0.35m)', radiusMeters: 0.35, omega: 18.0, color: '#2563eb' },
+      { label: 'Satélite (HT03 P2: v = 7.54 km/s, ac = 7.9 m/s²)', radiusMeters: 7.2e6, omega: 0.001047, color: '#0284c7' },
+      { label: 'Cabina Mecánica (HT03 P3: v = 4.19 m/s, ac = 2.19 m/s²)', radiusMeters: 8.0, omega: 0.5236, color: '#7c3aed' },
+      { label: 'Prenda en Tambor (HT03 P4: v = 31.4 m/s, ac = 3948 m/s²)', radiusMeters: 0.25, omega: 125.66, color: '#06b6d4' },
+      { label: 'Cuerpo Lunar (HT03 P5: v = 997 m/s)', radiusMeters: 3.84e8, omega: 2.6e-6, color: '#64748b' },
+      { label: 'Masa Interior (HT03 P6: r = 0.4m, v = 1.6 m/s)', radiusMeters: 0.4, omega: 4.0, color: '#10b981' },
+      { label: 'Masa Exterior (HT03 P6: r = 1.2m, v = 4.8 m/s)', radiusMeters: 1.2, omega: 4.0, color: '#16a34a' },
+      { label: 'Muestra Centrífuga (HT03 P9: v = 60.3 m/s, ac = 20213 m/s²)', radiusMeters: 0.18, omega: 335.10, color: '#ef4444' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Centro de Masa', relX: 0.5, relY: 0.5 },
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // TEMA: MOVIMIENTO CIRCULAR UNIFORMEMENTE VARIADO / ACELERADO (MCUV / MCUA)
+  // Unidad 2 - Física 5to Diversificado - Colegio Kinal
+  // -----------------------------------------------------------------------
+  mcuv_turntable: {
+    type: 'mcuv_turntable',
+    name: 'Rotor Acelerado / Disco MCUV',
+    category: 'mcuv',
+    desc: 'Plataforma o disco con aceleración angular α constante, velocidad angular inicial ω₀ y tacómetro digital integrado.',
+    defaultWidth: 220,
+    defaultHeight: 220,
+    defaultColor: '#0891b2',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega0: 0.0,
+      omega: 0.0,
+      initialOmega: 0.0,
+      alpha: 2.0, // rad/s²
+      initialAlpha: 2.0,
+      rpm: 0.0,
+      direction: 'ccw',
+      showGrid: true,
+      showVectors: true,
+      isStatic: true,
+      label: 'Rotor Acelerado MCUV',
+    },
+    presets: [
+      { label: 'P11: Turbina Centrífuga (ω₀=0, α=3.5 rad/s², r=0.4m)', radiusMeters: 0.4, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 3.5, initialAlpha: 3.5, color: '#0284c7' },
+      { label: 'P12: Volante Frenado (ω₀=15 rad/s, α=-2.5 rad/s², r=0.6m)', radiusMeters: 0.6, omega0: 15.0, omega: 15.0, initialOmega: 15.0, alpha: -2.5, initialAlpha: -2.5, color: '#dc2626' },
+      { label: 'P13: Ventilador Eléctrico (ω₀=0, α=4 rad/s², r=0.3m)', radiusMeters: 0.3, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 4.0, initialAlpha: 4.0, color: '#16a34a' },
+      { label: 'P14: Centrífuga Médica (ω₀=50 rad/s, α=-5 rad/s², r=0.15m)', radiusMeters: 0.15, omega0: 50.0, omega: 50.0, initialOmega: 50.0, alpha: -5.0, initialAlpha: -5.0, color: '#d97706' },
+      { label: 'P15: Engranaje Motor (ω₀=2 rad/s, α=1.8 rad/s², r=0.25m)', radiusMeters: 0.25, omega0: 2.0, omega: 2.0, initialOmega: 2.0, alpha: 1.8, initialAlpha: 1.8, color: '#7c3aed' },
+      { label: 'P18: Polea Transmisión (ω₀=0, α=5 rad/s², r=0.2m)', radiusMeters: 0.2, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 5.0, initialAlpha: 5.0, color: '#0d9488' },
+      { label: 'P23: Generador Eólico (ω₀=30 rad/s, α=-1.5 rad/s², r=1.5m)', radiusMeters: 1.5, omega0: 30.0, omega: 30.0, initialOmega: 30.0, alpha: -1.5, initialAlpha: -1.5, color: '#475569' },
+      { label: 'P25: Tambor Lavado (ω₀=0, α=8 rad/s², r=0.28m)', radiusMeters: 0.28, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 8.0, initialAlpha: 8.0, color: '#2563eb' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Eje Central de Giro', relX: 0.5, relY: 0.5 },
+      { id: 'rim_0', label: 'Borde 0° (Este)', relX: 1.0, relY: 0.5 },
+      { id: 'rim_90', label: 'Borde 90° (Norte)', relX: 0.5, relY: 0.0 },
+      { id: 'rim_180', label: 'Borde 180° (Oeste)', relX: 0.0, relY: 0.5 },
+      { id: 'rim_270', label: 'Borde 270° (Sur)', relX: 0.5, relY: 1.0 },
+    ],
+  },
+
+  mcuv_particle: {
+    type: 'mcuv_particle',
+    name: 'Partícula Acelerada MCUV',
+    category: 'mcuv',
+    desc: 'Cuerpo en trayectoria circular acelerada con 4 vectores dinámicos: rapidez tangencial (v⃗_t), aceleración centrípeta (a⃗_c), aceleración tangencial (a⃗_t) y aceleración total (a⃗_total).',
+    defaultWidth: 28,
+    defaultHeight: 28,
+    defaultColor: '#06b6d4',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega0: 0.0,
+      omega: 0.0,
+      initialOmega: 0.0,
+      alpha: 2.0,
+      initialAlpha: 2.0,
+      angleRad: 0.0,
+      mass: 0.5,
+      showTangentialVector: true, // v_t (esmeralda)
+      showCentripetalVector: true, // a_c (carmesí al centro)
+      showTangentialAccelVector: true, // a_t (ámbar tangencial)
+      showTotalAccelVector: true, // a_total (violeta resultante)
+      showOrbit: true,
+      showRadiusLine: true,
+      isStatic: false,
+      label: 'Masa en MCUV',
+    },
+    presets: [
+      { label: 'P11: Turbina (r=0.4m, α=3.5 rad/s², at=1.4 m/s²)', radiusMeters: 0.4, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 3.5, initialAlpha: 3.5, color: '#0284c7' },
+      { label: 'P12: Frenado Volante (r=0.6m, ω₀=15 rad/s, α=-2.5)', radiusMeters: 0.6, omega0: 15.0, omega: 15.0, initialOmega: 15.0, alpha: -2.5, initialAlpha: -2.5, color: '#dc2626' },
+      { label: 'P13: Borde Ventilador (r=0.3m, α=4 rad/s², at=1.2 m/s²)', radiusMeters: 0.3, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 4.0, initialAlpha: 4.0, color: '#16a34a' },
+      { label: 'P14: Tubo Centrífuga (r=0.15m, ω₀=50, α=-5)', radiusMeters: 0.15, omega0: 50.0, omega: 50.0, initialOmega: 50.0, alpha: -5.0, initialAlpha: -5.0, color: '#d97706' },
+      { label: 'P18: Cuerda en Polea (r=0.2m, α=5 rad/s², at=1.0 m/s²)', radiusMeters: 0.2, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 5.0, initialAlpha: 5.0, color: '#0d9488' },
+      { label: 'P25: Aspa Lavadora (r=0.28m, α=8 rad/s², at=2.24 m/s²)', radiusMeters: 0.28, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 8.0, initialAlpha: 8.0, color: '#2563eb' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Centro de Masa', relX: 0.5, relY: 0.5 },
+    ],
+  },
+
   mass: {
     type: 'mass',
     name: 'Masa / Bloque',
@@ -681,6 +845,14 @@ export function createPhysicsElement(physicsType, worldX, worldY, options = {}) 
       isStatic,
       ...options,
       ...options.properties,
+      ...(physicsType === 'mcuv_turntable' || physicsType === 'mcuv_particle'
+        ? {
+            omega: options.omega !== undefined ? options.omega : (options.omega0 !== undefined ? options.omega0 : definition.defaultProps.omega),
+            initialOmega: options.initialOmega !== undefined ? options.initialOmega : (options.omega0 !== undefined ? options.omega0 : definition.defaultProps.initialOmega),
+            alpha: options.alpha !== undefined ? options.alpha : definition.defaultProps.alpha,
+            initialAlpha: options.initialAlpha !== undefined ? options.initialAlpha : (options.alpha !== undefined ? options.alpha : definition.defaultProps.initialAlpha),
+          }
+        : {}),
     },
     anchors: definition.anchors.map((a) => ({ ...a })),
   };
@@ -1141,3 +1313,117 @@ export function createProjectileMotionLabAssembly(cx, cy) {
 
   return [cannon, projectile, targetSensor];
 }
+
+/**
+ * Pre-configured Complete Movimiento Circular Uniforme (HT03 MCU) Laboratory Assembly:
+ * - 1 Central Turntable / Rotor Platform (r = 1.0 m, ω = 3.0 rad/s)
+ * - 1 Orbiting Particle / Test Mass with Tangential & Centripetal Vectors
+ * - 1 Optical Lap / Revolution Counter Photogate Sensor
+ */
+export function createMcuLabAssembly(cx, cy) {
+  const visualRadiusPx = 110;
+  const radiusMeters = 1.0;
+  const omegaRadS = 3.0;
+
+  const turntable = createPhysicsElement('mcu_turntable', cx - visualRadiusPx, cy - visualRadiusPx, {
+    label: 'Plataforma Giratoria MCU (ω = 3.0 rad/s)',
+    width: visualRadiusPx * 2,
+    height: visualRadiusPx * 2,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega: omegaRadS,
+    initialOmega: omegaRadS,
+    direction: 'ccw',
+    color: '#0284c7',
+  });
+
+  const particleSize = 28;
+  const particle = createPhysicsElement('mcu_particle', cx + visualRadiusPx - particleSize / 2, cy - particleSize / 2, {
+    label: 'Masa Orbitante (vt = 3.0 m/s, ac = 9.0 m/s²)',
+    width: particleSize,
+    height: particleSize,
+    centerX: cx,
+    centerY: cy,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega: omegaRadS,
+    initialOmega: omegaRadS,
+    angleRad: 0.0,
+    color: '#3b82f6',
+    showTangentialVector: true,
+    showCentripetalVector: true,
+    showOrbit: true,
+    showRadiusLine: true,
+  });
+
+  const gateW = 46;
+  const gateH = 40;
+  const photogate = createPhysicsElement('mru_photogate', cx + visualRadiusPx - gateW / 2, cy - gateH / 2, {
+    label: 'Sensor de Vueltas (Lap)',
+    gateName: 'Contador Lap',
+  });
+
+  return [turntable, particle, photogate];
+}
+
+/**
+ * Pre-configured Complete Movimiento Circular Uniformemente Acelerado (MCUV / MCUA) Laboratory Assembly:
+ * - 1 Central Rotor Platform (r = 1.0 m, ω₀ = 0.0 rad/s, α = 2.0 rad/s²)
+ * - 1 Orbiting Particle / Test Mass with 4 dynamic vectors (v⃗_t, a⃗_c, a⃗_t, a⃗_total)
+ * - 1 Optical Lap / Revolution Counter Photogate Sensor
+ */
+export function createMcuvLabAssembly(cx, cy) {
+  const visualRadiusPx = 110;
+  const radiusMeters = 1.0;
+  const omega0 = 0.0;
+  const alpha = 2.0;
+
+  const turntable = createPhysicsElement('mcuv_turntable', cx - visualRadiusPx, cy - visualRadiusPx, {
+    label: `Rotor MCUV (α = ${alpha} rad/s²)`,
+    width: visualRadiusPx * 2,
+    height: visualRadiusPx * 2,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega0,
+    omega: omega0,
+    initialOmega: omega0,
+    alpha,
+    initialAlpha: alpha,
+    direction: 'ccw',
+    color: '#0891b2',
+  });
+
+  const particleSize = 28;
+  const particle = createPhysicsElement('mcuv_particle', cx + visualRadiusPx - particleSize / 2, cy - particleSize / 2, {
+    label: `Masa MCUV (α = ${alpha} rad/s²)`,
+    width: particleSize,
+    height: particleSize,
+    centerX: cx,
+    centerY: cy,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega0,
+    omega: omega0,
+    initialOmega: omega0,
+    alpha,
+    initialAlpha: alpha,
+    angleRad: 0.0,
+    color: '#06b6d4',
+    showTangentialVector: true,
+    showCentripetalVector: true,
+    showTangentialAccelVector: true,
+    showTotalAccelVector: true,
+    showOrbit: true,
+    showRadiusLine: true,
+  });
+
+  const gateW = 46;
+  const gateH = 40;
+  const photogate = createPhysicsElement('mru_photogate', cx + visualRadiusPx - gateW / 2, cy - gateH / 2, {
+    label: 'Sensor de Vueltas (MCUV)',
+    gateName: 'Contador MCUV',
+  });
+
+  return [turntable, particle, photogate];
+}
+

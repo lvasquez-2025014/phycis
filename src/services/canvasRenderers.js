@@ -2346,6 +2346,840 @@ export function drawPhysicsObject(ctx, el, isSelected) {
         });
       }
     }
+  } else if (el.physicsType === 'mcu_turntable') {
+    const { x, y, width, height } = el;
+    const props = el.properties || {};
+    const radius = Math.min(width, height) / 2;
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    const omega = props.omega !== undefined ? props.omega : 3.0;
+    const angleRad = props.angleRad !== undefined ? props.angleRad : 0.0;
+    const radiusM = props.radiusMeters !== undefined ? props.radiusMeters : 1.0;
+    const rpm = props.rpm !== undefined ? props.rpm : (Math.abs(omega) * 60) / (2 * Math.PI);
+    const direction = props.direction || (omega >= 0 ? 'ccw' : 'cw');
+    const isCcw = direction === 'ccw';
+
+    ctx.save();
+
+    // 1. Soft Shadow
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+    ctx.shadowBlur = isSelected ? 18 : 10;
+    ctx.shadowOffsetY = 4;
+
+    // 2. Outer Base Bezel & Rotor Disc
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    const outerGrad = ctx.createRadialGradient(cx, cy, radius * 0.4, cx, cy, radius);
+    outerGrad.addColorStop(0, '#1e293b');
+    outerGrad.addColorStop(0.85, '#0f172a');
+    outerGrad.addColorStop(1, '#0284c7');
+    ctx.fillStyle = outerGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = isSelected ? '#4262ff' : '#0284c7';
+    ctx.lineWidth = isSelected ? 2.5 : 1.8;
+    ctx.stroke();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 3. Concentric Precision Track Rings
+    const ringSteps = [0.25, 0.5, 0.75, 0.95];
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+    ctx.lineWidth = 1;
+    ringSteps.forEach((frac) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * frac, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // 4. Angular Degree Graduations (Ticks rotate dynamically with angleRad)
+    for (let deg = 0; deg < 360; deg += 30) {
+      const rad = (deg * Math.PI) / 180 + angleRad;
+      const isMajor = deg % 90 === 0;
+      const innerR = radius * (isMajor ? 0.78 : 0.86);
+      const outerR = radius * 0.94;
+
+      ctx.beginPath();
+      ctx.moveTo(cx + innerR * Math.cos(rad), cy + innerR * Math.sin(rad));
+      ctx.lineTo(cx + outerR * Math.cos(rad), cy + outerR * Math.sin(rad));
+      ctx.strokeStyle = isMajor ? 'rgba(56, 189, 248, 0.8)' : 'rgba(148, 163, 184, 0.4)';
+      ctx.lineWidth = isMajor ? 1.8 : 1.0;
+      ctx.stroke();
+
+      // Cardinal Axis degree labels
+      if (isMajor) {
+        const labelR = radius * 0.68;
+        const lx = cx + labelR * Math.cos(rad);
+        const ly = cy + labelR * Math.sin(rad);
+        ctx.font = '700 8.5px Inter, sans-serif';
+        ctx.fillStyle = '#38bdf8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${deg}°`, lx, ly);
+      }
+    }
+
+    // 4b. Rotating Internal Spokes and Optical Alignment Dot
+    const hubR = radius * 0.18;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 4; i++) {
+      const spokeA = angleRad + (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + hubR * Math.cos(spokeA), cy + hubR * Math.sin(spokeA));
+      ctx.lineTo(cx + radius * 0.92 * Math.cos(spokeA), cy + radius * 0.92 * Math.sin(spokeA));
+      ctx.stroke();
+    }
+    const markerR = radius * 0.84;
+    ctx.beginPath();
+    ctx.arc(cx + markerR * Math.cos(angleRad), cy + markerR * Math.sin(angleRad), 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#38bdf8';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+
+    // 5. Angular Rotation Velocity Curved Arrow (ω)
+    const arrowR = radius * 0.42;
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2.2;
+    const startA = isCcw ? -Math.PI * 0.3 : Math.PI * 0.3;
+    const endA = isCcw ? -Math.PI * 0.95 : Math.PI * 0.95;
+    ctx.arc(cx, cy, arrowR, startA, endA, isCcw);
+    ctx.stroke();
+
+    // Curved Arrowhead
+    const tipX = cx + arrowR * Math.cos(endA);
+    const tipY = cy + arrowR * Math.sin(endA);
+    const tanAngle = endA + (isCcw ? -Math.PI / 2 : Math.PI / 2);
+    ctx.fillStyle = '#06b6d4';
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - 7 * Math.cos(tanAngle - Math.PI / 6), tipY - 7 * Math.sin(tanAngle - Math.PI / 6));
+    ctx.lineTo(tipX - 7 * Math.cos(tanAngle + Math.PI / 6), tipY - 7 * Math.sin(tanAngle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+
+    // ω label at curved arrow
+    ctx.font = '800 9px Inter, sans-serif';
+    ctx.fillStyle = '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.fillText(`ω (${omega.toFixed(1)} rad/s)`, cx, cy - arrowR - 7);
+    ctx.restore();
+
+    // 6. Central Axle & Metallic Ball Bearing
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubR, 0, Math.PI * 2);
+    const hubGrad = ctx.createRadialGradient(cx - hubR * 0.3, cy - hubR * 0.3, hubR * 0.1, cx, cy, hubR);
+    hubGrad.addColorStop(0, '#f8fafc');
+    hubGrad.addColorStop(0.5, '#64748b');
+    hubGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = hubGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Center pivot point dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+
+    // 7. Digital Tachometer Badge at Bottom
+    const badgeW = 120;
+    const badgeH = 20;
+    const badgeX = cx - badgeW / 2;
+    const badgeY = y + height + 6;
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = '700 8.5px monospace, sans-serif';
+    ctx.fillStyle = '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`ω = ${omega.toFixed(2)} rad/s • ${rpm.toFixed(0)} rpm`, cx, badgeY + badgeH / 2);
+
+    ctx.restore();
+
+    // 8. Selection Bounding Box & Anchors
+    if (isSelected) {
+      ctx.strokeStyle = '#4262ff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x - 6, y - 6, width + 12, height + 12);
+      ctx.setLineDash([]);
+
+      if (Array.isArray(el.anchors)) {
+        el.anchors.forEach((a) => {
+          const ax = x + a.relX * width;
+          const ay = y + a.relY * height;
+          ctx.beginPath();
+          ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
+      }
+    }
+  } else if (el.physicsType === 'mcu_particle') {
+    const { x, y, width, height } = el;
+    const props = el.properties || {};
+    const radiusPx = props.radiusPx || 110;
+    const radiusM = props.radiusMeters || 1.0;
+    const omega = props.omega !== undefined ? props.omega : 3.0;
+    const angleRad = props.angleRad !== undefined ? props.angleRad : 0.0;
+    const vt = Math.abs(omega) * radiusM;
+    const ac = omega * omega * radiusM;
+
+    // Center of rotation: read from props or calculate relative to particle position
+    const cx = props.centerX !== undefined ? props.centerX : (x + width / 2 - radiusPx * Math.cos(angleRad));
+    const cy = props.centerY !== undefined ? props.centerY : (y + height / 2 + radiusPx * Math.sin(angleRad));
+
+    const px = x + width / 2;
+    const py = y + height / 2;
+    const particleRadius = Math.min(width, height) / 2;
+
+    ctx.save();
+
+    // 1. Orbital Circular Path Trajectory
+    if (props.showOrbit !== false) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 2. Radial Arm Connecting Line (r⃗)
+    if (props.showRadiusLine !== false) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+
+      // Radius length label at midpoint
+      const midX = (cx + px) / 2;
+      const midY = (cy + py) / 2;
+      ctx.font = '700 8.5px Inter, sans-serif';
+      ctx.fillStyle = '#0284c7';
+      ctx.textAlign = 'center';
+      ctx.fillText(`r = ${radiusM.toFixed(2)}m`, midX, midY - 6);
+    }
+
+    // 3. Tangential Velocity Vector v⃗_t (Emerald / Green)
+    // In screen coordinates: x = cx + R*cos(θ), y = cy - R*sin(θ)
+    // dx/dt = -R*ω*sin(θ), dy/dt = -R*ω*cos(θ)
+    if (props.showTangentialVector !== false) {
+      const vArrowLen = Math.max(28, Math.min(75, vt * 6.0));
+      // Unit tangent vector
+      const ux = -Math.sin(angleRad) * Math.sign(omega);
+      const uy = -Math.cos(angleRad) * Math.sign(omega);
+      const endVx = px + ux * vArrowLen;
+      const endVy = py + uy * vArrowLen;
+
+      ctx.save();
+      ctx.strokeStyle = '#10b981';
+      ctx.fillStyle = '#10b981';
+      ctx.lineWidth = 2.4;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(endVx, endVy);
+      ctx.stroke();
+
+      // Arrowhead
+      const heading = Math.atan2(uy, ux);
+      ctx.beginPath();
+      ctx.moveTo(endVx, endVy);
+      ctx.lineTo(endVx - 8 * Math.cos(heading - Math.PI / 6), endVy - 8 * Math.sin(heading - Math.PI / 6));
+      ctx.lineTo(endVx - 8 * Math.cos(heading + Math.PI / 6), endVy - 8 * Math.sin(heading + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '800 9px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`v⃗_t (${vt.toFixed(2)} m/s)`, endVx + 4, endVy);
+      ctx.restore();
+    }
+
+    // 4. Centripetal Acceleration Vector a⃗_c (Crimson / Rose pointing to center)
+    if (props.showCentripetalVector !== false) {
+      const aArrowLen = Math.max(26, Math.min(65, ac * 3.5));
+      const dist = Math.hypot(cx - px, cy - py) || 1;
+      const uacX = (cx - px) / dist;
+      const uacY = (cy - py) / dist;
+      const endAx = px + uacX * aArrowLen;
+      const endAy = py + uacY * aArrowLen;
+
+      ctx.save();
+      ctx.strokeStyle = '#f43f5e';
+      ctx.fillStyle = '#f43f5e';
+      ctx.lineWidth = 2.4;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(endAx, endAy);
+      ctx.stroke();
+
+      // Arrowhead towards center
+      const headA = Math.atan2(uacY, uacX);
+      ctx.beginPath();
+      ctx.moveTo(endAx, endAy);
+      ctx.lineTo(endAx - 8 * Math.cos(headA - Math.PI / 6), endAy - 8 * Math.sin(headA - Math.PI / 6));
+      ctx.lineTo(endAx - 8 * Math.cos(headA + Math.PI / 6), endAy - 8 * Math.sin(headA + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '800 9px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`a⃗_c (${ac.toFixed(1)} m/s²)`, endAx - 4, endAy);
+      ctx.restore();
+    }
+
+    // 5. High-Precision Metallic Sphere Particle Body
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.3)';
+    ctx.shadowBlur = isSelected ? 14 : 7;
+    ctx.shadowOffsetY = 3;
+
+    ctx.beginPath();
+    ctx.arc(px, py, particleRadius, 0, Math.PI * 2);
+    const sphereGrad = ctx.createRadialGradient(
+      px - particleRadius * 0.35,
+      py - particleRadius * 0.35,
+      particleRadius * 0.1,
+      px,
+      py,
+      particleRadius
+    );
+    sphereGrad.addColorStop(0, '#ffffff');
+    sphereGrad.addColorStop(0.3, '#60a5fa');
+    sphereGrad.addColorStop(0.7, '#2563eb');
+    sphereGrad.addColorStop(1, '#1e3a8a');
+    ctx.fillStyle = sphereGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = isSelected ? '#4262ff' : '#1d4ed8';
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.stroke();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 6. Digital HUD Kinematic Badge above Particle
+    const badgeW = 95;
+    const badgeH = 18;
+    const badgeX = px - badgeW / 2;
+    const badgeY = py - particleRadius - 23;
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#3b82f6';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = '700 8.5px monospace, sans-serif';
+    ctx.fillStyle = '#60a5fa';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`v=${vt.toFixed(1)}m/s | ac=${ac.toFixed(1)}`, px, badgeY + badgeH / 2);
+
+    ctx.restore();
+
+    // 7. Selection Box & Anchors
+    if (isSelected) {
+      ctx.strokeStyle = '#4262ff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x - 4, y - 4, width + 8, height + 8);
+      ctx.setLineDash([]);
+
+      if (Array.isArray(el.anchors)) {
+        el.anchors.forEach((a) => {
+          const ax = x + a.relX * width;
+          const ay = y + a.relY * height;
+          ctx.beginPath();
+          ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
+      }
+    }
+  } else if (el.physicsType === 'mcuv_turntable') {
+    const { x, y, width, height } = el;
+    const props = el.properties || {};
+    const radius = Math.min(width, height) / 2;
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    const omega = props.omega !== undefined ? props.omega : 0.0;
+    const alpha = props.alpha !== undefined ? props.alpha : 2.0;
+    const angleRad = props.angleRad !== undefined ? props.angleRad : 0.0;
+    const radiusM = props.radiusMeters !== undefined ? props.radiusMeters : 1.0;
+    const rpm = props.rpm !== undefined ? props.rpm : (Math.abs(omega) * 60) / (2 * Math.PI);
+    const direction = props.direction || (alpha >= 0 ? 'ccw' : 'cw');
+    const isCcw = direction === 'ccw';
+
+    ctx.save();
+
+    // 1. Soft Shadow
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.35)';
+    ctx.shadowBlur = isSelected ? 18 : 10;
+    ctx.shadowOffsetY = 4;
+
+    // 2. Outer Base Bezel & Rotor Disc
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    const outerGrad = ctx.createRadialGradient(cx, cy, radius * 0.4, cx, cy, radius);
+    outerGrad.addColorStop(0, '#0f172a');
+    outerGrad.addColorStop(0.8, '#164e63');
+    outerGrad.addColorStop(1, '#0891b2');
+    ctx.fillStyle = outerGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = isSelected ? '#4262ff' : '#0891b2';
+    ctx.lineWidth = isSelected ? 2.5 : 1.8;
+    ctx.stroke();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 3. Concentric Precision Track Rings
+    const ringSteps = [0.25, 0.5, 0.75, 0.95];
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.25)';
+    ctx.lineWidth = 1;
+    ringSteps.forEach((frac) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * frac, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // 4. Angular Degree Graduations (Ticks rotate dynamically with angleRad)
+    for (let deg = 0; deg < 360; deg += 30) {
+      const rad = (deg * Math.PI) / 180 + angleRad;
+      const isMajor = deg % 90 === 0;
+      const innerR = radius * (isMajor ? 0.78 : 0.86);
+      const outerR = radius * 0.94;
+
+      ctx.beginPath();
+      ctx.moveTo(cx + innerR * Math.cos(rad), cy + innerR * Math.sin(rad));
+      ctx.lineTo(cx + outerR * Math.cos(rad), cy + outerR * Math.sin(rad));
+      ctx.strokeStyle = isMajor ? 'rgba(34, 211, 238, 0.85)' : 'rgba(148, 163, 184, 0.4)';
+      ctx.lineWidth = isMajor ? 1.8 : 1.0;
+      ctx.stroke();
+
+      if (isMajor) {
+        const labelR = radius * 0.68;
+        const lx = cx + labelR * Math.cos(rad);
+        const ly = cy + labelR * Math.sin(rad);
+        ctx.font = '700 8.5px Inter, sans-serif';
+        ctx.fillStyle = '#22d3ee';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${deg}°`, lx, ly);
+      }
+    }
+
+    // 4b. Rotating Internal Spokes and Optical Alignment Dot
+    const hubR = radius * 0.18;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(34, 211, 238, 0.55)';
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 4; i++) {
+      const spokeA = angleRad + (i * Math.PI) / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + hubR * Math.cos(spokeA), cy + hubR * Math.sin(spokeA));
+      ctx.lineTo(cx + radius * 0.92 * Math.cos(spokeA), cy + radius * 0.92 * Math.sin(spokeA));
+      ctx.stroke();
+    }
+    // High-visibility amber alignment dot on the rotor perimeter
+    const markerR = radius * 0.84;
+    ctx.beginPath();
+    ctx.arc(cx + markerR * Math.cos(angleRad), cy + markerR * Math.sin(angleRad), 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#f59e0b';
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
+
+    // 5. Angular Velocity & Acceleration Curved Arrow
+    const arrowR = radius * 0.42;
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 2.4;
+    const startA = isCcw ? -Math.PI * 0.3 : Math.PI * 0.3;
+    const endA = isCcw ? -Math.PI * 0.95 : Math.PI * 0.95;
+    ctx.arc(cx, cy, arrowR, startA, endA, isCcw);
+    ctx.stroke();
+
+    // Curved Arrowhead
+    const tipX = cx + arrowR * Math.cos(endA);
+    const tipY = cy + arrowR * Math.sin(endA);
+    const tanAngle = endA + (isCcw ? -Math.PI / 2 : Math.PI / 2);
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(tipX - 7 * Math.cos(tanAngle - Math.PI / 6), tipY - 7 * Math.sin(tanAngle - Math.PI / 6));
+    ctx.lineTo(tipX - 7 * Math.cos(tanAngle + Math.PI / 6), tipY - 7 * Math.sin(tanAngle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+
+    // Label at curved arrow
+    ctx.font = '800 8.5px Inter, sans-serif';
+    ctx.fillStyle = '#fbbf24';
+    ctx.textAlign = 'center';
+    ctx.fillText(`α = ${alpha.toFixed(1)} rad/s²`, cx, cy - arrowR - 7);
+    ctx.restore();
+
+    // 6. Central Axle & Metallic Hub
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubR, 0, Math.PI * 2);
+    const hubGrad = ctx.createRadialGradient(cx - hubR * 0.3, cy - hubR * 0.3, hubR * 0.1, cx, cy, hubR);
+    hubGrad.addColorStop(0, '#f8fafc');
+    hubGrad.addColorStop(0.5, '#475569');
+    hubGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = hubGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+
+    // Center pivot point dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+
+    // 7. Digital Tachometer Badge at Bottom
+    const badgeW = 140;
+    const badgeH = 20;
+    const badgeX = cx - badgeW / 2;
+    const badgeY = y + height + 6;
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#0891b2';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = '700 8px monospace, sans-serif';
+    ctx.fillStyle = '#22d3ee';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`ω=${omega.toFixed(1)} rad/s • α=${alpha.toFixed(1)} • ${rpm.toFixed(0)} rpm`, cx, badgeY + badgeH / 2);
+
+    ctx.restore();
+
+    // 8. Selection Bounding Box & Anchors
+    if (isSelected) {
+      ctx.strokeStyle = '#4262ff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x - 6, y - 6, width + 12, height + 12);
+      ctx.setLineDash([]);
+
+      if (Array.isArray(el.anchors)) {
+        el.anchors.forEach((a) => {
+          const ax = x + a.relX * width;
+          const ay = y + a.relY * height;
+          ctx.beginPath();
+          ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
+      }
+    }
+  } else if (el.physicsType === 'mcuv_particle') {
+    const { x, y, width, height } = el;
+    const props = el.properties || {};
+    const radiusPx = props.radiusPx || 110;
+    const radiusM = props.radiusMeters || 1.0;
+    const omega = props.omega !== undefined ? props.omega : 0.0;
+    const alpha = props.alpha !== undefined ? props.alpha : 2.0;
+    const angleRad = props.angleRad !== undefined ? props.angleRad : 0.0;
+    const vt = Math.abs(omega) * radiusM;
+    const ac = omega * omega * radiusM;
+    const at = Math.abs(alpha) * radiusM;
+    const aTotal = Math.hypot(ac, at);
+
+    // Center of rotation: read from props or calculate relative to particle position
+    const cx = props.centerX !== undefined ? props.centerX : (x + width / 2 - radiusPx * Math.cos(angleRad));
+    const cy = props.centerY !== undefined ? props.centerY : (y + height / 2 + radiusPx * Math.sin(angleRad));
+
+    const px = x + width / 2;
+    const py = y + height / 2;
+    const particleRadius = Math.min(width, height) / 2;
+
+    ctx.save();
+
+    // 1. Orbital Circular Path Trajectory
+    if (props.showOrbit !== false) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radiusPx, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // 2. Radial Arm Connecting Line (r⃗)
+    if (props.showRadiusLine !== false) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+
+      const midX = (cx + px) / 2;
+      const midY = (cy + py) / 2;
+      ctx.font = '700 8.5px Inter, sans-serif';
+      ctx.fillStyle = '#0891b2';
+      ctx.textAlign = 'center';
+      ctx.fillText(`r = ${radiusM.toFixed(2)}m`, midX, midY - 6);
+    }
+
+    // Tangent unit direction in screen coords: CCW direction is (-sinθ, -cosθ)
+    const signW = Math.sign(omega) || 1;
+    const signA = Math.sign(alpha) || 1;
+
+    // 3. Tangential Velocity Vector v⃗_t (Emerald #10b981)
+    if (props.showTangentialVector !== false && vt > 0.05) {
+      const vArrowLen = Math.max(26, Math.min(75, vt * 5.5));
+      const ux = -Math.sin(angleRad) * signW;
+      const uy = -Math.cos(angleRad) * signW;
+      const endVx = px + ux * vArrowLen;
+      const endVy = py + uy * vArrowLen;
+
+      ctx.save();
+      ctx.strokeStyle = '#10b981';
+      ctx.fillStyle = '#10b981';
+      ctx.lineWidth = 2.4;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(endVx, endVy);
+      ctx.stroke();
+
+      const heading = Math.atan2(uy, ux);
+      ctx.beginPath();
+      ctx.moveTo(endVx, endVy);
+      ctx.lineTo(endVx - 7 * Math.cos(heading - Math.PI / 6), endVy - 7 * Math.sin(heading - Math.PI / 6));
+      ctx.lineTo(endVx - 7 * Math.cos(heading + Math.PI / 6), endVy - 7 * Math.sin(heading + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '800 8.5px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`v⃗_t (${vt.toFixed(1)} m/s)`, endVx + 4, endVy);
+      ctx.restore();
+    }
+
+    // 4. Centripetal Acceleration Vector a⃗_c (Crimson / Rose #f43f5e pointing to center)
+    const dist = Math.hypot(cx - px, cy - py) || 1;
+    const uacX = (cx - px) / dist;
+    const uacY = (cy - py) / dist;
+
+    if (props.showCentripetalVector !== false && ac > 0.05) {
+      const acArrowLen = Math.max(24, Math.min(65, ac * 3.0));
+      const endAcX = px + uacX * acArrowLen;
+      const endAcY = py + uacY * acArrowLen;
+
+      ctx.save();
+      ctx.strokeStyle = '#f43f5e';
+      ctx.fillStyle = '#f43f5e';
+      ctx.lineWidth = 2.2;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(endAcX, endAcY);
+      ctx.stroke();
+
+      const headAc = Math.atan2(uacY, uacX);
+      ctx.beginPath();
+      ctx.moveTo(endAcX, endAcY);
+      ctx.lineTo(endAcX - 7 * Math.cos(headAc - Math.PI / 6), endAcY - 7 * Math.sin(headAc - Math.PI / 6));
+      ctx.lineTo(endAcX - 7 * Math.cos(headAc + Math.PI / 6), endAcY - 7 * Math.sin(headAc + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '800 8.5px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`a⃗_c (${ac.toFixed(1)} m/s²)`, endAcX - 4, endAcY);
+      ctx.restore();
+    }
+
+    // 5. Tangential Acceleration Vector a⃗_t (Amber #f59e0b)
+    const uatX = -Math.sin(angleRad) * signA;
+    const uatY = -Math.cos(angleRad) * signA;
+
+    if (props.showTangentialAccelVector !== false && at > 0.05) {
+      const atArrowLen = Math.max(24, Math.min(65, at * 5.0));
+      const endAtX = px + uatX * atArrowLen;
+      const endAtY = py + uatY * atArrowLen;
+
+      ctx.save();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.fillStyle = '#f59e0b';
+      ctx.lineWidth = 2.2;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(endAtX, endAtY);
+      ctx.stroke();
+
+      const headAt = Math.atan2(uatY, uatX);
+      ctx.beginPath();
+      ctx.moveTo(endAtX, endAtY);
+      ctx.lineTo(endAtX - 7 * Math.cos(headAt - Math.PI / 6), endAtY - 7 * Math.sin(headAt - Math.PI / 6));
+      ctx.lineTo(endAtX - 7 * Math.cos(headAt + Math.PI / 6), endAtY - 7 * Math.sin(headAt + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '800 8.5px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`a⃗_t (${at.toFixed(1)} m/s²)`, endAtX + 4, endAtY);
+      ctx.restore();
+    }
+
+    // 6. Total Acceleration Resultant Vector a⃗_total (Violet #8b5cf6 = a⃗_c + a⃗_t)
+    if (props.showTotalAccelVector !== false && aTotal > 0.05) {
+      const vecTotalX = ac * uacX + at * uatX;
+      const vecTotalY = ac * uacY + at * uatY;
+      const totalMag = Math.hypot(vecTotalX, vecTotalY) || 1;
+      const uTotX = vecTotalX / totalMag;
+      const uTotY = vecTotalY / totalMag;
+
+      const aTotArrowLen = Math.max(28, Math.min(75, aTotal * 3.0));
+      const endTotX = px + uTotX * aTotArrowLen;
+      const endTotY = py + uTotY * aTotArrowLen;
+
+      ctx.save();
+      ctx.strokeStyle = '#8b5cf6';
+      ctx.fillStyle = '#8b5cf6';
+      ctx.lineWidth = 2.4;
+
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(endTotX, endTotY);
+      ctx.stroke();
+
+      const headTot = Math.atan2(uTotY, uTotX);
+      ctx.beginPath();
+      ctx.moveTo(endTotX, endTotY);
+      ctx.lineTo(endTotX - 8 * Math.cos(headTot - Math.PI / 6), endTotY - 8 * Math.sin(headTot - Math.PI / 6));
+      ctx.lineTo(endTotX - 8 * Math.cos(headTot + Math.PI / 6), endTotY - 8 * Math.sin(headTot + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.font = '800 8.5px Inter, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`a⃗_tot (${aTotal.toFixed(1)})`, endTotX + 4, endTotY - 3);
+      ctx.restore();
+    }
+
+    // 7. High-Precision Metallic Sphere Particle Body
+    ctx.shadowColor = 'rgba(15, 23, 42, 0.3)';
+    ctx.shadowBlur = isSelected ? 14 : 7;
+    ctx.shadowOffsetY = 3;
+
+    ctx.beginPath();
+    ctx.arc(px, py, particleRadius, 0, Math.PI * 2);
+    const sphereGrad = ctx.createRadialGradient(
+      px - particleRadius * 0.35,
+      py - particleRadius * 0.35,
+      particleRadius * 0.1,
+      px,
+      py,
+      particleRadius
+    );
+    sphereGrad.addColorStop(0, '#ffffff');
+    sphereGrad.addColorStop(0.3, '#22d3ee');
+    sphereGrad.addColorStop(0.7, '#0891b2');
+    sphereGrad.addColorStop(1, '#0e7490');
+    ctx.fillStyle = sphereGrad;
+    ctx.fill();
+
+    ctx.strokeStyle = isSelected ? '#4262ff' : '#0891b2';
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.stroke();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // 8. Digital HUD Kinematic Badge above Particle
+    const badgeW = 110;
+    const badgeH = 18;
+    const badgeX = px - badgeW / 2;
+    const badgeY = py - particleRadius - 23;
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 3);
+    ctx.fill();
+    ctx.strokeStyle = '#0891b2';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = '700 8px monospace, sans-serif';
+    ctx.fillStyle = '#22d3ee';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`vt=${vt.toFixed(1)} | at=${at.toFixed(1)} | ac=${ac.toFixed(1)}`, px, badgeY + badgeH / 2);
+
+    ctx.restore();
+
+    // 9. Selection Box & Anchors
+    if (isSelected) {
+      ctx.strokeStyle = '#4262ff';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x - 4, y - 4, width + 8, height + 8);
+      ctx.setLineDash([]);
+
+      if (Array.isArray(el.anchors)) {
+        el.anchors.forEach((a) => {
+          const ax = x + a.relX * width;
+          const ay = y + a.relY * height;
+          ctx.beginPath();
+          ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        });
+      }
+    }
   }
 
   ctx.restore();
