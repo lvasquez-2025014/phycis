@@ -134,26 +134,28 @@ export default function PhysicsObjectsFlyout({
         </button>
       </div>
 
-      {/* 3x2 Topic Grid: ALL 6 topics always visible */}
-      <div className="topic-grid-control">
-        {PHYSICS_TOPICS.filter((t) => t.active).map((topic) => {
-          const cfg = TOPIC_CONFIG[topic.id] || { icon: Layers, short: topic.name, color: '#475569' };
-          const IconComponent = cfg.icon;
-          const isActive = activeTopic === topic.id;
-          return (
-            <button
-              key={topic.id}
-              className={`topic-grid-btn ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveTopic(topic.id)}
-              title={`Tema: ${topic.name}`}
-              style={isActive ? { borderColor: cfg.color, background: cfg.color } : {}}
-            >
-              <IconComponent size={13} className="topic-grid-icon" style={!isActive ? { color: cfg.color } : {}} />
-              <span className="topic-grid-label">{cfg.short}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Topic Grid: only rendered when multiple topics are active */}
+      {PHYSICS_TOPICS.filter((t) => t.active).length > 1 && (
+        <div className="topic-grid-control">
+          {PHYSICS_TOPICS.filter((t) => t.active).map((topic) => {
+            const cfg = TOPIC_CONFIG[topic.id] || { icon: Layers, short: topic.name, color: '#475569' };
+            const IconComponent = cfg.icon;
+            const isActive = activeTopic === topic.id;
+            return (
+              <button
+                key={topic.id}
+                className={`topic-grid-btn ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveTopic(topic.id)}
+                title={`Tema: ${topic.name}`}
+                style={isActive ? { borderColor: cfg.color, background: cfg.color } : {}}
+              >
+                <IconComponent size={13} className="topic-grid-icon" style={!isActive ? { color: cfg.color } : {}} />
+                <span className="topic-grid-label">{cfg.short}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Active Topic Banner */}
       <div className="active-topic-banner">

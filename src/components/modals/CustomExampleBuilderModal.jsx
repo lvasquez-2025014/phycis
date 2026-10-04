@@ -33,6 +33,7 @@ import {
   calculateTopicPhysicsPreview,
   saveTeacherCustomExample,
 } from '../../services/customExampleBuilder';
+import { PHYSICS_TOPICS } from '../../physics/physicsRegistry';
 
 const TOPIC_ICONS = {
   mru: Gauge,
@@ -67,17 +68,29 @@ export default function CustomExampleBuilderModal({
   onMountCustomExample,
   onNotify,
 }) {
-  const [selectedTopic, setSelectedTopic] = useState(initialTopic);
+  const activeTopicIds = useMemo(() => {
+    return new Set(PHYSICS_TOPICS.filter((t) => t.active).map((t) => t.id));
+  }, []);
+
+  const availableTopics = useMemo(() => {
+    return Object.values(TOPIC_PRESETS_METADATA).filter((meta) => activeTopicIds.has(meta.id));
+  }, [activeTopicIds]);
+
+  const [selectedTopic, setSelectedTopic] = useState('mru');
   const [formData, setFormData] = useState({});
 
   // Sync topic when modal opens or initialTopic changes
   useEffect(() => {
     if (isOpen) {
-      const topic = initialTopic && TOPIC_PRESETS_METADATA[initialTopic] ? initialTopic : 'mru';
+      const topic = (initialTopic && TOPIC_PRESETS_METADATA[initialTopic] && activeTopicIds.has(initialTopic))
+        ? initialTopic
+        : (availableTopics[0]?.id || 'mru');
       setSelectedTopic(topic);
-      setFormData(JSON.parse(JSON.stringify(TOPIC_PRESETS_METADATA[topic].defaultConfig)));
+      if (TOPIC_PRESETS_METADATA[topic]) {
+        setFormData(JSON.parse(JSON.stringify(TOPIC_PRESETS_METADATA[topic].defaultConfig)));
+      }
     }
-  }, [isOpen, initialTopic]);
+  }, [isOpen, initialTopic, activeTopicIds, availableTopics]);
 
   const currentTopicMeta = TOPIC_PRESETS_METADATA[selectedTopic] || TOPIC_PRESETS_METADATA.mru;
 
@@ -365,24 +378,26 @@ export default function CustomExampleBuilderModal({
           </button>
         </div>
 
-        {/* Topic Selector Tabs */}
-        <div className="cbm-topic-pills-bar">
-          {Object.values(TOPIC_PRESETS_METADATA).map((meta) => {
-            const Icon = TOPIC_ICONS[meta.id] || Layers;
-            const isSel = selectedTopic === meta.id;
-            return (
-              <button
-                key={meta.id}
-                className={`cbm-pill-btn ${isSel ? 'active' : ''}`}
-                onClick={() => handleSelectTopic(meta.id)}
-                style={isSel ? { borderColor: meta.color, background: meta.color, color: '#fff' } : {}}
-              >
-                <Icon size={13} />
-                <span>{meta.short}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Topic Selector Tabs (only shown if multiple active topics exist) */}
+        {availableTopics.length > 1 && (
+          <div className="cbm-topic-pills-bar">
+            {availableTopics.map((meta) => {
+              const Icon = TOPIC_ICONS[meta.id] || Layers;
+              const isSel = selectedTopic === meta.id;
+              return (
+                <button
+                  key={meta.id}
+                  className={`cbm-pill-btn ${isSel ? 'active' : ''}`}
+                  onClick={() => handleSelectTopic(meta.id)}
+                  style={isSel ? { borderColor: meta.color, background: meta.color, color: '#fff' } : {}}
+                >
+                  <Icon size={13} />
+                  <span>{meta.short}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Main Content: Form + Live Preview */}
         <div className="cbm-body-grid">

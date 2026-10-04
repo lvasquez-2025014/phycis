@@ -26,6 +26,9 @@ import {
   Scale,
   Weight,
 } from 'lucide-react';
+import { PHYSICS_TOPICS } from '../../physics/physicsRegistry';
+
+const isTopicActive = (id) => PHYSICS_TOPICS.find((t) => t.id === id)?.active ?? false;
 
 export default function TopBar({
   boardName = 'Pizarra de Física y MRU',
@@ -180,30 +183,34 @@ export default function TopBar({
           {isTopicsMenuOpen && (
             <div className="studio-dropdown-menu topics-dropdown-menu">
               {/* Category: 1D Kinematics */}
-              <div className="topics-dropdown-header">CINEMÁTICA EN 1D</div>
+              {isTopicActive('mru') && (
+                <>
+                  <div className="topics-dropdown-header">CINEMÁTICA EN 1D</div>
 
-              {onOpenMruSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenMruSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-mru">
-                    <Calculator size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">MRU: Movimiento Uniforme</span>
-                      <span className="topic-tag tag-mru">HT01</span>
-                    </div>
-                    <span className="dropdown-item-sub">Velocidad constante (v = cte) • 10 ejercicios y calculadora</span>
-                  </div>
-                </button>
+                  {onOpenMruSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenMruSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-mru">
+                        <Calculator size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">MRU: Movimiento Uniforme</span>
+                          <span className="topic-tag tag-mru">HT01</span>
+                        </div>
+                        <span className="dropdown-item-sub">Velocidad constante (v = cte) • 10 ejercicios y calculadora</span>
+                      </div>
+                    </button>
+                  )}
+                </>
               )}
 
-              {onOpenMruvSolver && (
+              {isTopicActive('mruv') && onOpenMruvSolver && (
                 <button
                   className="studio-dropdown-item topic-item"
                   onClick={() => {
@@ -225,216 +232,229 @@ export default function TopBar({
               )}
 
               {/* Category: Vertical Kinematics & 2D */}
-              <div className="topics-dropdown-header">CINEMÁTICA VERTICAL Y 2D</div>
+              {(isTopicActive('freefall') ||
+                isTopicActive('tiro_vertical') ||
+                isTopicActive('lanzamiento_horizontal') ||
+                isTopicActive('movimiento_proyectiles') ||
+                isTopicActive('mcu') ||
+                isTopicActive('mcuv') ||
+                isTopicActive('poleas_mcu') ||
+                isTopicActive('dcl') ||
+                isTopicActive('equilibrio') ||
+                isTopicActive('segunda_ley_newton')) && (
+                <>
+                  <div className="topics-dropdown-header">CINEMÁTICA VERTICAL Y 2D</div>
 
-              {onOpenFreefallSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenFreefallSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-freefall">
-                    <ArrowDownCircle size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Caída Libre</span>
-                      <span className="topic-tag tag-freefall">HT03</span>
-                    </div>
-                    <span className="dropdown-item-sub">Gravedad g = 9.80 m/s², caída desde reposo • 10 ejercicios</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('freefall') && onOpenFreefallSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenFreefallSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-freefall">
+                        <ArrowDownCircle size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Caída Libre</span>
+                          <span className="topic-tag tag-freefall">HT03</span>
+                        </div>
+                        <span className="dropdown-item-sub">Gravedad g = 9.80 m/s², caída desde reposo • 10 ejercicios</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenTiroVerticalSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenTiroVerticalSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-tiro">
-                    <ArrowUpCircle size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Tiro Vertical</span>
-                      <span className="topic-tag tag-tiro">HT04</span>
-                    </div>
-                    <span className="dropdown-item-sub">Lanzamiento hacia arriba, altura máxima • 10 ejercicios</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('tiro_vertical') && onOpenTiroVerticalSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenTiroVerticalSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-tiro">
+                        <ArrowUpCircle size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Tiro Vertical</span>
+                          <span className="topic-tag tag-tiro">HT04</span>
+                        </div>
+                        <span className="dropdown-item-sub">Lanzamiento hacia arriba, altura máxima • 10 ejercicios</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenHorizontalLaunchSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenHorizontalLaunchSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-horizontal">
-                    <Navigation size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Lanzamiento Horizontal</span>
-                      <span className="topic-tag tag-horizontal">HT01 2D</span>
-                    </div>
-                    <span className="dropdown-item-sub">Movimiento parabólico 2D: MRU + Caída Libre • 10 problemas</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('lanzamiento_horizontal') && onOpenHorizontalLaunchSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenHorizontalLaunchSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-horizontal">
+                        <Navigation size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Lanzamiento Horizontal</span>
+                          <span className="topic-tag tag-horizontal">HT01 2D</span>
+                        </div>
+                        <span className="dropdown-item-sub">Movimiento parabólico 2D: MRU + Caída Libre • 10 problemas</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenProjectileMotionSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenProjectileMotionSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-proyectiles">
-                    <Target size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Movimiento de Proyectiles</span>
-                      <span className="topic-tag tag-proyectiles">HT02 2D</span>
-                    </div>
-                    <span className="dropdown-item-sub">Tiro parabólico oblicuo con ángulo θ • 10 problemas y 7 conceptuales</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('movimiento_proyectiles') && onOpenProjectileMotionSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenProjectileMotionSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-proyectiles">
+                        <Target size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Movimiento de Proyectiles</span>
+                          <span className="topic-tag tag-proyectiles">HT02 2D</span>
+                        </div>
+                        <span className="dropdown-item-sub">Tiro parabólico oblicuo con ángulo θ • 10 problemas y 7 conceptuales</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenMcuSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenMcuSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-mcu">
-                    <RotateCw size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Movimiento Circular Uniforme (MCU)</span>
-                      <span className="topic-tag tag-mcu">HT03 MCU</span>
-                    </div>
-                    <span className="dropdown-item-sub">Radio, período, frecuencia, velocidad angular y tangencial • 10 problemas y 9 conceptuales</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('mcu') && onOpenMcuSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenMcuSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-mcu">
+                        <RotateCw size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Movimiento Circular Uniforme (MCU)</span>
+                          <span className="topic-tag tag-mcu">HT03 MCU</span>
+                        </div>
+                        <span className="dropdown-item-sub">Radio, período, frecuencia, velocidad angular y tangencial • 10 problemas y 9 conceptuales</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenMcuvSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenMcuvSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-mcuv">
-                    <RotateCw size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Movimiento Circular Variado (MCUV)</span>
-                      <span className="topic-tag tag-mcuv">Unidad 2</span>
-                    </div>
-                    <span className="dropdown-item-sub">Aceleración angular α, ω(t), at, ac, atotal • 15 problemas y 10 conceptuales</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('mcuv') && onOpenMcuvSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenMcuvSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-mcuv">
+                        <RotateCw size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Movimiento Circular Variado (MCUV)</span>
+                          <span className="topic-tag tag-mcuv">Unidad 2</span>
+                        </div>
+                        <span className="dropdown-item-sub">Aceleración angular α, ω(t), at, ac, atotal • 15 problemas y 10 conceptuales</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenPoleasMcuSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenPoleasMcuSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-poleas">
-                    <Disc size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Poleas MCU (Transmisión)</span>
-                      <span className="topic-tag tag-poleas">HT01 U3</span>
-                    </div>
-                    <span className="dropdown-item-sub">Mismo eje (ω=cte), fajas (v=cte), trenes compuestos • 9 problemas y 5 preguntas</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('poleas_mcu') && onOpenPoleasMcuSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenPoleasMcuSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-poleas">
+                        <Disc size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Poleas MCU (Transmisión)</span>
+                          <span className="topic-tag tag-poleas">HT01 U3</span>
+                        </div>
+                        <span className="dropdown-item-sub">Mismo eje (ω=cte), fajas (v=cte), trenes compuestos • 9 problemas y 5 preguntas</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenDclSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenDclSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-dcl">
-                    <GitFork size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Diagramas de Cuerpo Libre (DCL)</span>
-                      <span className="topic-tag tag-dcl">HT02 U3</span>
-                    </div>
-                    <span className="dropdown-item-sub">Fuerzas, DCL de cada cuerpo, descomposición y equilibrio • 11 problemas y 5 preguntas</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('dcl') && onOpenDclSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenDclSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge badge-dcl">
+                        <GitFork size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Diagramas de Cuerpo Libre (DCL)</span>
+                          <span className="topic-tag tag-dcl">HT02 U3</span>
+                        </div>
+                        <span className="dropdown-item-sub">Fuerzas, DCL de cada cuerpo, descomposición y equilibrio • 11 problemas y 5 preguntas</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenEquilibrioSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenEquilibrioSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                    <Scale size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Equilibrio Traslacional (1ra Ley Newton)</span>
-                      <span className="topic-tag" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #6ee7b7' }}>HT03 U3</span>
-                    </div>
-                    <span className="dropdown-item-sub">Condición ΣF = 0, nudos concurrentes, poleas, cables y planos • 8 problemas y 5 preguntas</span>
-                  </div>
-                </button>
-              )}
+                  {isTopicActive('equilibrio') && onOpenEquilibrioSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenEquilibrioSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                        <Scale size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Equilibrio Traslacional (1ra Ley Newton)</span>
+                          <span className="topic-tag" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #6ee7b7' }}>HT03 U3</span>
+                        </div>
+                        <span className="dropdown-item-sub">Condición ΣF = 0, nudos concurrentes, poleas, cables y planos • 8 problemas y 5 preguntas</span>
+                      </div>
+                    </button>
+                  )}
 
-              {onOpenNewtonSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenNewtonSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge" style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
-                    <Weight size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Segunda Ley de Newton (Sin Fricción)</span>
-                      <span className="topic-tag" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}>HT01 U4</span>
-                    </div>
-                    <span className="dropdown-item-sub">Dinámica a = ΣF / m, bloques conectados, tensión T, Atwood y planos • 12 problemas y 4 preguntas</span>
-                  </div>
-                </button>
+                  {isTopicActive('segunda_ley_newton') && onOpenNewtonSolver && (
+                    <button
+                      className="studio-dropdown-item topic-item"
+                      onClick={() => {
+                        setIsTopicsMenuOpen(false);
+                        onOpenNewtonSolver();
+                      }}
+                    >
+                      <div className="topic-icon-badge" style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
+                        <Weight size={14} />
+                      </div>
+                      <div className="dropdown-item-meta">
+                        <div className="topic-item-header">
+                          <span className="dropdown-item-title">Segunda Ley de Newton (Sin Fricción)</span>
+                          <span className="topic-tag" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}>HT01 U4</span>
+                        </div>
+                        <span className="dropdown-item-sub">Dinámica a = ΣF / m, bloques conectados, tensión T, Atwood y planos • 12 problemas y 4 preguntas</span>
+                      </div>
+                    </button>
+                  )}
+                </>
               )}
 
               {/* Category: Tools & Syllabus */}
