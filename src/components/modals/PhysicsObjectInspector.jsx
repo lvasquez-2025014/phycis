@@ -13,9 +13,24 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Navigation,
-  Target
+  Target,
+  GitFork,
+  ArrowRight,
+  ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
+  Scale
 } from 'lucide-react';
 import { CONVERSIONS } from '../../services/mruExerciseSolver';
+import {
+  getDclBodies,
+  OFFICIAL_TABLE_THREE_MASSES_VECTORS,
+  OFFICIAL_TABLE_TWO_MASSES_VECTORS,
+} from '../../services/canvasRenderers';
 
 export default function PhysicsObjectInspector({
   element,
@@ -40,12 +55,34 @@ export default function PhysicsObjectInspector({
   const isMcuParticle = element.physicsType === 'mcu_particle';
   const isMcuvTurntable = element.physicsType === 'mcuv_turntable';
   const isMcuvParticle = element.physicsType === 'mcuv_particle';
+  const isPoleasMcu = element.physicsType === 'mcu_pulley_system';
+  const isDcl = element.physicsType === 'dcl_diagram' || element.physicsType === 'translational_equilibrium';
+  const isNewton = element.physicsType === 'newton_frictionless_system';
 
   // Form states initialized from element
   const [label, setLabel] = useState(
     props.label || element.name || 
-    (isMruv ? 'Móvil MRUV' : isFreefallBody ? 'Cuerpo en Caída Libre' : isVerticalProj ? 'Proyectil Tiro Vertical' : isHorizontalProj ? 'Proyectil Horizontal' : isCliffPlatform ? 'Acantilado de Lanzamiento' : isFreefallTower ? 'Torre de Caída Libre' : isCannon ? 'Cañón Lanzador Angular' : isObliqueProj ? 'Proyectil Oblicuo (2D)' : isTargetWall ? 'Muro Diana / Objetivo' : isMcuTurntable ? 'Plataforma Giratoria MCU' : isMcuParticle ? 'Masa Orbitante MCU' : isMcuvTurntable ? 'Rotor Acelerado MCUV' : isMcuvParticle ? 'Masa en MCUV' : 'Móvil MRU')
+    (isMruv ? 'Móvil MRUV' : isFreefallBody ? 'Cuerpo en Caída Libre' : isVerticalProj ? 'Proyectil Tiro Vertical' : isHorizontalProj ? 'Proyectil Horizontal' : isCliffPlatform ? 'Acantilado de Lanzamiento' : isFreefallTower ? 'Torre de Caída Libre' : isCannon ? 'Cañón Lanzador Angular' : isObliqueProj ? 'Proyectil Oblicuo (2D)' : isTargetWall ? 'Muro Diana / Objetivo' : isMcuTurntable ? 'Plataforma Giratoria MCU' : isMcuParticle ? 'Masa Orbitante MCU' : isMcuvTurntable ? 'Rotor Acelerado MCUV' : isMcuvParticle ? 'Masa en MCUV' : isPoleasMcu ? 'Sistema de Poleas MCU' : isNewton ? (props.systemTitle || 'Segunda Ley de Newton') : isDcl ? (element.physicsType === 'translational_equilibrium' ? 'Aparato de Equilibrio (HT03)' : 'Diagrama de Cuerpo Libre') : 'Móvil MRU')
   );
+
+  // DCL & Newton States
+  const dclBodies = (isDcl || isNewton) ? getDclBodies(element) : [];
+  const [selectedDclBody, setSelectedDclBody] = useState(
+    dclBodies.length > 1 ? dclBodies[1].id : (dclBodies[0]?.id || 'main')
+  );
+  const [dclUserVectors, setDclUserVectors] = useState(props.userVectors || []);
+  const [dclShowOfficial, setDclShowOfficial] = useState(!!props.showOfficialSolution);
+
+  // Newton Second Law States
+  const [newtonMass1, setNewtonMass1] = useState(props.mass1 !== undefined ? props.mass1 : 2.0);
+  const [newtonMass2, setNewtonMass2] = useState(props.mass2 !== undefined ? props.mass2 : 6.0);
+  const [newtonForce, setNewtonForce] = useState(props.appliedForce !== undefined ? props.appliedForce : 80.0);
+
+  const [newVecType, setNewVecType] = useState('weight');
+  const [newVecSymbol, setNewVecSymbol] = useState('W');
+  const [newVecAngle, setNewVecAngle] = useState(270);
+  const [newVecMagnitude, setNewVecMagnitude] = useState(98);
+  const [newVecColor, setNewVecColor] = useState('#ef4444');
 
   // MCU & MCUV States (ω in rad/s, r in m, direction, α in rad/s²)
   const [omegaRadSValue, setOmegaRadSValue] = useState(props.omega0 !== undefined ? props.omega0 : (props.omega !== undefined ? props.omega : (isMcuvTurntable || isMcuvParticle ? 0.0 : 3.0)));
@@ -56,6 +93,13 @@ export default function PhysicsObjectInspector({
   const [showCentripetalVector, setShowCentripetalVector] = useState(props.showCentripetalVector !== false);
   const [showTangentialAccelVector, setShowTangentialAccelVector] = useState(props.showTangentialAccelVector !== false);
   const [showTotalAccelVector, setShowTotalAccelVector] = useState(props.showTotalAccelVector !== false);
+
+  // Poleas MCU States
+  const [poleasConfig, setPoleasConfig] = useState(props.configuration || 'belt');
+  const [poleasR1, setPoleasR1] = useState(props.radiusMeters1 !== undefined ? props.radiusMeters1 : 0.20);
+  const [poleasR2, setPoleasR2] = useState(props.radiusMeters2 !== undefined ? props.radiusMeters2 : 0.10);
+  const [poleasOmega1, setPoleasOmega1] = useState(props.omega1 !== undefined ? props.omega1 : (props.omega || 5.0));
+  const [poleasBeltCrossed, setPoleasBeltCrossed] = useState(!!props.beltCrossed);
 
   
   // Speed (v for MRU, v0 for MRUV/Freefall/VerticalLaunch/HorizontalLaunch/Oblique)
@@ -116,10 +160,11 @@ export default function PhysicsObjectInspector({
     const currIsCannon = element.physicsType === 'cannon_launcher';
     const currIsOblique = element.physicsType === 'oblique_projectile';
     const currIsTarget = element.physicsType === 'target_wall';
+    const currIsNewton = element.physicsType === 'newton_frictionless_system';
 
     setLabel(
       p.label || element.name || 
-      (currIsMruv ? 'Móvil MRUV' : currIsFfBody ? 'Cuerpo en Caída Libre' : currIsVertProj ? 'Proyectil Tiro Vertical' : currIsHzProj ? 'Proyectil Horizontal' : currIsCliff ? 'Acantilado de Lanzamiento' : currIsFfTower ? 'Torre de Caída Libre' : currIsCannon ? 'Cañón Lanzador Angular' : currIsOblique ? 'Proyectil Oblicuo (2D)' : currIsTarget ? 'Muro Diana / Objetivo' : 'Móvil MRU')
+      (currIsMruv ? 'Móvil MRUV' : currIsFfBody ? 'Cuerpo en Caída Libre' : currIsVertProj ? 'Proyectil Tiro Vertical' : currIsHzProj ? 'Proyectil Horizontal' : currIsCliff ? 'Acantilado de Lanzamiento' : currIsFfTower ? 'Torre de Caída Libre' : currIsCannon ? 'Cañón Lanzador Angular' : currIsOblique ? 'Proyectil Oblicuo (2D)' : currIsTarget ? 'Muro Diana / Objetivo' : currIsNewton ? (p.systemTitle || 'Segunda Ley de Newton') : 'Móvil MRU')
     );
     
     const v = p.displayVelocity !== undefined 
@@ -159,6 +204,22 @@ export default function PhysicsObjectInspector({
     setShowCentripetalVector(p.showCentripetalVector !== false);
     setShowTangentialAccelVector(p.showTangentialAccelVector !== false);
     setShowTotalAccelVector(p.showTotalAccelVector !== false);
+    setPoleasConfig(p.configuration || 'belt');
+    setPoleasR1(p.radiusMeters1 !== undefined ? p.radiusMeters1 : 0.20);
+    setPoleasR2(p.radiusMeters2 !== undefined ? p.radiusMeters2 : 0.10);
+    setPoleasOmega1(p.omega1 !== undefined ? p.omega1 : (p.omega || 5.0));
+    setPoleasBeltCrossed(!!p.beltCrossed);
+
+    setNewtonMass1(p.mass1 !== undefined ? p.mass1 : 2.0);
+    setNewtonMass2(p.mass2 !== undefined ? p.mass2 : 6.0);
+    setNewtonForce(p.appliedForce !== undefined ? p.appliedForce : 80.0);
+
+    setDclUserVectors(p.userVectors || []);
+    setDclShowOfficial(!!p.showOfficialSolution);
+    const bds = (element.physicsType === 'dcl_diagram' || element.physicsType === 'translational_equilibrium' || element.physicsType === 'newton_frictionless_system') ? getDclBodies(element) : [];
+    if (bds.length > 0) {
+      setSelectedDclBody(bds.length > 1 ? bds[0].id : bds[0].id);
+    }
   }, [element]);
 
   // Compute live conversions for velocity
@@ -418,6 +479,34 @@ export default function PhysicsObjectInspector({
         color,
       };
       updatedElement.color = color;
+    } else if (element.physicsType === 'mcu_pulley_system') {
+      const numOmega1 = parseFloat(poleasOmega1) || 5.0;
+      const numR1 = parseFloat(poleasR1) || 0.20;
+      const numR2 = parseFloat(poleasR2) || 0.10;
+      let ratio = 1.0;
+      let omega2 = numOmega1;
+      let linearSpeed = Math.abs(numOmega1) * numR1;
+      if (poleasConfig === 'belt' || poleasConfig === 'washing_machine') {
+        ratio = numR1 / Math.max(0.001, numR2);
+        omega2 = numOmega1 * ratio;
+      }
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        configuration: poleasConfig,
+        omega1: numOmega1,
+        initialOmega1: numOmega1,
+        omega: numOmega1,
+        initialOmega: numOmega1,
+        omega2,
+        initialOmega2: omega2,
+        radiusMeters1: numR1,
+        radiusMeters2: numR2,
+        linearSpeed,
+        beltCrossed: poleasBeltCrossed,
+        color,
+      };
+      updatedElement.color = color;
     } else if (element.physicsType === 'target_wall') {
       const parsedD = parseFloat(targetDistanceValue) || 50.0;
       const parsedH = parseFloat(targetHeightValue) || 10.0;
@@ -472,6 +561,31 @@ export default function PhysicsObjectInspector({
         gateName: label,
         label,
       };
+    } else if (element.physicsType === 'dcl_diagram' || element.physicsType === 'translational_equilibrium') {
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        userVectors: dclUserVectors,
+        showOfficialSolution: dclShowOfficial,
+        color,
+      };
+      updatedElement.color = color;
+    } else if (element.physicsType === 'newton_frictionless_system') {
+      const m1 = Math.max(0.01, parseFloat(newtonMass1) || 2.0);
+      const m2 = Math.max(0.01, parseFloat(newtonMass2) || 6.0);
+      const f = parseFloat(newtonForce) || 0.0;
+      updatedProperties = {
+        ...updatedProperties,
+        label,
+        mass1: m1,
+        mass2: m2,
+        mass: m1 + m2,
+        appliedForce: f,
+        userVectors: dclUserVectors,
+        showOfficialSolution: dclShowOfficial,
+        color,
+      };
+      updatedElement.color = color;
     }
 
     updatedElement.properties = updatedProperties;
@@ -510,6 +624,9 @@ export default function PhysicsObjectInspector({
               {element.physicsType === 'mru_track' && <Layers size={17} />}
               {element.physicsType === 'mru_photogate' && <Timer size={17} />}
               {element.physicsType === 'mass' && <Weight size={17} />}
+              {element.physicsType === 'dcl_diagram' && <GitFork size={17} />}
+              {element.physicsType === 'translational_equilibrium' && <Scale size={17} />}
+              {element.physicsType === 'newton_frictionless_system' && <Weight size={17} />}
             </div>
             <div>
               <span className="inspector-badge">
@@ -526,6 +643,9 @@ export default function PhysicsObjectInspector({
                 {element.physicsType === 'mru_track' && 'Instrumento de Medición'}
                 {element.physicsType === 'mru_photogate' && 'Sensor de Cronometraje'}
                 {element.physicsType === 'mass' && 'Dinámica de Cuerpos'}
+                {element.physicsType === 'dcl_diagram' && 'Diagrama de Cuerpo Libre (D.C.L.) • Fuerzas y Vectores'}
+                {element.physicsType === 'translational_equilibrium' && 'Equilibrio Traslacional • Primera Ley de Newton (HT03)'}
+                {element.physicsType === 'newton_frictionless_system' && 'Dinámica • 2ª Ley de Newton sin Fricción (HT01 U4)'}
               </span>
               <h3 className="inspector-title">
                 {element.physicsType === 'mru_cart' && 'Configuración de Móvil MRU'}
@@ -541,6 +661,9 @@ export default function PhysicsObjectInspector({
                 {element.physicsType === 'mru_track' && 'Configuración de Riel Graduado'}
                 {element.physicsType === 'mru_photogate' && 'Configuración de Fotopuerta'}
                 {element.physicsType === 'mass' && 'Configuración de Masa Inercial'}
+                {element.physicsType === 'dcl_diagram' && (props.apparatusType === 'table_three_masses' ? 'Mesa con Tres Masas (D.C.L.)' : props.apparatusType === 'table_two_masses' ? 'Mesa con Dos Masas (D.C.L.)' : 'Diagrama de Cuerpo Libre')}
+                {element.physicsType === 'translational_equilibrium' && (props.systemTitle || 'Aparato de Equilibrio Traslacional (HT03)')}
+                {element.physicsType === 'newton_frictionless_system' && (props.systemTitle || 'Aparato Dinámico (2ª Ley de Newton)')}
               </h3>
             </div>
           </div>
@@ -2430,6 +2553,503 @@ export default function PhysicsObjectInspector({
                   </div>
                 );
               })()}
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 8. POLEAS MCU (mcu_pulley_system)                             */}
+          {/* ------------------------------------------------------------- */}
+          {element.physicsType === 'mcu_pulley_system' && (
+            <>
+              {/* Transmission Configuration */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Tipo de Transmisión:</label>
+                  <span className="field-badge-mru" style={{ background: '#ecfdf5', color: '#059669', borderColor: '#a7f3d0' }}>
+                    Poleas MCU
+                  </span>
+                </div>
+                <select
+                  className="inspector-input"
+                  value={poleasConfig}
+                  onChange={(e) => setPoleasConfig(e.target.value)}
+                >
+                  <option value="belt">Unidas por Faja / Correa (v₁ = v₂)</option>
+                  <option value="concentric">Mismo Eje Concéntrico (ω₁ = ω₂)</option>
+                  <option value="concentric_hanging_block">Tambor Concéntrico con Bloque Colgante</option>
+                  <option value="concentric_and_belt">Eje Común A-B + Faja B-C</option>
+                  <option value="belt_and_concentric">Faja A-B + Eje Común B-C</option>
+                  <option value="compound_train_2stage">Tren Compuesto Reductor (2 Etapas)</option>
+                  <option value="compound_train_3stage">Tren Compuesto 3 Etapas</option>
+                  <option value="double_reduction">Tren Reductor Doble 4:1</option>
+                  <option value="washing_machine">Transmisión Lavadora con Faja</option>
+                </select>
+              </div>
+
+              {/* Pulley 1 Radius */}
+              <div className="inspector-field">
+                <label className="inspector-label">Radio Polea 1 r₁ (Entrada / Motriz):</label>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="inspector-input number-input"
+                    value={poleasR1}
+                    onChange={(e) => setPoleasR1(e.target.value)}
+                    required
+                  />
+                  <div className="static-unit-box">m</div>
+                </div>
+              </div>
+
+              {/* Pulley 2 Radius */}
+              <div className="inspector-field">
+                <label className="inspector-label">Radio Polea 2 r₂ (Salida / Conducida):</label>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="inspector-input number-input"
+                    value={poleasR2}
+                    onChange={(e) => setPoleasR2(e.target.value)}
+                    required
+                  />
+                  <div className="static-unit-box">m</div>
+                </div>
+              </div>
+
+              {/* Input Angular Velocity */}
+              <div className="inspector-field">
+                <label className="inspector-label">Velocidad Angular de Entrada (ω₁):</label>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="inspector-input number-input"
+                    value={poleasOmega1}
+                    onChange={(e) => setPoleasOmega1(e.target.value)}
+                    required
+                  />
+                  <div className="static-unit-box">rad/s</div>
+                </div>
+              </div>
+
+              {/* Crossed Belt Toggle */}
+              {poleasConfig === 'belt' && (
+                <div className="inspector-field">
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={poleasBeltCrossed}
+                      onChange={(e) => setPoleasBeltCrossed(e.target.checked)}
+                    />
+                    <span>Correa Cruzada (invierte sentido de giro)</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Real-time Transmission Telemetry Card */}
+              {(() => {
+                const w1 = parseFloat(poleasOmega1) || 5.0;
+                const r1 = parseFloat(poleasR1) || 0.20;
+                const r2 = parseFloat(poleasR2) || 0.10;
+                let w2 = w1;
+                let v = Math.abs(w1) * r1;
+                let ratio = 1.0;
+                if (poleasConfig === 'belt' || poleasConfig === 'washing_machine') {
+                  ratio = r1 / Math.max(0.001, r2);
+                  w2 = w1 * ratio;
+                }
+                const rpm1 = (Math.abs(w1) * 60) / (2 * Math.PI);
+                const rpm2 = (Math.abs(w2) * 60) / (2 * Math.PI);
+                return (
+                  <div className="conversions-box" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#047857' }}>Velocidad Angular Salida (ω₂):</span>
+                      <span className="conv-value" style={{ color: '#064e3b', fontWeight: 800 }}>{w2.toFixed(2)} rad/s ({rpm2.toFixed(0)} RPM)</span>
+                    </div>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#047857' }}>Rapidez Tangencial Periférica:</span>
+                      <span className="conv-value" style={{ color: '#064e3b', fontWeight: 800 }}>{v.toFixed(2)} m/s</span>
+                    </div>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#047857' }}>Relación de Transmisión (i):</span>
+                      <span className="conv-value" style={{ color: '#064e3b', fontWeight: 800 }}>{ratio.toFixed(3)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 8.5 SEGUNDA LEY DE NEWTON SIN FRICCIÓN (newton_frictionless_system) */}
+          {/* ------------------------------------------------------------- */}
+          {element.physicsType === 'newton_frictionless_system' && (
+            <>
+              {/* Type Information */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Aparato Dinámico:</label>
+                  <span className="field-badge-mru" style={{ background: '#eef2ff', color: '#4f46e5', borderColor: '#c7d2fe' }}>
+                    {props.apparatusType === 'two_connected_blocks' && '2 Bloques Conectados por Cuerda'}
+                    {props.apparatusType === 'single_block_force' && 'Bloque Simple con Fuerza F'}
+                    {props.apparatusType === 'vertical_cable_mass' && 'Masa Suspendida / Elevador'}
+                    {props.apparatusType === 'atwood_frictionless' && 'Máquina de Atwood sin Fricción'}
+                    {props.apparatusType === 'inclined_plane_frictionless' && 'Plano Inclinado sin Fricción (32°)'}
+                    {!props.apparatusType && 'Sistema Dinámico'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Mass 1 (m1) */}
+              <div className="inspector-field">
+                <label className="inspector-label">
+                  {props.apparatusType === 'two_connected_blocks' ? 'Masa Bloque 1 (m₁ - Trasero):' :
+                   props.apparatusType === 'atwood_frictionless' ? 'Masa 1 (m₁ - Asciende):' :
+                   props.apparatusType === 'inclined_plane_frictionless' ? 'Masa en Plano (m₁):' :
+                   'Masa del Cuerpo (m₁):'}
+                </label>
+                <div className="inspector-unit-group">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    className="inspector-input number-input"
+                    value={newtonMass1}
+                    onChange={(e) => setNewtonMass1(e.target.value)}
+                    required
+                  />
+                  <div className="static-unit-box">kg</div>
+                </div>
+              </div>
+
+              {/* Mass 2 (m2) if apparatus has 2 masses */}
+              {(props.apparatusType === 'two_connected_blocks' ||
+                props.apparatusType === 'atwood_frictionless' ||
+                props.apparatusType === 'inclined_plane_frictionless') && (
+                <div className="inspector-field">
+                  <label className="inspector-label">
+                    {props.apparatusType === 'two_connected_blocks' ? 'Masa Bloque 2 (m₂ - Delantero con F):' :
+                     props.apparatusType === 'atwood_frictionless' ? 'Masa 2 (m₂ - Desciende):' :
+                     'Masa Colgante (m₂):'}
+                  </label>
+                  <div className="inspector-unit-group">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.1"
+                      className="inspector-input number-input"
+                      value={newtonMass2}
+                      onChange={(e) => setNewtonMass2(e.target.value)}
+                      required
+                    />
+                    <div className="static-unit-box">kg</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Applied Force F (if apparatus has external pulling force) */}
+              {(props.apparatusType === 'two_connected_blocks' ||
+                props.apparatusType === 'single_block_force' ||
+                props.apparatusType === 'vertical_cable_mass') && (
+                <div className="inspector-field">
+                  <label className="inspector-label">Fuerza Aplicada Externa (F):</label>
+                  <div className="inspector-unit-group">
+                    <input
+                      type="number"
+                      step="1"
+                      className="inspector-input number-input"
+                      value={newtonForce}
+                      onChange={(e) => setNewtonForce(e.target.value)}
+                      required
+                    />
+                    <div className="static-unit-box">N</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Real-time Newton Physics Calculation Preview Card */}
+              {(() => {
+                const m1 = Math.max(0.01, parseFloat(newtonMass1) || 1.0);
+                const m2 = Math.max(0.01, parseFloat(newtonMass2) || 1.0);
+                const f = parseFloat(newtonForce) || 0.0;
+                let a = 0;
+                let t = 0;
+
+                if (props.apparatusType === 'two_connected_blocks') {
+                  a = f / (m1 + m2);
+                  t = m1 * a;
+                } else if (props.apparatusType === 'single_block_force') {
+                  a = f / m1;
+                } else if (props.apparatusType === 'vertical_cable_mass') {
+                  const w = m1 * 9.8;
+                  a = (f - w) / m1;
+                } else if (props.apparatusType === 'atwood_frictionless') {
+                  a = (9.8 * Math.abs(m2 - m1)) / (m1 + m2);
+                  t = (2 * m1 * m2 * 9.8) / (m1 + m2);
+                } else if (props.apparatusType === 'inclined_plane_frictionless') {
+                  const sin32 = Math.sin((32 * Math.PI) / 180);
+                  a = (m1 * 9.8 * sin32 - m2 * 9.8) / (m1 + m2);
+                  t = m2 * (9.8 + a);
+                }
+
+                return (
+                  <div className="conversions-box" style={{ background: '#f8fafc', borderColor: '#cbd5e1' }}>
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#4f46e5' }}>Aceleración Teórica (a):</span>
+                      <span className="conv-value" style={{ color: '#4338ca', fontWeight: 800 }}>{a.toFixed(3)} m/s²</span>
+                    </div>
+                    {(props.apparatusType === 'two_connected_blocks' ||
+                      props.apparatusType === 'atwood_frictionless' ||
+                      props.apparatusType === 'inclined_plane_frictionless') && (
+                      <div className="conversion-item">
+                        <span className="conv-label" style={{ color: '#059669' }}>Tensión del Cable (T):</span>
+                        <span className="conv-value" style={{ color: '#047857', fontWeight: 800 }}>{t.toFixed(2)} N</span>
+                      </div>
+                    )}
+                    <div className="conversion-item">
+                      <span className="conv-label" style={{ color: '#64748b' }}>Fricción en Superficie (μ):</span>
+                      <span className="conv-value" style={{ color: '#0f172a', fontWeight: 800 }}>μ = 0 (Sin Fricción)</span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* 9. DIAGRAMA DE CUERPO LIBRE Y EQUILIBRIO TRASLACIONAL / NEWTON */}
+          {/* ------------------------------------------------------------- */}
+          {(element.physicsType === 'dcl_diagram' || element.physicsType === 'translational_equilibrium' || element.physicsType === 'newton_frictionless_system') && (
+            <>
+              {/* Body Selector Tabs */}
+              {dclBodies.length > 1 && (
+                <div className="inspector-field">
+                  <label className="inspector-label">Seleccionar Cuerpo / Masa del Sistema:</label>
+                  <div className="quick-presets-row">
+                    {dclBodies.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        className={`quick-pill-btn ${selectedDclBody === b.id ? 'active' : ''}`}
+                        onClick={() => setSelectedDclBody(b.id)}
+                      >
+                        {b.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Vector Panel */}
+              <div className="dcl-inspector-add-panel" style={{ background: '#fffaf5', border: '1px solid #fed7aa', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#ea580c', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Plus size={14} />
+                  <span>Añadir Vector de Fuerza a {dclBodies.find((b) => b.id === selectedDclBody)?.label || 'Cuerpo'}</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 700, display: 'block', marginBottom: 3 }}>Tipo de Fuerza:</label>
+                    <select
+                      className="inspector-input"
+                      value={newVecType}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewVecType(val);
+                        if (val === 'weight') { setNewVecSymbol('W'); setNewVecAngle(270); setNewVecColor('#ef4444'); }
+                        else if (val === 'normal') { setNewVecSymbol('N'); setNewVecAngle(90); setNewVecColor('#3b82f6'); }
+                        else if (val === 'tension') { setNewVecSymbol('T'); setNewVecColor('#10b981'); }
+                        else if (val === 'friction') { setNewVecSymbol('fk'); setNewVecAngle(180); setNewVecColor('#f59e0b'); }
+                        else { setNewVecSymbol('F'); setNewVecAngle(0); setNewVecColor('#8b5cf6'); }
+                      }}
+                    >
+                      <option value="weight">🔴 Peso Gravitacional (W)</option>
+                      <option value="normal">🔵 Fuerza Normal (N)</option>
+                      <option value="tension">🟢 Tensión de Cuerda (T)</option>
+                      <option value="friction">🟠 Fricción Cinética (fk)</option>
+                      <option value="applied">🟣 Fuerza Externa / Aplicada (F)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 700, display: 'block', marginBottom: 3 }}>Símbolo / Etiqueta:</label>
+                    <input
+                      type="text"
+                      className="inspector-input"
+                      value={newVecSymbol}
+                      onChange={(e) => setNewVecSymbol(e.target.value)}
+                      placeholder="Ej. T₁, N, W..."
+                    />
+                  </div>
+                </div>
+
+                {/* Angle selection */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+                    <label style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 700 }}>Dirección (Ángulo θ):</label>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#ea580c', fontFamily: 'monospace' }}>{newVecAngle}°</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    step="5"
+                    style={{ width: '100%', accentColor: '#ea580c' }}
+                    value={newVecAngle}
+                    onChange={(e) => setNewVecAngle(parseInt(e.target.value, 10))}
+                  />
+                  <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                    {[
+                      { l: '↑ Arriba (90°)', deg: 90 },
+                      { l: '↓ Abajo (270°)', deg: 270 },
+                      { l: '→ Der (0°)', deg: 0 },
+                      { l: '← Izq (180°)', deg: 180 },
+                    ].map((d) => (
+                      <button
+                        key={d.deg}
+                        type="button"
+                        className="quick-pill-btn"
+                        style={newVecAngle === d.deg ? { background: '#ea580c', color: '#fff', borderColor: '#ea580c' } : { fontSize: '0.68rem', padding: '2px 5px' }}
+                        onClick={() => setNewVecAngle(d.deg)}
+                      >
+                        {d.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Magnitude */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 700, display: 'block', marginBottom: 3 }}>Magnitud (Newtons):</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="inspector-input"
+                      value={newVecMagnitude}
+                      onChange={(e) => setNewVecMagnitude(parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="inspector-btn submit"
+                    style={{ height: 36, padding: '0 14px', fontSize: '0.78rem', background: '#ea580c' }}
+                    onClick={() => {
+                      const newId = `vec-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+                      const newVec = {
+                        id: newId,
+                        targetBody: selectedDclBody,
+                        name: newVecSymbol,
+                        symbol: newVecSymbol,
+                        label: `${newVecSymbol}${newVecMagnitude ? ` = ${newVecMagnitude} N` : ''}`,
+                        type: newVecType,
+                        angleDeg: newVecAngle,
+                        color: newVecColor,
+                        magnitude: newVecMagnitude,
+                        lengthPx: 62,
+                      };
+                      setDclUserVectors((prev) => [...prev, newVec]);
+                      setDclShowOfficial(false);
+                    }}
+                  >
+                    + Añadir Vector
+                  </button>
+                </div>
+              </div>
+
+              {/* List of active vectors on current body */}
+              <div className="inspector-field">
+                <div className="inspector-field-header">
+                  <label className="inspector-label">Vectores Colocados en {dclBodies.find((b) => b.id === selectedDclBody)?.label || 'este Cuerpo'}:</label>
+                  <span className="field-badge-mru">
+                    {dclUserVectors.filter((v) => (v.targetBody || 'main') === selectedDclBody).length} activos
+                  </span>
+                </div>
+
+                {dclUserVectors.filter((v) => (v.targetBody || 'main') === selectedDclBody).length === 0 ? (
+                  <div style={{ padding: 10, background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1', fontSize: '0.75rem', color: '#64748b', textAlign: 'center' }}>
+                    No hay vectores colocados en este cuerpo. Añade uno arriba o arrastra la punta de flecha en el lienzo.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {dclUserVectors
+                      .filter((v) => (v.targetBody || 'main') === selectedDclBody)
+                      .map((v) => (
+                        <div
+                          key={v.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 6,
+                            padding: '6px 10px',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: v.color || '#ea580c' }} />
+                            <strong style={{ fontSize: '0.8rem', color: '#0f172a' }}>{v.symbol || v.name}</strong>
+                            <span style={{ fontSize: '0.72rem', color: '#64748b', fontFamily: 'monospace' }}>θ = {Math.round(v.angleDeg)}°</span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <input
+                              type="range"
+                              min="0"
+                              max="360"
+                              step="5"
+                              style={{ width: 70, accentColor: '#ea580c' }}
+                              value={Math.round(v.angleDeg || 0)}
+                              onChange={(e) => {
+                                const newAngle = parseInt(e.target.value, 10);
+                                setDclUserVectors((prev) =>
+                                  prev.map((item) => (item.id === v.id ? { ...item, angleDeg: newAngle } : item))
+                                );
+                              }}
+                            />
+                            <button
+                              type="button"
+                              style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 2 }}
+                              onClick={() => {
+                                setDclUserVectors((prev) => prev.filter((item) => item.id !== v.id));
+                              }}
+                              title="Eliminar vector"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Official Solution and Clear Actions */}
+              <div style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
+                <button
+                  type="button"
+                  className={`quick-pill-btn ${dclShowOfficial ? 'active' : ''}`}
+                  style={{ flex: 1, padding: '7px 10px' }}
+                  onClick={() => setDclShowOfficial((prev) => !prev)}
+                >
+                  {dclShowOfficial ? 'Ocultar Solución Teórica' : 'Ver Solución Teórica Oficial'}
+                </button>
+                {dclUserVectors.length > 0 && (
+                  <button
+                    type="button"
+                    className="quick-pill-btn"
+                    style={{ background: '#fef2f2', color: '#ef4444', borderColor: '#fecaca', padding: '7px 10px' }}
+                    onClick={() => setDclUserVectors([])}
+                  >
+                    Limpiar Todos
+                  </button>
+                )}
+              </div>
             </>
           )}
 

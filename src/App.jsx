@@ -17,6 +17,12 @@ import HorizontalLaunchExerciseSolverModal from './components/modals/HorizontalL
 import ProjectileMotionExerciseSolverModal from './components/modals/ProjectileMotionExerciseSolverModal';
 import McuExerciseSolverModal from './components/modals/McuExerciseSolverModal';
 import McuvExerciseSolverModal from './components/modals/McuvExerciseSolverModal';
+import PoleasMcuExerciseSolverModal from './components/modals/PoleasMcuExerciseSolverModal';
+import DclExerciseSolverModal from './components/modals/DclExerciseSolverModal';
+import TranslationalEquilibriumModal from './components/modals/TranslationalEquilibriumModal';
+import NewtonSecondLawModal from './components/modals/NewtonSecondLawModal';
+import CustomExampleBuilderModal from './components/modals/CustomExampleBuilderModal';
+import { buildCustomExampleBoardElements } from './services/customExampleBuilder';
 import { getMruTemplate } from './data/mruTemplates';
 import { 
   createPhysicsElement, 
@@ -29,6 +35,10 @@ import {
   createProjectileMotionLabAssembly,
   createMcuLabAssembly,
   createMcuvLabAssembly,
+  createPoleasMcuLabAssembly,
+  createDclLabAssembly,
+  createTranslationalEquilibriumLabAssembly,
+  createNewtonSecondLawAssembly,
   getCannonMuzzlePosition,
 } from './physics/physicsRegistry';
 import { buildExerciseBoardElements } from './services/mruExerciseSolver';
@@ -39,6 +49,10 @@ import { buildHorizontalLaunchExerciseBoardElements } from './services/horizonta
 import { buildProjectileMotionExerciseBoardElements } from './services/projectileMotionExerciseSolver';
 import { buildMcuExerciseBoardElements } from './services/mcuExerciseSolver';
 import { buildMcuvExerciseBoardElements } from './services/mcuvExerciseSolver';
+import { buildPoleasMcuExerciseBoardElements } from './services/poleasMcuExerciseSolver';
+import { generateDclCanvasElements } from './services/dclExerciseSolver';
+import { generateEquilibrioCanvasElements } from './services/translationalEquilibriumSolver';
+import { generateNewtonCanvasElements } from './services/newtonSecondLawSolver';
 
 class SandboxErrorBoundary extends React.Component {
   constructor(props) {
@@ -121,6 +135,12 @@ export default function App() {
   const [isProjectileMotionSolverOpen, setIsProjectileMotionSolverOpen] = useState(false);
   const [isMcuSolverOpen, setIsMcuSolverOpen] = useState(false);
   const [isMcuvSolverOpen, setIsMcuvSolverOpen] = useState(false);
+  const [isPoleasMcuSolverOpen, setIsPoleasMcuSolverOpen] = useState(false);
+  const [isDclSolverOpen, setIsDclSolverOpen] = useState(false);
+  const [isEquilibrioSolverOpen, setIsEquilibrioSolverOpen] = useState(false);
+  const [isNewtonSolverOpen, setIsNewtonSolverOpen] = useState(false);
+  const [isCustomExampleBuilderOpen, setIsCustomExampleBuilderOpen] = useState(false);
+  const [customExampleBuilderTopic, setCustomExampleBuilderTopic] = useState('mru');
   const [isPhysicsSandboxOpen, setIsPhysicsSandboxOpen] = useState(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState(false);
 
@@ -209,7 +229,7 @@ export default function App() {
   }, []);
 
   const addToast = useCallback((message) => {
-    const id = Date.now();
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
     setToasts((prev) => [...prev, { id, message }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -501,6 +521,26 @@ export default function App() {
         setElements((prev) => [...prev, ...mcuvElements]);
         setActiveTool('select');
         addToast('🔄 Laboratorio MCUV montado en el lienzo');
+      } else if (assemblyType === 'poleas_mcu_assembly' || assemblyType === 'poleas_mcu') {
+        const poleasElements = createPoleasMcuLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...poleasElements]);
+        setActiveTool('select');
+        addToast('⚙️ Laboratorio de Poleas MCU montado en el lienzo');
+      } else if (assemblyType === 'dcl_assembly' || assemblyType === 'dcl') {
+        const dclElements = createDclLabAssembly(cx, cy);
+        setElements((prev) => [...prev, ...dclElements]);
+        setActiveTool('select');
+        addToast('⚖️ Laboratorio Vectorial D.C.L. montado en el lienzo');
+      } else if (assemblyType === 'equilibrio_assembly' || assemblyType === 'equilibrio') {
+        const eqElements = createTranslationalEquilibriumLabAssembly(cx, cy, 1);
+        setElements((prev) => [...prev, ...eqElements]);
+        setActiveTool('select');
+        addToast('⚖️ Laboratorio de Equilibrio Traslacional (HT03) montado en el lienzo');
+      } else if (assemblyType === 'newton_assembly' || assemblyType === 'segunda_ley_newton') {
+        const newtonElements = createNewtonSecondLawAssembly(cx, cy, 7);
+        setElements((prev) => [...prev, ...newtonElements]);
+        setActiveTool('select');
+        addToast('⚖️ Laboratorio de Segunda Ley de Newton (HT01 U4) montado en el lienzo');
       }
     },
     [pushHistory, transform, setActiveTool, addToast]
@@ -618,6 +658,88 @@ export default function App() {
     [pushHistory, transform, setActiveTool, addToast]
   );
 
+  const handleMountPoleasMcuExercise = useCallback(
+    (exercise) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = buildPoleasMcuExerciseBoardElements(exercise, cx, cy);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(`⚙️ Ejercicio Poleas MCU montado en el lienzo: ${exercise.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountDclExercise = useCallback(
+    (exerciseNumber, options = {}) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = generateDclCanvasElements(exerciseNumber, cx, cy, options);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(
+        options.cleanPractice
+          ? `📐 Mesa limpia lista para dibujar DCL (Problema #${exerciseNumber})`
+          : `⚖️ Ejercicio #${exerciseNumber} de D.C.L. montado en el lienzo`
+      );
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountEquilibrioExercise = useCallback(
+    (exerciseNumber, options = {}) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = generateEquilibrioCanvasElements(exerciseNumber, cx, cy, options);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(
+        options.cleanPractice
+          ? `🎯 Aparato limpio para práctica montado (Problema #${exerciseNumber})`
+          : `✨ Problema #${exerciseNumber} de Equilibrio Traslacional montado con solución`
+      );
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountNewtonExercise = useCallback(
+    (exerciseNumber, options = {}) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const exerciseElements = generateNewtonCanvasElements(exerciseNumber, cx, cy, options);
+      setElements((prev) => [...prev, ...exerciseElements]);
+      setActiveTool('select');
+      addToast(
+        options.cleanPractice
+          ? `🎯 Aparato limpio para práctica montado (Problema #${exerciseNumber})`
+          : `✨ Problema #${exerciseNumber} de Segunda Ley de Newton montado con solución`
+      );
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  const handleMountCustomExample = useCallback(
+    (customExample) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const customEls = buildCustomExampleBoardElements(customExample, cx, cy);
+      setElements((prev) => [...prev, ...customEls]);
+      setActiveTool('select');
+      addToast(`✨ Ejemplo del profesor montado en la pizarra: ${customExample.title}`);
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
   return (
     <div className="webwhiteboard-app">
       {/* Top Bar with PhyBoard / Physics branding */}
@@ -641,6 +763,10 @@ export default function App() {
         onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
         onOpenMcuSolver={() => setIsMcuSolverOpen(true)}
         onOpenMcuvSolver={() => setIsMcuvSolverOpen(true)}
+        onOpenPoleasMcuSolver={() => setIsPoleasMcuSolverOpen(true)}
+        onOpenDclSolver={() => setIsDclSolverOpen(true)}
+        onOpenEquilibrioSolver={() => setIsEquilibrioSolverOpen(true)}
+        onOpenNewtonSolver={() => setIsNewtonSolverOpen(true)}
         onOpenPhysicsSandbox={() => setIsPhysicsSandboxOpen(true)}
         onClearBoard={handleClearBoard}
       />
@@ -674,6 +800,15 @@ export default function App() {
         onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
         onOpenMcuSolver={() => setIsMcuSolverOpen(true)}
         onOpenMcuvSolver={() => setIsMcuvSolverOpen(true)}
+        onOpenPoleasMcuSolver={() => setIsPoleasMcuSolverOpen(true)}
+        onOpenDclSolver={() => setIsDclSolverOpen(true)}
+        onOpenEquilibrioSolver={() => setIsEquilibrioSolverOpen(true)}
+        onOpenNewtonSolver={() => setIsNewtonSolverOpen(true)}
+        onOpenCustomExampleBuilder={(topicId) => {
+          setCustomExampleBuilderTopic(topicId || 'mru');
+          setIsCustomExampleBuilderOpen(true);
+        }}
+        onMountCustomExample={handleMountCustomExample}
         onLoadTemplate={(tplArg) => {
           pushHistory();
           // 1. Direct object format from modal { elements, boardName, toast }
@@ -812,6 +947,43 @@ export default function App() {
         isOpen={isMcuvSolverOpen}
         onClose={() => setIsMcuvSolverOpen(false)}
         onMountExerciseOnBoard={handleMountMcuvExercise}
+      />
+
+      {/* Poleas MCU Exercise Solver (HT01 U3 Kinal) & Laboratory Generator Modal */}
+      <PoleasMcuExerciseSolverModal
+        isOpen={isPoleasMcuSolverOpen}
+        onClose={() => setIsPoleasMcuSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountPoleasMcuExercise}
+      />
+
+      {/* Diagramas de Cuerpo Libre (HT02 Unidad 3 Kinal) Exercise Solver Modal */}
+      <DclExerciseSolverModal
+        isOpen={isDclSolverOpen}
+        onClose={() => setIsDclSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountDclExercise}
+      />
+
+      {/* Equilibrio Traslacional - 1ra Ley Newton (HT03 Unidad 3 Kinal) Solver Modal */}
+      <TranslationalEquilibriumModal
+        isOpen={isEquilibrioSolverOpen}
+        onClose={() => setIsEquilibrioSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountEquilibrioExercise}
+      />
+
+      {/* Segunda Ley de Newton Sin Fricción (HT01 Unidad 4 Kinal) Solver Modal */}
+      <NewtonSecondLawModal
+        isOpen={isNewtonSolverOpen}
+        onClose={() => setIsNewtonSolverOpen(false)}
+        onMountExerciseOnBoard={handleMountNewtonExercise}
+      />
+
+      {/* Teacher Custom Example Builder Workshop Modal */}
+      <CustomExampleBuilderModal
+        isOpen={isCustomExampleBuilderOpen}
+        onClose={() => setIsCustomExampleBuilderOpen(false)}
+        initialTopic={customExampleBuilderTopic}
+        onMountCustomExample={handleMountCustomExample}
+        onNotify={addToast}
       />
 
       {/* Physics Sandbox Modal (Matter.js Atwood Machine) */}

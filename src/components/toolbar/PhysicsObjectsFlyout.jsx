@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Gauge, 
@@ -9,9 +9,15 @@ import {
   Weight, 
   Layers,
   Target,
-  RotateCw
+  RotateCw,
+  Disc,
+  GitFork,
+  Scale,
+  Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { PHYSICS_TOPICS, PHYSICS_OBJECT_DEFINITIONS } from '../../physics/physicsRegistry';
+import { loadTeacherCustomExamples, deleteTeacherCustomExample } from '../../services/customExampleBuilder';
 
 const TOPIC_CONFIG = {
   mru: { icon: Gauge, short: 'MRU', tag: 'HT01', color: '#2563eb' },
@@ -22,6 +28,10 @@ const TOPIC_CONFIG = {
   movimiento_proyectiles: { icon: Target, short: 'Proyectiles', tag: 'HT02 2D', color: '#8b5cf6' },
   mcu: { icon: RotateCw, short: 'MCU', tag: 'HT03 MCU', color: '#0284c7' },
   mcuv: { icon: RotateCw, short: 'MCUV', tag: 'Unidad 2', color: '#0891b2' },
+  poleas_mcu: { icon: Disc, short: 'Poleas MCU', tag: 'HT01 U3', color: '#059669' },
+  dcl: { icon: GitFork, short: 'D.C.L.', tag: 'HT02', color: '#ea580c' },
+  equilibrio: { icon: Scale, short: 'Equilibrio', tag: 'HT03', color: '#059669' },
+  segunda_ley_newton: { icon: Weight, short: '2ª Ley Newton', tag: 'HT01 U4', color: '#2563eb' },
   mechanics: { icon: Weight, short: 'Dinámica', tag: 'Atwood', color: '#4f46e5' },
 };
 
@@ -40,9 +50,35 @@ export default function PhysicsObjectsFlyout({
   onOpenProjectileMotionSolver,
   onOpenMcuSolver,
   onOpenMcuvSolver,
+  onOpenPoleasMcuSolver,
+  onOpenDclSolver,
+  onOpenEquilibrioSolver,
+  onOpenNewtonSolver,
+  onOpenCustomExampleBuilder,
+  onMountCustomExample,
 }) {
   const [activeTopic, setActiveTopic] = useState('mru');
+  const [customExamples, setCustomExamples] = useState([]);
   const handleAddAssembly = onAddAssembly || _onAddAssembly;
+
+  useEffect(() => {
+    if (isOpen) {
+      setCustomExamples(loadTeacherCustomExamples());
+    }
+  }, [isOpen]);
+
+  const handleDeleteCustomExample = (id) => {
+    const updated = deleteTeacherCustomExample(id);
+    setCustomExamples(updated);
+  };
+
+  const handleDragCustomExample = (e, customExample) => {
+    e.dataTransfer.setData(
+      'application/teacher-custom-example',
+      JSON.stringify(customExample)
+    );
+    e.dataTransfer.effectAllowed = 'copy';
+  };
 
   if (!isOpen) return null;
 
@@ -60,6 +96,10 @@ export default function PhysicsObjectsFlyout({
   const mcuParticleDef = PHYSICS_OBJECT_DEFINITIONS.mcu_particle;
   const mcuvTurntableDef = PHYSICS_OBJECT_DEFINITIONS.mcuv_turntable;
   const mcuvParticleDef = PHYSICS_OBJECT_DEFINITIONS.mcuv_particle;
+  const poleasSystemDef = PHYSICS_OBJECT_DEFINITIONS.mcu_pulley_system;
+  const dclDiagramDef = PHYSICS_OBJECT_DEFINITIONS.dcl_diagram;
+  const translationalEquilibriumDef = PHYSICS_OBJECT_DEFINITIONS.translational_equilibrium;
+  const newtonFrictionlessDef = PHYSICS_OBJECT_DEFINITIONS.newton_frictionless_system;
   const mruTrackDef = PHYSICS_OBJECT_DEFINITIONS.mru_track;
   const mruGateDef = PHYSICS_OBJECT_DEFINITIONS.mru_photogate;
   const massDef = PHYSICS_OBJECT_DEFINITIONS.mass;
@@ -77,6 +117,7 @@ export default function PhysicsObjectsFlyout({
   };
 
   const getCleanLabel = (label) => {
+    if (!label || typeof label !== 'string') return '';
     return label.replace(/\s*\(.*\)$/, '');
   };
 
@@ -128,6 +169,119 @@ export default function PhysicsObjectsFlyout({
 
       {/* Scrollable Content */}
       <div className="objects-scroll-area">
+        {/* Prominent Teacher Custom Example Creator Banner */}
+        <div className="teacher-custom-cta-wrap">
+          <button
+            type="button"
+            className="teacher-custom-cta-btn"
+            onClick={() => {
+              if (onOpenCustomExampleBuilder) {
+                onOpenCustomExampleBuilder(activeTopic);
+              }
+            }}
+            title={`Crear un ejemplo personalizado de ${TOPIC_CONFIG[activeTopic]?.short || 'Física'}`}
+          >
+            <div
+              className="teacher-cta-icon-box"
+              style={{
+                background: `${TOPIC_CONFIG[activeTopic]?.color || '#2563eb'}18`,
+                color: TOPIC_CONFIG[activeTopic]?.color || '#2563eb',
+              }}
+            >
+              <Sparkles size={16} />
+            </div>
+            <div className="teacher-cta-text-col">
+              <span className="teacher-cta-main-text">
+                + Crear Ejemplo de {TOPIC_CONFIG[activeTopic]?.short || 'Física'}
+              </span>
+              <span className="teacher-cta-sub-text">
+                Configura tus propios valores y objetos funcionales
+              </span>
+            </div>
+            <span
+              className="teacher-cta-badge"
+              style={{ background: TOPIC_CONFIG[activeTopic]?.color || '#2563eb' }}
+            >
+              Docente
+            </span>
+          </button>
+        </div>
+
+        {/* Section: Mis Ejemplos Personalizados del Profesor para este tema */}
+        {(() => {
+          const topicSavedExamples = customExamples.filter((ex) => ex.topic === activeTopic);
+          if (topicSavedExamples.length === 0) return null;
+          return (
+            <div className="teacher-custom-section">
+              <div className="objects-section-heading">
+                <span className="section-title">⭐ Mis Ejemplos ({topicSavedExamples.length})</span>
+                <span className="section-formula">Configurados por el Profesor</span>
+              </div>
+              <div className="preset-cards-list">
+                {topicSavedExamples.map((item) => (
+                  <div
+                    key={item.id}
+                    className="formal-preset-card teacher-saved-card"
+                    style={{ borderLeftColor: item.config?.color || TOPIC_CONFIG[activeTopic]?.color || '#2563eb' }}
+                    draggable
+                    onDragStart={(e) => handleDragCustomExample(e, item)}
+                    onClick={() => {
+                      if (onMountCustomExample) {
+                        onMountCustomExample(item);
+                        if (onClose) onClose();
+                      }
+                    }}
+                    title="Haz clic para añadir a la pizarra o arrastra"
+                  >
+                    <div className="preset-card-main">
+                      <div className="preset-card-header">
+                        <span className="preset-card-name">{item.title}</span>
+                        <span
+                          className="preset-metric-tag"
+                          style={{
+                            color: TOPIC_CONFIG[activeTopic]?.color || '#2563eb',
+                            background: `${TOPIC_CONFIG[activeTopic]?.color || '#2563eb'}18`,
+                          }}
+                        >
+                          {item.badge}
+                        </span>
+                      </div>
+                      <span className="preset-card-desc">{item.summary}</span>
+                    </div>
+                    <div className="teacher-card-actions">
+                      <button
+                        type="button"
+                        className="preset-add-btn"
+                        title="Añadir al lienzo"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onMountCustomExample) {
+                            onMountCustomExample(item);
+                            if (onClose) onClose();
+                          }
+                        }}
+                      >
+                        Añadir
+                      </button>
+                      <button
+                        type="button"
+                        className="teacher-card-del-btn"
+                        title="Eliminar este ejemplo"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCustomExample(item.id);
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {activeTopic === 'mru' && (
           <>
             {/* Analytical Solver Card */}
@@ -1395,6 +1549,589 @@ export default function PhysicsObjectsFlyout({
           </>
         )}
 
+        {activeTopic === 'poleas_mcu' && (
+          <>
+            {/* Analytical Solver Card */}
+            {onOpenPoleasMcuSolver && (
+              <div
+                className="solver-promo-card solver-promo-poleas"
+                onClick={() => {
+                  if (onClose) onClose();
+                  onOpenPoleasMcuSolver();
+                }}
+                title="Abrir Solucionador Oficial HT01 U3 - Poleas MCU"
+                style={{ borderColor: '#6ee7b7', background: '#f0fdf4' }}
+              >
+                <div className="solver-promo-badge" style={{ background: '#d1fae5', color: '#065f46' }}>
+                  Colegio Kinal • Unidad 3 HT01
+                </div>
+                <h4 className="solver-promo-title" style={{ color: '#065f46' }}>
+                  Solucionador Poleas MCU (Transmisiones)
+                </h4>
+                <p className="solver-promo-desc">
+                  9 Problemas de aplicación (#1-#9) resueltos con pasos exactos, 5 preguntas conceptuales evaluadas y calculadora de transmisiones cinemáticas (v₁=v₂, ω₁=ω₂, trenes compuestos).
+                </p>
+                <div className="solver-promo-action">
+                  <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.72rem' }}>
+                    Abrir Solucionador HT01
+                  </span>
+                  <span className="arrow-icon" style={{ color: '#059669', marginLeft: 4 }}>→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Assembly / Lab Setup */}
+            {handleAddAssembly && (
+              <div
+                className="assembly-quick-card"
+                style={{
+                  border: '1px solid #6ee7b7',
+                  background: '#ecfdf5',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#065f46' }}>
+                    Banco de Transmisión por Poleas
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#047857' }}>
+                    Transmisión con faja + tacómetro digital de entrada
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="add-preset-btn"
+                  style={{
+                    background: '#059669',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    handleAddAssembly('poleas_mcu_assembly');
+                    if (onClose) onClose();
+                  }}
+                >
+                  Insertar
+                </button>
+              </div>
+            )}
+
+            {/* Section: Pulley Systems & Transmissions */}
+            <div className="objects-section-heading">
+              <span className="section-title">Sistemas de Transmisión por Poleas</span>
+              <span className="section-formula">v₁ = v₂ | ω₁ = ω₂</span>
+            </div>
+
+            <p className="objects-guide-text">
+              9 Configuraciones oficiales de la Hoja de Trabajo HT01 Kinal:
+            </p>
+
+            <div className="preset-cards-list">
+              {poleasSystemDef?.presets?.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="formal-preset-card"
+                  style={{ borderLeftColor: preset.color || '#059669' }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'mcu_pulley_system', preset)}
+                  onClick={() => onAddPhysicsObject('mcu_pulley_system', preset)}
+                  title="Haz clic para añadir o arrastra al lienzo"
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{getCleanLabel(preset.label)}</span>
+                      <span className="preset-metric-tag" style={{ color: '#065f46', background: '#d1fae5' }}>
+                        {preset.configuration === 'concentric' || preset.configuration === 'concentric_hanging_block'
+                          ? 'Mismo Eje (ω=cte)'
+                          : preset.configuration?.includes('compound') || preset.configuration === 'double_reduction'
+                          ? 'Tren Reductor'
+                          : 'Transmisión Faja (v=cte)'}
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      R₁: {preset.radiusMeters1 ? (preset.radiusMeters1 >= 1 ? `${preset.radiusMeters1} m` : `${(preset.radiusMeters1 * 100).toFixed(1)} cm`) : '—'} • R₂: {preset.radiusMeters2 ? (preset.radiusMeters2 >= 1 ? `${preset.radiusMeters2} m` : `${(preset.radiusMeters2 * 100).toFixed(1)} cm`) : '—'} • ω₁: {preset.omega1} rad/s
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: '0.69rem', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('mcu_pulley_system', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Theoretical note */}
+            <div className="objects-info-note" style={{ background: '#ecfdf5', borderColor: '#a7f3d0' }}>
+              <span className="info-note-label" style={{ color: '#059669' }}>
+                Fundamento Teórico: Poleas MCU (HT01 U3 Kinal)
+              </span>
+              <p className="info-note-text">
+                1. <strong>Mismo Eje (Discos Concéntricos):</strong> Giran solidarios con idéntica rapidez angular y frecuencia (<em>ω₁ = ω₂</em>, <em>f₁ = f₂</em>). La rapidez lineal es proporcional al radio: <em>v = ω·r</em>.<br />
+                2. <strong>Poleas Unidas por Faja / Correa:</strong> La faja inextensible transmite la misma rapidez tangencial lineal (<em>v₁ = v₂ = v_faja</em>). Se cumple la relación de transmisión inversa: <em>ω₁·r₁ = ω₂·r₂</em> (o <em>N₁·d₁ = N₂·d₂</em>).
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'dcl' && (
+          <>
+            {/* Analytical Solver Promo Card */}
+            {onOpenDclSolver && (
+              <div
+                className="solver-promo-card solver-promo-dcl"
+                onClick={() => {
+                  if (onClose) onClose();
+                  onOpenDclSolver();
+                }}
+                title="Abrir Solucionador Oficial HT02 - Diagramas de Cuerpo Libre"
+                style={{ borderColor: '#fed7aa', background: '#fff7ed' }}
+              >
+                <div className="solver-promo-badge" style={{ background: '#ffedd5', color: '#9a3412' }}>
+                  Colegio Kinal • Unidad 3 HT02
+                </div>
+                <h4 className="solver-promo-title" style={{ color: '#9a3412' }}>
+                  Solucionador Fuerzas y D.C.L.
+                </h4>
+                <p className="solver-promo-desc">
+                  11 Problemas de aplicación (#1-#11) con DCL interactivo de cada cuerpo, descomposición rectangular, 5 preguntas conceptuales evaluadas y reglas de oro de aislamiento.
+                </p>
+                <div className="solver-promo-action">
+                  <span style={{ color: '#ea580c', fontWeight: 700, fontSize: '0.72rem' }}>
+                    Abrir Solucionador HT02
+                  </span>
+                  <span className="arrow-icon" style={{ color: '#ea580c', marginLeft: 4 }}>→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Assembly / Lab Setup */}
+            {handleAddAssembly && (
+              <div
+                className="assembly-quick-card"
+                style={{
+                  border: '1px solid #fed7aa',
+                  background: '#fffaf5',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#9a3412' }}>
+                    Laboratorio Vectorial DCL
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#c2410c' }}>
+                    Diagrama con ejes cartesianos, vectores y ecuaciones ΣF
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="add-preset-btn"
+                  style={{
+                    background: '#ea580c',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    handleAddAssembly('dcl_assembly');
+                    if (onClose) onClose();
+                  }}
+                >
+                  Insertar
+                </button>
+              </div>
+            )}
+
+            {/* Section: DCL Diagram Presets */}
+            <div className="objects-section-heading">
+              <span className="section-title">Modelos DCL de la Guía HT02</span>
+              <span className="section-formula">ΣFx = m·ax | ΣFy = m·ay</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Arrastra o haz clic para colocar un Diagrama de Cuerpo Libre en la pizarra:
+            </p>
+
+            <div className="preset-card-list">
+              {dclDiagramDef && dclDiagramDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="preset-card"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'dcl_diagram', preset)}
+                  style={{ borderLeft: `3px solid ${preset.color || '#ea580c'}` }}
+                  onClick={() => {
+                    onAddPhysicsObject('dcl_diagram', preset);
+                    if (onClose) onClose();
+                  }}
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag" style={{ color: '#9a3412', background: '#ffedd5' }}>
+                        P{preset.exerciseNumber}
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      {preset.showOfficialSolution === false ? (
+                        <>✨ <strong>Lienzo Limpio:</strong> Coloca tú mismo los vectores hacia la dirección que quieras</>
+                      ) : preset.showOfficialSolution === true ? (
+                        <>📐 <strong>Solución Oficial:</strong> Sistema resuelto con todos los vectores y aceleración</>
+                      ) : (
+                        <>Cuerpo: <strong>{preset.bodyName}</strong> • {preset.forces ? `${preset.forces.length} fuerzas concurrentes` : ''} {preset.axisAngleDeg ? `• Ejes rotados ${preset.axisAngleDeg}°` : ''}</>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    style={{ background: '#ea580c', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: '0.69rem', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('dcl_diagram', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Theoretical note */}
+            <div className="objects-info-note" style={{ background: '#fffaf5', borderColor: '#fed7aa' }}>
+              <span className="info-note-label" style={{ color: '#ea580c' }}>
+                Reglas de Oro del Diagrama de Cuerpo Libre (HT02 Kinal)
+              </span>
+              <p className="info-note-text">
+                1. <strong>Aislamiento estricto:</strong> Solo graficar fuerzas externas que el entorno ejerce <em>SOBRE</em> el cuerpo analizado (jamás las que el cuerpo ejerce sobre otros).<br />
+                2. <strong>Clasificación:</strong> Identificar el origen físico: Peso (a distancia, siempre hacia el centro terrestre), Normal (contacto perpendicular), Tensión (a lo largo de cuerdas), Fricción (opuesta al deslizamiento).<br />
+                3. <strong>Ejes rotados:</strong> En planos inclinados, rotar los ejes con el ángulo de la rampa para minimizar descomposiciones trigonométricas.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'equilibrio' && (
+          <>
+            {/* Analytical Solver Promo Card */}
+            {onOpenEquilibrioSolver && (
+              <div
+                className="solver-promo-card solver-promo-equilibrio"
+                onClick={() => {
+                  if (onClose) onClose();
+                  onOpenEquilibrioSolver();
+                }}
+                title="Abrir Solucionador Oficial HT03 - Equilibrio Traslacional y Primera Ley de Newton"
+                style={{ borderColor: '#a7f3d0', background: '#ecfdf5' }}
+              >
+                <div className="solver-promo-badge" style={{ background: '#d1fae5', color: '#047857' }}>
+                  Colegio Kinal • Unidad 3 HT03
+                </div>
+                <h4 className="solver-promo-title" style={{ color: '#065f46' }}>
+                  Solucionador Equilibrio Traslacional (ΣF = 0)
+                </h4>
+                <p className="solver-promo-desc">
+                  8 Problemas oficiales (#1-#8) de poleas, nudos concurrentes, motor, semáforos y planos inclinados; evaluación de 5 preguntas conceptuales con justificación teórica.
+                </p>
+                <div className="solver-promo-action">
+                  <span style={{ color: '#059669', fontWeight: 700, fontSize: '0.72rem' }}>
+                    Abrir Solucionador HT03
+                  </span>
+                  <span className="arrow-icon" style={{ color: '#059669', marginLeft: 4 }}>→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Assembly / Lab Setup */}
+            {handleAddAssembly && (
+              <div
+                className="assembly-quick-card"
+                style={{
+                  border: '1px solid #a7f3d0',
+                  background: '#f0fdf4',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#065f46' }}>
+                    Aparato de Equilibrio Estático
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#047857' }}>
+                    Montaje de laboratorio con cables, nudos concurrentes y pesas
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="add-preset-btn"
+                  style={{
+                    background: '#059669',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    handleAddAssembly('equilibrio_assembly');
+                    if (onClose) onClose();
+                  }}
+                >
+                  Insertar
+                </button>
+              </div>
+            )}
+
+            {/* Section: Equilibrium Presets */}
+            <div className="objects-section-heading">
+              <span className="section-title">Aparatos de la Hoja de Trabajo HT03</span>
+              <span className="section-formula">ΣFx = 0 | ΣFy = 0 (a = 0)</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Arrastra o haz clic para colocar un aparato en la pizarra (con o sin vectores):
+            </p>
+
+            <div className="preset-card-list">
+              {translationalEquilibriumDef && translationalEquilibriumDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="preset-card"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'translational_equilibrium', preset)}
+                  style={{ borderLeft: `3px solid ${preset.color || '#059669'}` }}
+                  onClick={() => {
+                    onAddPhysicsObject('translational_equilibrium', preset);
+                    if (onClose) onClose();
+                  }}
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag" style={{ color: '#047857', background: '#ecfdf5' }}>
+                        P{preset.exerciseNumber}
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      {preset.showOfficialSolution === false ? (
+                        <>✨ <strong>Lienzo Limpio:</strong> Dibuja tú mismo los vectores hacia la dirección que quieras</>
+                      ) : (
+                        <>📐 <strong>Solución de Equilibrio:</strong> Fuerzas concurrentes resueltas con valores exactos</>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: '0.69rem', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('translational_equilibrium', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Theoretical note */}
+            <div className="objects-info-note" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+              <span className="info-note-label" style={{ color: '#059669' }}>
+                Condiciones de Equilibrio Traslacional (Primera Ley de Newton)
+              </span>
+              <p className="info-note-text">
+                1. <strong>Primera Condición:</strong> La sumatoria vectorial de todas las fuerzas debe anularse: <em>ΣFx = 0</em> y <em>ΣFy = 0</em>, lo que garantiza aceleración nula (<em>a = 0</em>).<br />
+                2. <strong>Cables y Tensiones:</strong> Las fuerzas de tracción siempre tiran a lo largo de las cuerdas hacia los puntos de anclaje.<br />
+                3. <strong>Poleas Ideales:</strong> Redirigen la dirección de la cuerda manteniendo constante la magnitud de la tensión.
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeTopic === 'segunda_ley_newton' && (
+          <>
+            {/* Quick Solver Card */}
+            {onOpenNewtonSolver && (
+              <div
+                className="solver-quick-card"
+                style={{
+                  border: '1px solid #bfdbfe',
+                  background: '#eff6ff',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px',
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  onOpenNewtonSolver();
+                  if (onClose) onClose();
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1d4ed8' }}>
+                    Solucionario Oficial HT01 U4
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#2563eb' }}>
+                    Segunda Ley de Newton Sin Fricción • 12 Problemas y 4 Preguntas
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#1d4ed8' }}>
+                    Abrir Solucionador HT01
+                  </span>
+                  <span className="arrow-icon" style={{ color: '#2563eb', marginLeft: 4 }}>→</span>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Assembly / Lab Setup */}
+            {handleAddAssembly && (
+              <div
+                className="assembly-quick-card"
+                style={{
+                  border: '1px solid #bfdbfe',
+                  background: '#f8fafc',
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
+                    Aparato de Bloques Conectados (HT01 P7)
+                  </div>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                    Montaje con m₁=2kg, m₂=6kg, F=80N y cuerda con tensión T
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="add-preset-btn"
+                  style={{
+                    background: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    handleAddAssembly('newton_assembly');
+                    if (onClose) onClose();
+                  }}
+                >
+                  Insertar
+                </button>
+              </div>
+            )}
+
+            {/* Section: Newton Presets */}
+            <div className="objects-section-heading">
+              <span className="section-title">Sistemas Sin Fricción de la Hoja de Trabajo HT01</span>
+              <span className="section-formula">a = ΣF / m | T = m₁·a</span>
+            </div>
+
+            <p className="objects-guide-text">
+              Arrastra o haz clic para colocar un aparato en la pizarra (con o sin vectores):
+            </p>
+
+            <div className="preset-card-list">
+              {newtonFrictionlessDef && newtonFrictionlessDef.presets.map((preset, idx) => (
+                <div
+                  key={idx}
+                  className="preset-card"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, 'newton_frictionless_system', preset)}
+                  style={{ borderLeft: `3px solid ${preset.color || '#2563eb'}` }}
+                  onClick={() => {
+                    onAddPhysicsObject('newton_frictionless_system', preset);
+                    if (onClose) onClose();
+                  }}
+                >
+                  <div className="preset-card-main">
+                    <div className="preset-card-header">
+                      <span className="preset-card-name">{preset.label}</span>
+                      <span className="preset-metric-tag" style={{ color: '#1d4ed8', background: '#eff6ff' }}>
+                        P{preset.exerciseNumber}
+                      </span>
+                    </div>
+                    <span className="preset-card-desc">
+                      {preset.showOfficialSolution === false ? (
+                        <>✨ <strong>Lienzo Limpio:</strong> Dibuja tú mismo los vectores hacia la dirección que quieras</>
+                      ) : (
+                        <>📐 <strong>Solución Oficial:</strong> Fuerzas aplicadas, tensión en cuerda y aceleración calculada</>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="add-preset-btn"
+                    style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: '0.69rem', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddPhysicsObject('newton_frictionless_system', preset);
+                    }}
+                  >
+                    Añadir
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Theoretical note */}
+            <div className="objects-info-note" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+              <span className="info-note-label" style={{ color: '#1d4ed8' }}>
+                Dinámica y Segunda Ley de Newton (Sin Fricción)
+              </span>
+              <p className="info-note-text">
+                1. <strong>Segunda Ley Fundamental:</strong> La aceleración que experimenta un cuerpo es directamente proporcional a la fuerza neta e inversamente proporcional a la masa: <em>a = ΣF / m</em>.<br />
+                2. <strong>Sistemas de Cuerpos Conectados:</strong> Ambos bloques comparten la misma aceleración (<em>a = F / (m₁ + m₂)</em>) y la cuerda transmite una tensión interna <em>T = m₁ · a</em>.<br />
+                3. <strong>Superficie Lisa Ideal:</strong> Sin fricción (<em>μ = 0</em>), toda fuerza horizontal se traduce íntegramente en aceleración uniforme instantánea.
+              </p>
+            </div>
+          </>
+        )}
+
         {activeTopic === 'mechanics' && (
           <>
             {/* Section 1: Masses */}
@@ -1982,6 +2719,118 @@ export default function PhysicsObjectsFlyout({
           color: #475569;
           line-height: 1.35;
           margin: 0;
+        }
+
+        .teacher-custom-cta-wrap {
+          margin-bottom: 8px;
+        }
+
+        .teacher-custom-cta-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: #ffffff;
+          border: 1.5px dashed #cbd5e1;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          text-align: left;
+        }
+
+        .teacher-custom-cta-btn:hover {
+          border-color: #0284c7;
+          background: #f8fafc;
+          box-shadow: 0 3px 10px rgba(2, 132, 199, 0.08);
+          transform: translateY(-1px);
+        }
+
+        .teacher-cta-icon-box {
+          width: 32px;
+          height: 32px;
+          border-radius: 7px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .teacher-cta-text-col {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+
+        .teacher-cta-main-text {
+          font-size: 0.76rem;
+          font-weight: 700;
+          color: #0f172a;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .teacher-cta-sub-text {
+          font-size: 0.64rem;
+          color: #64748b;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .teacher-cta-badge {
+          font-size: 0.62rem;
+          font-weight: 700;
+          color: #ffffff;
+          padding: 2px 6px;
+          border-radius: 4px;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          flex-shrink: 0;
+        }
+
+        .teacher-custom-section {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 12px;
+          padding: 8px 10px;
+          background: #faf5ff;
+          border: 1px solid #e9d5ff;
+          border-radius: 9px;
+        }
+
+        .teacher-saved-card {
+          border-color: #e9d5ff;
+        }
+
+        .teacher-card-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+
+        .teacher-card-del-btn {
+          background: transparent;
+          border: 1px solid #e2e8f0;
+          color: #94a3b8;
+          border-radius: 5px;
+          padding: 5px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.12s;
+        }
+
+        .teacher-card-del-btn:hover {
+          background: #fee2e2;
+          color: #ef4444;
+          border-color: #fca5a5;
         }
       `}</style>
     </div>

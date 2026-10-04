@@ -20,7 +20,11 @@ import {
   Navigation,
   GraduationCap,
   Target,
-  RotateCw
+  RotateCw,
+  Disc,
+  GitFork,
+  Scale,
+  Weight,
 } from 'lucide-react';
 
 export default function TopBar({
@@ -43,6 +47,10 @@ export default function TopBar({
   onOpenProjectileMotionSolver,
   onOpenMcuSolver,
   onOpenMcuvSolver,
+  onOpenPoleasMcuSolver,
+  onOpenDclSolver,
+  onOpenEquilibrioSolver,
+  onOpenNewtonSolver,
   onOpenPhysicsSandbox,
   onClearBoard,
 }) {
@@ -341,6 +349,90 @@ export default function TopBar({
                       <span className="topic-tag tag-mcuv">Unidad 2</span>
                     </div>
                     <span className="dropdown-item-sub">Aceleración angular α, ω(t), at, ac, atotal • 15 problemas y 10 conceptuales</span>
+                  </div>
+                </button>
+              )}
+
+              {onOpenPoleasMcuSolver && (
+                <button
+                  className="studio-dropdown-item topic-item"
+                  onClick={() => {
+                    setIsTopicsMenuOpen(false);
+                    onOpenPoleasMcuSolver();
+                  }}
+                >
+                  <div className="topic-icon-badge badge-poleas">
+                    <Disc size={14} />
+                  </div>
+                  <div className="dropdown-item-meta">
+                    <div className="topic-item-header">
+                      <span className="dropdown-item-title">Poleas MCU (Transmisión)</span>
+                      <span className="topic-tag tag-poleas">HT01 U3</span>
+                    </div>
+                    <span className="dropdown-item-sub">Mismo eje (ω=cte), fajas (v=cte), trenes compuestos • 9 problemas y 5 preguntas</span>
+                  </div>
+                </button>
+              )}
+
+              {onOpenDclSolver && (
+                <button
+                  className="studio-dropdown-item topic-item"
+                  onClick={() => {
+                    setIsTopicsMenuOpen(false);
+                    onOpenDclSolver();
+                  }}
+                >
+                  <div className="topic-icon-badge badge-dcl">
+                    <GitFork size={14} />
+                  </div>
+                  <div className="dropdown-item-meta">
+                    <div className="topic-item-header">
+                      <span className="dropdown-item-title">Diagramas de Cuerpo Libre (DCL)</span>
+                      <span className="topic-tag tag-dcl">HT02 U3</span>
+                    </div>
+                    <span className="dropdown-item-sub">Fuerzas, DCL de cada cuerpo, descomposición y equilibrio • 11 problemas y 5 preguntas</span>
+                  </div>
+                </button>
+              )}
+
+              {onOpenEquilibrioSolver && (
+                <button
+                  className="studio-dropdown-item topic-item"
+                  onClick={() => {
+                    setIsTopicsMenuOpen(false);
+                    onOpenEquilibrioSolver();
+                  }}
+                >
+                  <div className="topic-icon-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
+                    <Scale size={14} />
+                  </div>
+                  <div className="dropdown-item-meta">
+                    <div className="topic-item-header">
+                      <span className="dropdown-item-title">Equilibrio Traslacional (1ra Ley Newton)</span>
+                      <span className="topic-tag" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #6ee7b7' }}>HT03 U3</span>
+                    </div>
+                    <span className="dropdown-item-sub">Condición ΣF = 0, nudos concurrentes, poleas, cables y planos • 8 problemas y 5 preguntas</span>
+                  </div>
+                </button>
+              )}
+
+              {onOpenNewtonSolver && (
+                <button
+                  className="studio-dropdown-item topic-item"
+                  onClick={() => {
+                    setIsTopicsMenuOpen(false);
+                    onOpenNewtonSolver();
+                  }}
+                >
+                  <div className="topic-icon-badge" style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
+                    <Weight size={14} />
+                  </div>
+                  <div className="dropdown-item-meta">
+                    <div className="topic-item-header">
+                      <span className="dropdown-item-title">Segunda Ley de Newton (Sin Fricción)</span>
+                      <span className="topic-tag" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}>HT01 U4</span>
+                    </div>
+                    <span className="dropdown-item-sub">Dinámica a = ΣF / m, bloques conectados, tensión T, Atwood y planos • 12 problemas y 4 preguntas</span>
                   </div>
                 </button>
               )}
@@ -914,6 +1006,18 @@ export default function TopBar({
           border: 1px solid #fde68a;
         }
 
+        .topic-icon-badge.badge-poleas {
+          background: #ecfdf5;
+          color: #059669;
+          border: 1px solid #a7f3d0;
+        }
+
+        .topic-icon-badge.badge-dcl {
+          background: #fff7ed;
+          color: #ea580c;
+          border: 1px solid #fed7aa;
+        }
+
         .topic-icon-badge.badge-sandbox {
           background: #eef2ff;
           color: #4f46e5;
@@ -947,6 +1051,8 @@ export default function TopBar({
         .tag-proyectiles { background: #ede9fe; color: #6d28d9; }
         .tag-mcu { background: #e0f2fe; color: #0369a1; }
         .tag-mcuv { background: #fef3c7; color: #b45309; }
+        .tag-poleas { background: #ecfdf5; color: #047857; }
+        .tag-dcl { background: #ffedd5; color: #9a3412; }
         .tag-sandbox { background: #e0e7ff; color: #3730a3; }
         .tag-templates { background: #e2e8f0; color: #334155; }
 

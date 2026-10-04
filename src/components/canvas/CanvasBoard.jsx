@@ -20,6 +20,11 @@ import {
   drawText,
   drawPhysicsObject,
   drawPhysicsConnection,
+  getDclVectorTips,
+  OFFICIAL_TABLE_THREE_MASSES_VECTORS,
+  OFFICIAL_TABLE_TWO_MASSES_VECTORS,
+  OFFICIAL_EQUILIBRIO_VECTORS,
+  OFFICIAL_NEWTON_VECTORS,
 } from '../../services/canvasRenderers';
 import {
   createPhysicsElement,
@@ -34,7 +39,39 @@ import {
 } from '../../physics/physicsSimulation';
 import PhysicsSimulationBar from './PhysicsSimulationBar';
 import PhysicsObjectInspector from '../modals/PhysicsObjectInspector';
+import DclVectorOverlayHUD from './DclVectorOverlayHUD';
+import { buildCustomExampleBoardElements } from '../../services/customExampleBuilder';
 
+
+// Helper to compute a stable signature of whiteboard physical objects & connections
+// Excludes in-motion coordinates and instantaneous velocity so it remains 100% constant during 60FPS simulation ticks
+const computePhysicsSignature = (els) => {
+  if (!Array.isArray(els)) return '';
+  return els
+    .filter((el) => el.type === 'physics_object' || el.type === 'physics_connection')
+    .map((el) => {
+      if (el.type === 'physics_connection') {
+        return `conn:${el.id}:${el.from?.elementId || ''}->${el.to?.elementId || ''}`;
+      }
+      const p = el.properties || {};
+      const initV = p.initialVelocity ?? '';
+      const initW = p.initialOmega ?? p.initialOmega1 ?? '';
+      const initA = p.acceleration ?? p.initialAlpha ?? '';
+      const initTh = p.initialAngleDeg ?? '';
+      const mass = p.mass ?? '';
+      const mass1 = p.mass1 ?? '';
+      const mass2 = p.mass2 ?? '';
+      const force = p.appliedForce ?? '';
+      const config = p.configuration ?? '';
+      const showOfficial = p.showOfficialSolution ?? '';
+      const vecSig = Array.isArray(p.userVectors)
+        ? p.userVectors.map((v) => `${v.id}:${v.angleDeg}:${v.magnitude}`).join(',')
+        : '';
+      return `obj:${el.id}:${el.physicsType || el.type}:${initV}:${initW}:${initA}:${initTh}:${mass}:${mass1}:${mass2}:${force}:${config}:${showOfficial}:${vecSig}`;
+    })
+    .sort()
+    .join('|');
+};
 
 export default function CanvasBoard({
   elements,
@@ -95,6 +132,8 @@ export default function CanvasBoard({
   const animFrameIdRef = useRef(null);
   const isSimulatingRef = useRef(false);
   isSimulatingRef.current = isSimulating;
+  const lastPhysicsSigRef = useRef(computePhysicsSignature(elements));
+  const draggingDclVectorRef = useRef(null);
 
   // Physics Object Inspector Modal state
   const [inspectorElement, setInspectorElement] = useState(null);
@@ -138,6 +177,14 @@ export default function CanvasBoard({
         animFrameIdRef.current = null;
       }
     } else {
+      const currentPhysics = elementsRef.current.filter((el) => el.type === 'physics_object' || el.type === 'physics_connection');
+      if (currentPhysics.length === 0) {
+        if (onNotifyRef.current) {
+          onNotifyRef.current('ℹ️ Coloca al menos un objeto físico en la pizarra para simular');
+        }
+        return;
+      }
+
       // Validate existing simulation against current whiteboard elements
       if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elementsRef.current)) {
         simStateRef.current = null;
@@ -262,6 +309,39 @@ export default function CanvasBoard({
             },
           };
         }
+        if (el.physicsType === 'translational_equilibrium') {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              displacementX: 0,
+              displacementY: 0,
+              currentVelocityX: 0,
+              currentVelocityY: 0,
+            },
+          };
+        }
+        if (el.physicsType === 'dcl_diagram') {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              displacementX: 0,
+              currentVelocity: 0,
+            },
+          };
+        }
+        if (el.physicsType === 'newton_frictionless_system') {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              displacementX: 0,
+              currentVelocity: 0,
+              isFinished: false,
+            },
+          };
+        }
         return el;
       });
       elementsRef.current = restored;
@@ -274,6 +354,9 @@ export default function CanvasBoard({
       const ffBody = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'freefall_body');
       const mcuP = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mcu_particle');
       const mcuvP = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mcuv_particle');
+      const eqObj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'translational_equilibrium');
+      const dclObj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'dcl_diagram');
+      const newtonObj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'newton_frictionless_system');
 
       if (proj) {
         const v0 = proj.properties?.initialVelocity ?? proj.properties?.velocity ?? 25.0;
@@ -371,6 +454,86 @@ export default function CanvasBoard({
           revolutions: '0.00',
           time: '0.0',
           stage: 'Listo para Rotación',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (eqObj) {
+        const p = eqObj.properties || {};
+        const showOfficial = !!p.showOfficialSolution;
+        const userVecs = Array.isArray(p.userVectors) ? p.userVectors : [];
+        const massKg = Number(p.mass) || 50;
+        let netFx = 0;
+        let netFy = 0;
+        if (!showOfficial && userVecs.length === 0) {
+          netFy = -(massKg * 9.8);
+        } else if (!showOfficial) {
+          const hasExplicitWeight = userVecs.some(
+            (v) => v.type === 'weight' || (Math.abs((v.angleDeg ?? 0) - 270) < 5 && (v.magnitude ?? 0) > 0)
+          );
+          userVecs.forEach((v) => {
+            const rad = ((v.angleDeg || 0) * Math.PI) / 180;
+            const mag = v.magnitude !== undefined ? v.magnitude : (v.lengthPx || 50);
+            netFx += mag * Math.cos(rad);
+            netFy += mag * Math.sin(rad);
+          });
+          if (!hasExplicitWeight) {
+            netFy -= massKg * 9.8;
+          }
+        }
+        const netF = Math.hypot(netFx, netFy);
+        const isEq = showOfficial || netF < 1.0;
+        const accel = isEq ? 0.0 : netF / massKg;
+        setSimMetrics({
+          type: 'equilibrio',
+          netFx: Number(netFx.toFixed(2)),
+          netFy: Number(netFy.toFixed(2)),
+          netForce: Number(netF.toFixed(2)),
+          accel: Number(accel.toFixed(2)),
+          accelUnit: 'm/s²',
+          isEquilibrium: isEq,
+          time: '0.0',
+          label: p.systemTitle || 'Equilibrio Traslacional (HT03)',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (newtonObj) {
+        const p = newtonObj.properties || {};
+        const appType = p.apparatusType || 'two_connected_blocks';
+        const m1 = Number(p.mass1) || 2.0;
+        const m2 = Number(p.mass2) || 6.0;
+        const F = Number(p.appliedForce) || 0.0;
+        let accel = 0.0;
+        let tension = 0.0;
+        if (appType === 'two_connected_blocks') {
+          accel = F / (m1 + m2);
+          tension = m1 * accel;
+        } else if (appType === 'single_block_force') {
+          accel = F / m1;
+        } else if (appType === 'vertical_cable_mass') {
+          const W = m1 * 9.8;
+          const T = F > 0 ? F : (p.tension || 200.0);
+          accel = (T - W) / m1;
+          tension = T;
+        } else if (appType === 'atwood_frictionless') {
+          accel = ((m2 - m1) * 9.8) / (m1 + m2);
+          tension = (2 * m1 * m2 * 9.8) / (m1 + m2);
+        } else if (appType === 'inclined_plane_frictionless') {
+          const thetaDeg = p.angleDeg || 32.0;
+          const rad = (thetaDeg * Math.PI) / 180;
+          const netF = (m2 * 9.8) - (m1 * 9.8 * Math.sin(rad));
+          accel = netF / (m1 + m2);
+          tension = m2 * (9.8 - accel);
+        }
+        setSimMetrics({
+          type: 'segunda_ley_newton',
+          accel: Number(accel.toFixed(2)),
+          tension: Number(tension.toFixed(2)),
+          force: Number(F.toFixed(1)),
+          vel: 0.0,
+          disp: 0.0,
+          time: '0.0',
+          label: p.label || 'Segunda Ley de Newton (Sin Fricción)',
+          formula: appType === 'two_connected_blocks' ? 'a = F / (m₁ + m₂)' : 'a = ΣF / m',
           isFinished: false,
           isSimulationComplete: false,
         });
@@ -479,99 +642,96 @@ export default function CanvasBoard({
 
   // Real-time HUD telemetry & simulation state synchronization with whiteboard elements
   useEffect(() => {
-    if (isSimulating) return;
-
-    if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elements)) {
-      simStateRef.current = null;
-      lastInitialSnapshotRef.current = null;
-    }
+    const currentSig = computePhysicsSignature(elements);
+    const sigChanged = currentSig !== lastPhysicsSigRef.current;
+    lastPhysicsSigRef.current = currentSig;
 
     const physicsObjs = elements.filter((el) => el.type === 'physics_object');
     const conns = elements.filter((el) => el.type === 'physics_connection');
 
-    // Only capture initial snapshot if none exists, and DO NOT capture in-flight moved objects
-    const hasMovedObjects = physicsObjs.some(
-      (o) => o.properties?.isFinished || o.properties?.distance > 0 || o.properties?.distanceFallen > 0 || (o.properties?.trailPoints && o.properties.trailPoints.length > 1)
-    );
-
-    // Always ensure a fallback snapshot exists for baseline Reset
-    if (!lastInitialSnapshotRef.current && physicsObjs.length > 0 && !hasMovedObjects) {
-      lastInitialSnapshotRef.current = elements.map((el) => {
-        if (el.type === 'physics_object') {
-          return {
-            id: el.id,
-            x: el.x,
-            y: el.y,
-            properties: { ...el.properties },
-          };
-        }
-        if (el.type === 'physics_connection') {
-          return {
-            id: el.id,
-            properties: { ...el.properties },
-          };
-        }
-        return null;
-      }).filter(Boolean);
-    }
-
-    // If active simulation state already holds valid telemetry, preserve it
-    if (simStateRef.current?.telemetry) {
-      setSimMetrics(simStateRef.current.telemetry);
-      return;
-    }
-
-    const hasMru = physicsObjs.some((el) => el.physicsType === 'mru_cart');
-    const pulleys = physicsObjs.filter((el) => el.physicsType === 'pulley');
-    const hasAtwood = pulleys.some((p) => {
-      const pConns = conns.filter((c) => c.from?.elementId === p.id || c.to?.elementId === p.id);
-      return pConns.length >= 2;
-    });
-
+    let gScale = 1.0;
     let realG = 9.8;
-    if (gravityPreset === 'moon') realG = 1.62;
-    else if (gravityPreset === 'jupiter') realG = 24.8;
-    else if (gravityPreset === 'zero') realG = 0;
+    if (gravityPreset === 'moon') { gScale = 0.165; realG = 1.62; }
+    else if (gravityPreset === 'jupiter') { gScale = 2.53; realG = 24.8; }
+    else if (gravityPreset === 'zero') { gScale = 0; realG = 0; }
 
-    if (hasAtwood && !hasMru) {
-      const masses = physicsObjs.filter((el) => el.physicsType === 'mass');
-      const sortedMasses = [...masses].sort((a, b) => a.x - b.x);
-      const mA = sortedMasses[0]?.properties?.mass || 100;
-      const mB = sortedMasses[1]?.properties?.mass || 60;
-      const totalM = mA + mB;
-      const theoA = totalM > 0 ? Math.abs((mA - mB) / totalM) * realG : 0;
-      const theoT = totalM > 0 ? ((2 * mA * mB) / totalM) * realG : 0;
+    if (sigChanged) {
+      if (isSimulatingRef.current) {
+        // SCENARIO 2: Whiteboard elements modified, deleted or added MID-SIMULATION
+        if (physicsObjs.length === 0) {
+          // If all physics objects were deleted while running, stop simulation immediately
+          setIsSimulating(false);
+          isSimulatingRef.current = false;
+          if (animFrameIdRef.current) {
+            cancelAnimationFrame(animFrameIdRef.current);
+            animFrameIdRef.current = null;
+          }
+          simStateRef.current = null;
+          lastInitialSnapshotRef.current = null;
+          setSimMetrics(null);
+          return;
+        }
 
-      setSimMetrics({
-        type: 'atwood',
-        accel: theoA,
-        tension: theoT,
-        velA: '0.00',
-        time: '0.0',
-        isStopped: false,
-      });
-    } else if (hasMru) {
-      const cart = physicsObjs.find((el) => el.physicsType === 'mru_cart');
-      const dispV = cart?.properties?.displayVelocity !== undefined ? cart.properties.displayVelocity : (cart?.properties?.velocity ?? 2.0);
-      const vUnit = cart?.properties?.unit || 'm/s';
-      const cartLabel = cart?.properties?.label || 'Móvil MRU';
-      setSimMetrics({
-        type: 'mru',
-        vel: dispV,
-        unit: vUnit,
-        label: cartLabel,
-        accel: 0.0,
-        dist: (cart?.properties?.distance || 0).toFixed(2),
-        time: '0.0',
-        isFinished: false,
-      });
-    } else if (physicsObjs.length > 0) {
-      setSimMetrics({
-        accel: 0,
-        tension: 0,
-        velA: '0.00',
-        time: '0.0',
-      });
+        // Dynamically recompile simulation state on-the-fly so the new objects simulate immediately!
+        simStateRef.current = createHeadlessSimulation(elementsRef.current, {
+          gravityScale: gScale,
+          realG,
+        });
+        lastInitialSnapshotRef.current = simStateRef.current.initialSnapshot;
+        if (simStateRef.current.telemetry) {
+          setSimMetrics(simStateRef.current.telemetry);
+        }
+        return;
+      } else {
+        // SCENARIO 1: Whiteboard elements changed while STOPPED / PAUSED
+        simStateRef.current = null;
+        lastInitialSnapshotRef.current = null;
+
+        if (physicsObjs.length === 0) {
+          setSimMetrics(null);
+          return;
+        }
+
+        // Automatically prepare clean baseline snapshot & rich telemetry for the new objects
+        const tempSim = createHeadlessSimulation(elements, { gravityScale: gScale, realG });
+        lastInitialSnapshotRef.current = tempSim.initialSnapshot;
+        if (tempSim.telemetry) {
+          setSimMetrics(tempSim.telemetry);
+        }
+        return;
+      }
+    }
+
+    // When NOT simulating and signature hasn't changed:
+    if (!isSimulating) {
+      if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elements)) {
+        simStateRef.current = null;
+        lastInitialSnapshotRef.current = null;
+      }
+
+      if (physicsObjs.length === 0) {
+        setSimMetrics(null);
+        return;
+      }
+
+      // If active simulation state already holds valid telemetry, preserve it
+      if (simStateRef.current?.telemetry) {
+        setSimMetrics(simStateRef.current.telemetry);
+        return;
+      }
+
+      // Only capture initial snapshot if none exists, and DO NOT capture in-flight moved objects
+      const hasMovedObjects = physicsObjs.some(
+        (o) => o.properties?.isFinished || o.properties?.distance > 0 || o.properties?.distanceFallen > 0 || (o.properties?.trailPoints && o.properties.trailPoints.length > 1)
+      );
+
+      if (!lastInitialSnapshotRef.current && !hasMovedObjects) {
+        const tempSim = createHeadlessSimulation(elements, { gravityScale: gScale, realG });
+        lastInitialSnapshotRef.current = tempSim.initialSnapshot;
+        if (tempSim.telemetry) {
+          setSimMetrics(tempSim.telemetry);
+        }
+      }
     }
   }, [elements, isSimulating, gravityPreset]);
 
@@ -805,6 +965,10 @@ export default function CanvasBoard({
             });
           });
           setSelectedIds([]);
+          if (!isSimulatingRef.current) {
+            simStateRef.current = null;
+            lastInitialSnapshotRef.current = null;
+          }
         }
       }
       // Duplicate hotkey (Ctrl+D)
@@ -930,7 +1094,10 @@ export default function CanvasBoard({
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    // 3. Save for world transform
+    // 3. Draw Engineering Graph Paper Grid as canvas background (in CSS coordinates)
+    drawMiroSquareGrid(ctx, w, h, transform);
+
+    // 4. Save for world transform
     ctx.save();
     ctx.translate(transform.x, transform.y);
     ctx.scale(transform.scale, transform.scale);
@@ -1139,13 +1306,6 @@ export default function CanvasBoard({
     }
 
     ctx.restore(); // Restore world transform
-
-    // 10. Draw Graph Paper Grid UNDERNEATH using destination-over (in CSS coordinates)
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-over';
-    drawMiroSquareGrid(ctx, w, h, transform);
-    ctx.restore();
-
     ctx.restore(); // Restore HiDPI scale
   }, [elements, currentDraft, selectionMarquee, transform, selectedIds, canvasRef, activeTool, cursorWorldPos, editingText, connectionDraft, hoveredAnchor]);
 
@@ -1678,6 +1838,12 @@ export default function CanvasBoard({
         pushHistory();
         setElements((prev) => prev.filter((el) => el.id !== hit.id));
         setSelectedIds((prev) => prev.filter((id) => id !== hit.id));
+        if (hit.type === 'physics_object' || hit.type === 'physics_connection') {
+          if (!isSimulatingRef.current) {
+            simStateRef.current = null;
+            lastInitialSnapshotRef.current = null;
+          }
+        }
       }
       setIsDrawing(true);
       return;
@@ -1746,6 +1912,34 @@ export default function CanvasBoard({
 
     // 7. SELECT TOOL
     if (activeTool === 'select') {
+      // Check if clicking near any DCL vector tip of a selected DCL element
+      const selectedDcl = elements.find(
+        (el) =>
+          selectedIds.includes(el.id) &&
+          (el.physicsType === 'dcl_diagram' ||
+            el.physicsType === 'translational_equilibrium' ||
+            el.physicsType === 'mass' ||
+            el.physicsType === 'mru_cart' ||
+            el.physicsType === 'mruv_cart')
+      );
+      if (selectedDcl) {
+        const tips = getDclVectorTips(selectedDcl);
+        const hitTip = tips.find((t) => Math.hypot(world.x - t.tipX, world.y - t.tipY) <= 18);
+        if (hitTip) {
+          dragStartSnapshotRef.current = elements;
+          draggingDclVectorRef.current = {
+            elementId: selectedDcl.id,
+            vectorId: hitTip.id,
+            originX: hitTip.originX,
+            originY: hitTip.originY,
+          };
+          try {
+            e.currentTarget?.setPointerCapture?.(e.pointerId);
+          } catch {}
+          return;
+        }
+      }
+
       const hit = findElementAt(world.x, world.y);
       if (hit) {
         dragStartSnapshotRef.current = elements;
@@ -1824,6 +2018,65 @@ export default function CanvasBoard({
 
     const world = screenToWorld(e.clientX, e.clientY);
     setCursorWorldPos(world);
+
+    // Interactive DCL Vector Tip Dragging (Rotating vector freely in 360°)
+    if (draggingDclVectorRef.current) {
+      const { elementId, vectorId, originX, originY } = draggingDclVectorRef.current;
+      const dx = world.x - originX;
+      const dy = world.y - originY;
+      const rad = Math.atan2(-dy, dx);
+      let deg = Math.round((rad * 180) / Math.PI);
+      if (deg < 0) deg += 360;
+      // Snap to cardinal axes within 6 degrees
+      if (Math.abs(deg - 0) < 6 || Math.abs(deg - 360) < 6) deg = 0;
+      else if (Math.abs(deg - 90) < 6) deg = 90;
+      else if (Math.abs(deg - 180) < 6) deg = 180;
+      else if (Math.abs(deg - 270) < 6) deg = 270;
+
+      const newLen = Math.max(36, Math.min(130, Math.round(Math.hypot(dx, dy))));
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (el.id !== elementId) return el;
+          const props = el.properties || {};
+          let userVectors = Array.isArray(props.userVectors) ? [...props.userVectors] : [];
+
+          // If dragging an official solution vector, copy into userVectors
+          if (userVectors.length === 0 && props.showOfficialSolution) {
+            const offList =
+              props.apparatusType === 'table_three_masses'
+                ? OFFICIAL_TABLE_THREE_MASSES_VECTORS
+                : props.apparatusType === 'table_two_masses'
+                ? OFFICIAL_TABLE_TWO_MASSES_VECTORS
+                : (props.apparatusType && OFFICIAL_EQUILIBRIO_VECTORS[props.apparatusType]
+                  ? OFFICIAL_EQUILIBRIO_VECTORS[props.apparatusType]
+                  : (props.apparatusType && OFFICIAL_NEWTON_VECTORS[props.apparatusType]
+                    ? OFFICIAL_NEWTON_VECTORS[props.apparatusType]
+                    : []));
+            userVectors = offList.map((v) => ({ ...v }));
+          }
+
+          const idx = userVectors.findIndex((v) => v.id === vectorId);
+          if (idx >= 0) {
+            userVectors[idx] = {
+              ...userVectors[idx],
+              angleDeg: deg,
+              lengthPx: newLen,
+            };
+            return {
+              ...el,
+              properties: {
+                ...props,
+                userVectors,
+                showOfficialSolution: false,
+              },
+            };
+          }
+          return el;
+        })
+      );
+      return;
+    }
 
     // 0. Active Physical Connection Drafting (Rope)
     if (connectingFrom) {
@@ -1994,6 +2247,13 @@ export default function CanvasBoard({
 
     if (isPanning) {
       setIsPanning(false);
+    }
+
+    // Finalize DCL Vector Tip Dragging
+    if (draggingDclVectorRef.current) {
+      pushHistory();
+      draggingDclVectorRef.current = null;
+      return;
     }
 
     // Finalize Physical Connection (Rope)
@@ -2220,12 +2480,34 @@ export default function CanvasBoard({
       onPointerCancel={handlePointerUp}
       onDoubleClick={handleDoubleClick}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('application/physics-object')) {
+        if (
+          e.dataTransfer.types.includes('application/physics-object') ||
+          e.dataTransfer.types.includes('application/teacher-custom-example')
+        ) {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'copy';
         }
       }}
       onDrop={(e) => {
+        const customRaw = e.dataTransfer.getData('application/teacher-custom-example');
+        if (customRaw) {
+          e.preventDefault();
+          try {
+            const customEx = JSON.parse(customRaw);
+            const world = screenToWorld(e.clientX, e.clientY);
+            pushHistory();
+            const newEls = buildCustomExampleBoardElements(customEx, world.x, world.y);
+            setElements((prev) => [...prev, ...newEls]);
+            if (newEls.length > 0) {
+              setSelectedIds([newEls[0].id]);
+            }
+            setActiveTool('select');
+            return;
+          } catch (err) {
+            console.error('Error al soltar ejemplo personalizado:', err);
+          }
+        }
+
         const rawData = e.dataTransfer.getData('application/physics-object');
         if (rawData) {
           e.preventDefault();
@@ -2306,8 +2588,12 @@ export default function CanvasBoard({
         )}
       />
 
-      {/* Floating Contextual Toolbar above selected elements */}
-      {primarySelectedElement && contextPos && (
+      {/* Floating Contextual Toolbar above selected elements (except DCL / Equilibrium / Mass which have their own sleek unified HUD) */}
+      {primarySelectedElement &&
+        contextPos &&
+        primarySelectedElement.physicsType !== 'dcl_diagram' &&
+        primarySelectedElement.physicsType !== 'translational_equilibrium' &&
+        primarySelectedElement.physicsType !== 'mass' && (
         <ContextualToolbar
           selectedElement={primarySelectedElement}
           position={contextPos}
@@ -2326,12 +2612,53 @@ export default function CanvasBoard({
               });
             });
             setSelectedIds([]);
+            if (!isSimulatingRef.current) {
+              simStateRef.current = null;
+              lastInitialSnapshotRef.current = null;
+            }
           }}
           onFormatMath={handleFormatHandwriting}
           onEditPhysicsObject={() => handleOpenPhysicsInspector()}
           hasStrokes={selectedHasStrokes}
         />
       )}
+
+      {/* Interactive DCL, Equilibrium & Newton Dynamics Vector Overlay HUD for adding, editing & directing force vectors */}
+      {(primarySelectedElement?.physicsType === 'dcl_diagram' ||
+        primarySelectedElement?.physicsType === 'translational_equilibrium' ||
+        primarySelectedElement?.physicsType === 'mass') && (
+        <DclVectorOverlayHUD
+          element={primarySelectedElement}
+          transform={transform}
+          onDuplicate={handleDuplicateSelected}
+          onDelete={() => {
+            pushHistory();
+            setElements((prev) => prev.filter((el) => el.id !== primarySelectedElement.id));
+            setSelectedIds([]);
+          }}
+          onUpdateVectors={(newVectors, newShowOfficialSolution) => {
+            pushHistory();
+            setElements((prev) =>
+              prev.map((el) => {
+                if (el.id !== primarySelectedElement.id) return el;
+                const p = el.properties || {};
+                return {
+                  ...el,
+                  properties: {
+                    ...p,
+                    userVectors: newVectors,
+                    ...(newShowOfficialSolution !== undefined
+                      ? { showOfficialSolution: newShowOfficialSolution }
+                      : {}),
+                  },
+                };
+              })
+            );
+          }}
+          onOpenInspector={() => handleOpenPhysicsInspector(primarySelectedElement)}
+        />
+      )}
+
 
       {/* Physics Object Property Inspector Modal */}
       <PhysicsObjectInspector

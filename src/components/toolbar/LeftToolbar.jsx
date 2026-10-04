@@ -46,6 +46,12 @@ export default function LeftToolbar({
   onOpenProjectileMotionSolver,
   onOpenMcuSolver,
   onOpenMcuvSolver,
+  onOpenPoleasMcuSolver,
+  onOpenDclSolver,
+  onOpenEquilibrioSolver,
+  onOpenNewtonSolver,
+  onOpenCustomExampleBuilder,
+  onMountCustomExample,
 }) {
   // Flyout submenu visibility states ('pen' | 'templates' | 'sticky' | 'shapes' | 'greek_symbols' | 'physics_objects' | null)
   const [activeFlyout, setActiveFlyout] = useState(null);
@@ -261,6 +267,12 @@ export default function LeftToolbar({
         onOpenProjectileMotionSolver={onOpenProjectileMotionSolver}
         onOpenMcuSolver={onOpenMcuSolver}
         onOpenMcuvSolver={onOpenMcuvSolver}
+        onOpenPoleasMcuSolver={onOpenPoleasMcuSolver}
+        onOpenDclSolver={onOpenDclSolver}
+        onOpenEquilibrioSolver={onOpenEquilibrioSolver}
+        onOpenNewtonSolver={onOpenNewtonSolver}
+        onOpenCustomExampleBuilder={onOpenCustomExampleBuilder}
+        onMountCustomExample={onMountCustomExample}
       />
 
       <PenFlyout
