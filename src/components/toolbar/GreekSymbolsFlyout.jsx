@@ -7,6 +7,7 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
 
   const [symbolSearch, setSymbolSearch] = useState('');
   const [symbolCategory, setSymbolCategory] = useState('all');
+  const [copiedSymbol, setCopiedSymbol] = useState(null);
 
   const filteredSymbols = GREEK_ALPHABET.filter((item) => {
     if (symbolCategory !== 'all' && item.category !== symbolCategory) {
@@ -39,6 +40,21 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
     }).length;
   };
 
+  const handleSelectSymbol = (item) => {
+    if (onInsertSymbol) {
+      onInsertSymbol(item.symbol);
+    }
+    try {
+      navigator.clipboard.writeText(item.symbol);
+    } catch {
+      // ignore clipboard error if unavailable
+    }
+    setCopiedSymbol(item);
+    setTimeout(() => {
+      setCopiedSymbol(null);
+    }, 1800);
+  };
+
   return (
     <div className="symbols-drawer-card miro-island">
       {/* Header */}
@@ -50,7 +66,7 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
           </div>
           <h3 className="symbols-drawer-title">Letras Griegas y Símbolos</h3>
           <p className="symbols-drawer-subtitle">
-            Haz clic en una letra para insertarla en el lienzo y copiarla
+            Haz clic en un símbolo para insertarlo y copiarlo al portapapeles
           </p>
         </div>
         <button
@@ -68,7 +84,7 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
         <input
           type="text"
           className="symbols-search-input"
-          placeholder="Buscar (ej. sigma, alfa, theta, pi, omega, integral)..."
+          placeholder="Buscar símbolo (ej. alfa, pi, omega, integral)..."
           value={symbolSearch}
           onChange={(e) => setSymbolSearch(e.target.value)}
           autoFocus
@@ -87,28 +103,32 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
       {/* Category Tabs */}
       <div className="symbols-category-tabs">
         <button
+          type="button"
           className={`symbols-tab-pill ${symbolCategory === 'all' ? 'active' : ''}`}
           onClick={() => setSymbolCategory('all')}
         >
           Todos ({getCategoryCount('all')})
         </button>
         <button
+          type="button"
           className={`symbols-tab-pill ${symbolCategory === 'lowercase' ? 'active' : ''}`}
           onClick={() => setSymbolCategory('lowercase')}
         >
           Minúsculas ({getCategoryCount('lowercase')})
         </button>
         <button
+          type="button"
           className={`symbols-tab-pill ${symbolCategory === 'uppercase' ? 'active' : ''}`}
           onClick={() => setSymbolCategory('uppercase')}
         >
           Mayúsculas ({getCategoryCount('uppercase')})
         </button>
         <button
+          type="button"
           className={`symbols-tab-pill ${symbolCategory === 'math' ? 'active' : ''}`}
           onClick={() => setSymbolCategory('math')}
         >
-          Matemática ({getCategoryCount('math')})
+          Física / Mate ({getCategoryCount('math')})
         </button>
       </div>
 
@@ -119,21 +139,13 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
             {filteredSymbols.map((item, idx) => (
               <button
                 key={`${item.symbol}-${idx}`}
+                type="button"
                 className="symbol-tile-card"
-                onClick={() => {
-                  if (onInsertSymbol) {
-                    onInsertSymbol(item.symbol);
-                  }
-                  try {
-                    navigator.clipboard.writeText(item.symbol);
-                  } catch {
-                    // ignore
-                  }
-                }}
-                title={`${item.desc} (${item.symbol}) - Clic para insertar en el lienzo`}
+                onClick={() => handleSelectSymbol(item)}
+                title={`${item.desc} (${item.symbol}) - Clic para insertar y copiar`}
               >
                 <span className="symbol-glyph">{item.symbol}</span>
-                <span className="symbol-label">{item.name}</span>
+                <span className="symbol-label" title={item.name}>{item.name}</span>
               </button>
             ))}
           </div>
@@ -145,6 +157,7 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
               Busca por nombre en español (sigma, alfa, beta, delta, pi) o escribe el símbolo directamente.
             </p>
             <button
+              type="button"
               className="empty-clear-btn"
               onClick={() => setSymbolSearch('')}
             >
@@ -154,11 +167,17 @@ export default function GreekSymbolsFlyout({ isOpen, onClose, onInsertSymbol }) 
         )}
       </div>
 
-      {/* Footer Quick Tip */}
+      {/* Footer Quick Tip or Copy Feedback */}
       <div className="symbols-drawer-footer">
-        <span className="footer-tip-text">
-          ✨ <strong>Inserción rápida:</strong> Clic en cualquier símbolo para colocarlo en el centro del lienzo.
-        </span>
+        {copiedSymbol ? (
+          <span className="footer-tip-text text-copied">
+            ✅ Insertado y copiado: <strong>{copiedSymbol.symbol}</strong> ({copiedSymbol.name})
+          </span>
+        ) : (
+          <span className="footer-tip-text">
+            ✨ <strong>Inserción rápida:</strong> Clic en cualquier símbolo para colocarlo en el centro del lienzo.
+          </span>
+        )}
       </div>
     </div>
   );

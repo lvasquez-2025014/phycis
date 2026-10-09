@@ -51,9 +51,6 @@ export default function StickyFlyout({
           <Layers size={16} />
           <span>Apilar</span>
         </button>
-        <button className="sticky-action-row-btn" onClick={onOpenTemplates}>
-          <span>Plantillas</span>
-        </button>
         <div className="bulk-mode-label">Modo rápido</div>
       </div>
     </div>

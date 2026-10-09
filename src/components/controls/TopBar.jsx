@@ -3,8 +3,7 @@ import {
   Download, 
   Share2, 
   Clock, 
-  Save,
-  BookOpen, 
+  Save, 
   Trash2, 
   Undo2, 
   Redo2, 
@@ -13,14 +12,54 @@ import {
   Image as ImageIcon,
   ChevronDown,
   Sparkles,
-  Calculator,
-  TrendingUp,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Navigation,
-  GraduationCap,
-  Target
+  LayoutTemplate,
+  Square,
+  Grid,
+  CircleDot,
+  AlignJustify,
+  Check,
+  Compass,
+  Play,
 } from 'lucide-react';
+
+const BOARD_TEMPLATES = [
+  {
+    id: 'cartesian',
+    title: 'Plano cartesiano',
+    description: 'Ejes coordenados X / Y y cuadrícula milimétrica para física',
+    icon: Compass,
+  },
+  {
+    id: 'blank',
+    title: 'Hoja blanca normal',
+    description: 'Lienzo blanco liso sin cuadrícula ni ejes de coordenadas',
+    icon: Square,
+  },
+  {
+    id: 'chalkboard',
+    title: 'Pizarra de tiza verde',
+    description: 'Pizarra clásica escolar con textura de tiza realista',
+    icon: Sparkles,
+  },
+  {
+    id: 'grid',
+    title: 'Cuadrícula clásica',
+    description: 'Cuadrícula limpia y técnica sin ejes cartesianos',
+    icon: Grid,
+  },
+  {
+    id: 'dots',
+    title: 'Puntos discretos',
+    description: 'Patrón sutil de puntos para diagramas y notas',
+    icon: CircleDot,
+  },
+  {
+    id: 'ruled',
+    title: 'Líneas de cuaderno',
+    description: 'Rayado horizontal con línea de margen lateral',
+    icon: AlignJustify,
+  },
+];
 
 export default function TopBar({
   boardName = 'Pizarra de Física y MRU',
@@ -33,24 +72,20 @@ export default function TopBar({
   onExportJSON,
   onOpenShare,
   onOpenSaveModal,
-  onOpenTemplates,
-  onOpenMruSolver,
-  onOpenMruvSolver,
-  onOpenFreefallSolver,
-  onOpenTiroVerticalSolver,
-  onOpenHorizontalLaunchSolver,
-  onOpenProjectileMotionSolver,
-  onOpenPhysicsSandbox,
   onClearBoard,
+  boardTemplate = 'cartesian',
+  setBoardTemplate,
+  activeNav = 'board',
+  onSelectNav,
 }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(boardName);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [isTopicsMenuOpen, setIsTopicsMenuOpen] = useState(false);
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const inputRef = useRef(null);
   const exportMenuRef = useRef(null);
-  const topicsMenuRef = useRef(null);
+  const templateMenuRef = useRef(null);
 
   useEffect(() => {
     setTempName(boardName);
@@ -69,8 +104,8 @@ export default function TopBar({
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
         setIsExportMenuOpen(false);
       }
-      if (topicsMenuRef.current && !topicsMenuRef.current.contains(e.target)) {
-        setIsTopicsMenuOpen(false);
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target)) {
+        setIsTemplateMenuOpen(false);
       }
       if (showClearConfirm && !e.target.closest('.clear-board-group')) {
         setShowClearConfirm(false);
@@ -101,25 +136,8 @@ export default function TopBar({
 
   return (
     <header className="phy-studio-header">
-      {/* 1. LEFT: Brand & Board Name */}
+      {/* 1. LEFT: Brand & Board Name & Navigation Sections */}
       <div className="studio-header-left">
-        {/* Brand Logo */}
-        <div className="studio-brand-box" title="Physics Studio — Laboratorio Digital de Física y Matemáticas">
-          <div className="studio-brand-symbol">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-              <path d="M12 2a10 5 0 0 1 10 5c0 2.76-4.48 5-10 5S2 9.76 2 7a10 5 0 0 1 10-5z" />
-              <path d="M2.5 14.5c2.4 1.4 5.9 2.5 9.5 2.5s7.1-1.1 9.5-2.5" />
-              <path d="M6 19c1.7.6 3.8 1 6 1s4.3-.4 6-1" />
-            </svg>
-          </div>
-          <div className="studio-brand-text">
-            <span className="studio-brand-title">PHYSICS LAB</span>
-            <span className="studio-brand-sub">Estudio de Cinemática</span>
-          </div>
-        </div>
-
-        <div className="studio-v-divider" />
 
         {/* Board Title */}
         <div className="studio-title-box">
@@ -144,6 +162,30 @@ export default function TopBar({
               <Edit2 size={12} className="studio-title-pencil" />
             </button>
           )}
+        </div>
+
+        <div className="studio-v-divider" />
+
+        {/* Navigation Switcher: Pizarra vs Simulación */}
+        <div className="studio-nav-segmented">
+          <button
+            type="button"
+            className={`studio-nav-tab ${activeNav === 'board' ? 'active' : ''}`}
+            onClick={() => onSelectNav?.('board')}
+            title="Pizarra interactiva de física, notas y dibujos"
+          >
+            <Compass size={13} className="nav-tab-icon" />
+            <span>Pizarra</span>
+          </button>
+          <button
+            type="button"
+            className={`studio-nav-tab ${activeNav === 'simulation' ? 'active' : ''}`}
+            onClick={() => onSelectNav?.('simulation')}
+            title="Módulo de Simulación interactiva de física"
+          >
+            <Play size={12} className="nav-tab-icon play" />
+            <span>Simulación</span>
+          </button>
         </div>
       </div>
 
@@ -171,223 +213,51 @@ export default function TopBar({
 
         <div className="studio-v-divider small" />
 
-        {/* 📚 Unified Topics & Solvers Menu Bar Dropdown */}
-        <div className="studio-dropdown-wrapper topics-menu-wrapper" ref={topicsMenuRef}>
+        {/* Plantillas de la pizarra Selector */}
+        <div className="board-template-dropdown-wrapper" ref={templateMenuRef}>
           <button
-            className={`studio-module-btn topics-menu-btn ${isTopicsMenuOpen ? 'active' : ''}`}
-            onClick={() => setIsTopicsMenuOpen((prev) => !prev)}
-            title="Seleccionar módulo curricular o solucionador de física"
+            className={`board-template-btn ${isTemplateMenuOpen ? 'active' : ''}`}
+            onClick={() => setIsTemplateMenuOpen((prev) => !prev)}
+            title="Plantillas de la pizarra: cambiar cuadrícula o estilo del lienzo"
           >
-            <GraduationCap size={15} className="topics-menu-icon" />
-            <span className="topics-menu-label">Temas y Solucionadores</span>
-            <ChevronDown size={12} className={`chevron-indicator ${isTopicsMenuOpen ? 'open' : ''}`} />
+            <LayoutTemplate size={14} className="template-btn-icon" />
+            <span className="template-btn-label">Plantillas de la pizarra</span>
+            <ChevronDown size={12} className={`template-chevron ${isTemplateMenuOpen ? 'open' : ''}`} />
           </button>
 
-          {isTopicsMenuOpen && (
-            <div className="studio-dropdown-menu topics-dropdown-menu">
-              {/* Category: 1D Kinematics */}
-              <div className="topics-dropdown-header">CINEMÁTICA EN 1D</div>
-
-              {onOpenMruSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenMruSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-mru">
-                    <Calculator size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">MRU: Movimiento Uniforme</span>
-                      <span className="topic-tag tag-mru">HT01</span>
-                    </div>
-                    <span className="dropdown-item-sub">Velocidad constante (v = cte) • 10 ejercicios y calculadora</span>
-                  </div>
-                </button>
-              )}
-
-              {onOpenMruvSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenMruvSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-mruv">
-                    <TrendingUp size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">MRUV: Movimiento Variado</span>
-                      <span className="topic-tag tag-mruv">HT02</span>
-                    </div>
-                    <span className="dropdown-item-sub">Aceleración constante, 4 fórmulas • 10 ejercicios</span>
-                  </div>
-                </button>
-              )}
-
-              {/* Category: Vertical Kinematics & 2D */}
-              <div className="topics-dropdown-header">CINEMÁTICA VERTICAL Y 2D</div>
-
-              {onOpenFreefallSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenFreefallSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-freefall">
-                    <ArrowDownCircle size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Caída Libre</span>
-                      <span className="topic-tag tag-freefall">HT03</span>
-                    </div>
-                    <span className="dropdown-item-sub">Gravedad g = 9.80 m/s², caída desde reposo • 10 ejercicios</span>
-                  </div>
-                </button>
-              )}
-
-              {onOpenTiroVerticalSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenTiroVerticalSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-tiro">
-                    <ArrowUpCircle size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Tiro Vertical</span>
-                      <span className="topic-tag tag-tiro">HT04</span>
-                    </div>
-                    <span className="dropdown-item-sub">Lanzamiento hacia arriba, altura máxima • 10 ejercicios</span>
-                  </div>
-                </button>
-              )}
-
-              {onOpenHorizontalLaunchSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenHorizontalLaunchSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-horizontal">
-                    <Navigation size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Lanzamiento Horizontal</span>
-                      <span className="topic-tag tag-horizontal">HT01 2D</span>
-                    </div>
-                    <span className="dropdown-item-sub">Movimiento parabólico 2D: MRU + Caída Libre • 10 problemas</span>
-                  </div>
-                </button>
-              )}
-
-              {onOpenProjectileMotionSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenProjectileMotionSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-proyectiles">
-                    <Target size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Movimiento de Proyectiles</span>
-                      <span className="topic-tag tag-proyectiles">HT02 2D</span>
-                    </div>
-                    <span className="dropdown-item-sub">Tiro parabólico oblicuo con ángulo θ • 10 problemas y 7 conceptuales</span>
-                  </div>
-                </button>
-              )}
-
-              {/* Category: Tools & Syllabus */}
-              <div className="topics-dropdown-header">SIMULACIÓN & TEMARIO</div>
-
-              {onOpenPhysicsSandbox && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenPhysicsSandbox();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-sandbox">
-                    <Sparkles size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Sandbox Dinámico</span>
-                      <span className="topic-tag tag-sandbox">Matter.js</span>
-                    </div>
-                    <span className="dropdown-item-sub">Laboratorio de cuerpos rígidos, masas y máquina de Atwood</span>
-                  </div>
-                </button>
-              )}
-
-              {onOpenTemplates && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenTemplates();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-templates">
-                    <BookOpen size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Plantillas Curriculares</span>
-                      <span className="topic-tag tag-templates">Kinal</span>
-                    </div>
-                    <span className="dropdown-item-sub">Plan escolar previsto, guías teóricas y pizarras de examen</span>
-                  </div>
-                </button>
-              )}
+          {isTemplateMenuOpen && (
+            <div className="board-template-popover">
+              <div className="template-popover-header">
+                <span>Plantillas de la pizarra</span>
+              </div>
+              <div className="template-options-list">
+                {BOARD_TEMPLATES.map((tmpl) => {
+                  const isSelected = boardTemplate === tmpl.id;
+                  const Icon = tmpl.icon;
+                  return (
+                    <button
+                      key={tmpl.id}
+                      className={`template-option-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => {
+                        setBoardTemplate?.(tmpl.id);
+                        setIsTemplateMenuOpen(false);
+                      }}
+                    >
+                      <div className="template-item-preview">
+                        <Icon size={15} />
+                      </div>
+                      <div className="template-item-info">
+                        <span className="template-item-title">{tmpl.title}</span>
+                        <span className="template-item-desc">{tmpl.description}</span>
+                      </div>
+                      {isSelected && <Check size={14} className="template-check-icon" />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
-
-        {/* Quick Access: Templates */}
-        {onOpenTemplates && (
-          <button
-            className="studio-module-btn"
-            onClick={onOpenTemplates}
-            title="Abrir temario curricular de física y plantillas"
-          >
-            <BookOpen size={14} />
-            <span>Plantillas</span>
-          </button>
-        )}
-
-        {/* Quick Access: Physics Sandbox */}
-        {onOpenPhysicsSandbox && (
-          <button
-            className="studio-module-btn accent-sandbox"
-            onClick={onOpenPhysicsSandbox}
-            title="Laboratorio de simulación dinámica (Matter.js)"
-          >
-            <Sparkles size={14} />
-            <span>Sandbox</span>
-          </button>
-        )}
 
         {/* Clear Board Button */}
         {onClearBoard && (
@@ -426,67 +296,7 @@ export default function TopBar({
 
       {/* 3. RIGHT: Session, Export & Actions */}
       <div className="studio-header-right">
-        {/* Session Status */}
-        <div className="studio-session-tag" onClick={onOpenSaveModal} title="Sesión local activa (24h)">
-          <Clock size={12} />
-          <span>24h Activa</span>
-        </div>
 
-        {/* Export Dropdown */}
-        <div className="studio-dropdown-wrapper" ref={exportMenuRef}>
-          <button
-            className="studio-module-btn"
-            onClick={() => setIsExportMenuOpen((prev) => !prev)}
-            title="Exportar laboratorio"
-          >
-            <Download size={14} />
-            <span>Exportar</span>
-            <ChevronDown size={12} className={`chevron-indicator ${isExportMenuOpen ? 'open' : ''}`} />
-          </button>
-
-          {isExportMenuOpen && (
-            <div className="studio-dropdown-menu">
-              <button
-                className="studio-dropdown-item"
-                onClick={() => {
-                  setIsExportMenuOpen(false);
-                  if (onExportPNG) onExportPNG();
-                }}
-              >
-                <ImageIcon size={14} />
-                <div className="dropdown-item-meta">
-                  <span className="dropdown-item-title">Imagen PNG (HD)</span>
-                  <span className="dropdown-item-sub">Captura completa en alta resolución</span>
-                </div>
-              </button>
-              <button
-                className="studio-dropdown-item"
-                onClick={() => {
-                  setIsExportMenuOpen(false);
-                  if (onExportJSON) onExportJSON();
-                }}
-              >
-                <FileText size={14} />
-                <div className="dropdown-item-meta">
-                  <span className="dropdown-item-title">Archivo de Datos JSON</span>
-                  <span className="dropdown-item-sub">Guarda objetos, fórmulas y estado</span>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* User Badge */}
-        <div className="studio-user-badge" title="Sesión de laboratorio activa">
-          <span className="user-initials">LAB</span>
-          <span className="user-online-dot" />
-        </div>
-
-        {/* Share Button */}
-        <button className="studio-action-btn primary" onClick={onOpenShare} title="Compartir enlace del laboratorio">
-          <Share2 size={13} strokeWidth={2.4} />
-          <span>Compartir</span>
-        </button>
 
         {/* Save Button */}
         <button className="studio-action-btn secondary" onClick={onOpenSaveModal} title="Guardar pizarra">
@@ -624,6 +434,52 @@ export default function TopBar({
           width: 200px;
         }
 
+        .studio-nav-segmented {
+          display: flex;
+          align-items: center;
+          background: #f1f5f9;
+          padding: 3px;
+          border-radius: 8px;
+          gap: 2px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .studio-nav-tab {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 11px;
+          border-radius: 6px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+
+        .studio-nav-tab:hover {
+          color: #0f172a;
+          background: rgba(255, 255, 255, 0.7);
+        }
+
+        .studio-nav-tab.active {
+          background: #ffffff;
+          color: #0284c7;
+          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+          font-weight: 700;
+        }
+
+        .nav-tab-icon {
+          flex-shrink: 0;
+        }
+
+        .nav-tab-icon.play {
+          fill: currentColor;
+        }
+
         .studio-header-center {
           display: flex;
           align-items: center;
@@ -711,6 +567,154 @@ export default function TopBar({
         .studio-module-btn.accent-sandbox:hover {
           background: #e0e7ff;
           border-color: #a5b4fc;
+        }
+
+        /* Board Template Selector */
+        .board-template-dropdown-wrapper {
+          position: relative;
+        }
+
+        .board-template-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
+          color: #334155;
+          font-size: 0.76rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.12s ease;
+          user-select: none;
+        }
+
+        .board-template-btn:hover,
+        .board-template-btn.active {
+          background: #f8fafc;
+          border-color: #0284c7;
+          color: #0284c7;
+        }
+
+        .template-btn-icon {
+          color: #0284c7;
+          flex-shrink: 0;
+        }
+
+        .template-btn-label {
+          white-space: nowrap;
+        }
+
+        .template-chevron {
+          transition: transform 0.15s ease;
+          color: #64748b;
+        }
+
+        .template-chevron.open {
+          transform: rotate(180deg);
+        }
+
+        .board-template-popover {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          z-index: 75;
+          min-width: 270px;
+          animation: contextFadeIn 0.15s ease-out;
+        }
+
+        .template-popover-header {
+          padding: 4px 8px 6px 8px;
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #64748b;
+          border-bottom: 1px solid #f1f5f9;
+          margin-bottom: 3px;
+        }
+
+        .template-options-list {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .template-option-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 7px 10px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.12s ease;
+          width: 100%;
+        }
+
+        .template-option-item:hover {
+          background: #f8fafc;
+          border-color: #e2e8f0;
+        }
+
+        .template-option-item.selected {
+          background: #f0f9ff;
+          border-color: #bae6fd;
+        }
+
+        .template-item-preview {
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
+          background: #f1f5f9;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #475569;
+          flex-shrink: 0;
+        }
+
+        .template-option-item.selected .template-item-preview {
+          background: #0284c7;
+          color: #ffffff;
+        }
+
+        .template-item-info {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .template-item-title {
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #0f172a;
+          line-height: 1.25;
+        }
+
+        .template-item-desc {
+          font-size: 0.68rem;
+          color: #64748b;
+          line-height: 1.2;
+          white-space: normal;
+        }
+
+        .template-check-icon {
+          color: #0284c7;
+          flex-shrink: 0;
         }
 
         .clear-board-group {
@@ -965,6 +969,30 @@ export default function TopBar({
           border: 1px solid #ddd6fe;
         }
 
+        .topic-icon-badge.badge-mcu {
+          background: #e0f2fe;
+          color: #0284c7;
+          border: 1px solid #bae6fd;
+        }
+
+        .topic-icon-badge.badge-mcuv {
+          background: #fef3c7;
+          color: #d97706;
+          border: 1px solid #fde68a;
+        }
+
+        .topic-icon-badge.badge-poleas {
+          background: #ecfdf5;
+          color: #059669;
+          border: 1px solid #a7f3d0;
+        }
+
+        .topic-icon-badge.badge-dcl {
+          background: #fff7ed;
+          color: #ea580c;
+          border: 1px solid #fed7aa;
+        }
+
         .topic-icon-badge.badge-sandbox {
           background: #eef2ff;
           color: #4f46e5;
@@ -996,6 +1024,10 @@ export default function TopBar({
         .tag-tiro { background: #fce7f3; color: #9d174d; }
         .tag-horizontal { background: #cffafe; color: #155e75; }
         .tag-proyectiles { background: #ede9fe; color: #6d28d9; }
+        .tag-mcu { background: #e0f2fe; color: #0369a1; }
+        .tag-mcuv { background: #fef3c7; color: #b45309; }
+        .tag-poleas { background: #ecfdf5; color: #047857; }
+        .tag-dcl { background: #ffedd5; color: #9a3412; }
         .tag-sandbox { background: #e0e7ff; color: #3730a3; }
         .tag-templates { background: #e2e8f0; color: #334155; }
 

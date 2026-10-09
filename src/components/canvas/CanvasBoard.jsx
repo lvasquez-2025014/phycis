@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ContextualToolbar from './ContextualToolbar';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Wand2, Trash2 } from 'lucide-react';
 import {
   distToSegment,
   getElementBounds,
@@ -17,9 +17,15 @@ import {
   drawStroke,
   drawLasso,
   drawShape,
+  drawCircularArrowHandle,
   drawText,
   drawPhysicsObject,
   drawPhysicsConnection,
+  getDclVectorTips,
+  OFFICIAL_TABLE_THREE_MASSES_VECTORS,
+  OFFICIAL_TABLE_TWO_MASSES_VECTORS,
+  OFFICIAL_EQUILIBRIO_VECTORS,
+  OFFICIAL_NEWTON_VECTORS,
 } from '../../services/canvasRenderers';
 import {
   createPhysicsElement,
@@ -34,7 +40,40 @@ import {
 } from '../../physics/physicsSimulation';
 import PhysicsSimulationBar from './PhysicsSimulationBar';
 import PhysicsObjectInspector from '../modals/PhysicsObjectInspector';
+import MruVariablesModal from '../modals/MruVariablesModal';
+import DclVectorOverlayHUD from './DclVectorOverlayHUD';
+import { buildCustomExampleBoardElements } from '../../services/customExampleBuilder';
 
+
+// Helper to compute a stable signature of whiteboard physical objects & connections
+// Excludes in-motion coordinates and instantaneous velocity so it remains 100% constant during 60FPS simulation ticks
+const computePhysicsSignature = (els) => {
+  if (!Array.isArray(els)) return '';
+  return els
+    .filter((el) => el.type === 'physics_object' || el.type === 'physics_connection')
+    .map((el) => {
+      if (el.type === 'physics_connection') {
+        return `conn:${el.id}:${el.from?.elementId || ''}->${el.to?.elementId || ''}`;
+      }
+      const p = el.properties || {};
+      const initV = p.initialVelocity ?? '';
+      const initW = p.initialOmega ?? p.initialOmega1 ?? '';
+      const initA = p.acceleration ?? p.initialAlpha ?? '';
+      const initTh = p.initialAngleDeg ?? '';
+      const mass = p.mass ?? '';
+      const mass1 = p.mass1 ?? '';
+      const mass2 = p.mass2 ?? '';
+      const force = p.appliedForce ?? '';
+      const config = p.configuration ?? '';
+      const showOfficial = p.showOfficialSolution ?? '';
+      const vecSig = Array.isArray(p.userVectors)
+        ? p.userVectors.map((v) => `${v.id}:${v.angleDeg}:${v.magnitude}`).join(',')
+        : '';
+      return `obj:${el.id}:${el.physicsType || el.type}:${initV}:${initW}:${initA}:${initTh}:${mass}:${mass1}:${mass2}:${force}:${config}:${showOfficial}:${vecSig}`;
+    })
+    .sort()
+    .join('|');
+};
 
 export default function CanvasBoard({
   elements,
@@ -45,6 +84,11 @@ export default function CanvasBoard({
   stickyColor,
   penColor,
   penWidth,
+  eraserSize = 24,
+  setEraserSize,
+  eraserShape = 'circle',
+  setEraserShape,
+  boardTemplate = 'cartesian',
   transform,
   setTransform,
   viewportSize,
@@ -52,8 +96,10 @@ export default function CanvasBoard({
   pushHistory,
   canvasRef,
   onNotify,
+  onInsertFormulaCard,
 }) {
   const containerRef = useRef(null);
+  const elementsCanvasRef = useRef(null);
 
   // Interaction States
   const [isDrawing, setIsDrawing] = useState(false);
@@ -75,6 +121,10 @@ export default function CanvasBoard({
   const [selectedIds, setSelectedIds] = useState([]);
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
   const [lastDragPos, setLastDragPos] = useState(null);
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotationAngleDeg, setRotationAngleDeg] = useState(null);
+  const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
+  const rotatingStateRef = useRef(null);
 
   // Physical Connection (Rope / Wire) Drafting States
   const [hoveredAnchor, setHoveredAnchor] = useState(null);
@@ -95,14 +145,28 @@ export default function CanvasBoard({
   const animFrameIdRef = useRef(null);
   const isSimulatingRef = useRef(false);
   isSimulatingRef.current = isSimulating;
+  const lastPhysicsSigRef = useRef(computePhysicsSignature(elements));
+  const draggingDclVectorRef = useRef(null);
 
   // Physics Object Inspector Modal state
   const [inspectorElement, setInspectorElement] = useState(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [mruModalElement, setMruModalElement] = useState(null);
+  const [isMruModalOpen, setIsMruModalOpen] = useState(false);
 
   const handleOpenPhysicsInspector = useCallback((targetEl) => {
     const el = targetEl || (selectedIds.length > 0 ? elementsRef.current.find((e) => e.id === selectedIds[0]) : null);
-    if (el && el.type === 'physics_object') {
+    if (!el || el.type !== 'physics_object') return;
+
+    if (
+      el.physicsType === 'mru_cart' ||
+      el.physicsType === 'mru_track' ||
+      el.physicsType === 'mru_photogate' ||
+      el.physicsType === 'mruv_cart'
+    ) {
+      setMruModalElement(el);
+      setIsMruModalOpen(true);
+    } else {
       setInspectorElement(el);
       setIsInspectorOpen(true);
     }
@@ -138,6 +202,14 @@ export default function CanvasBoard({
         animFrameIdRef.current = null;
       }
     } else {
+      const currentPhysics = elementsRef.current.filter((el) => el.type === 'physics_object' || el.type === 'physics_connection');
+      if (currentPhysics.length === 0) {
+        if (onNotifyRef.current) {
+          onNotifyRef.current('ℹ️ Coloca al menos un objeto físico en la pizarra para simular');
+        }
+        return;
+      }
+
       // Validate existing simulation against current whiteboard elements
       if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elementsRef.current)) {
         simStateRef.current = null;
@@ -262,6 +334,39 @@ export default function CanvasBoard({
             },
           };
         }
+        if (el.physicsType === 'translational_equilibrium') {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              displacementX: 0,
+              displacementY: 0,
+              currentVelocityX: 0,
+              currentVelocityY: 0,
+            },
+          };
+        }
+        if (el.physicsType === 'dcl_diagram') {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              displacementX: 0,
+              currentVelocity: 0,
+            },
+          };
+        }
+        if (el.physicsType === 'newton_frictionless_system') {
+          return {
+            ...el,
+            properties: {
+              ...el.properties,
+              displacementX: 0,
+              currentVelocity: 0,
+              isFinished: false,
+            },
+          };
+        }
         return el;
       });
       elementsRef.current = restored;
@@ -272,6 +377,11 @@ export default function CanvasBoard({
       const hzProj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'horizontal_projectile');
       const vertProj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'vertical_projectile');
       const ffBody = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'freefall_body');
+      const mcuP = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mcu_particle');
+      const mcuvP = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'mcuv_particle');
+      const eqObj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'translational_equilibrium');
+      const dclObj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'dcl_diagram');
+      const newtonObj = restored.find((el) => el.type === 'physics_object' && el.physicsType === 'newton_frictionless_system');
 
       if (proj) {
         const v0 = proj.properties?.initialVelocity ?? proj.properties?.velocity ?? 25.0;
@@ -324,6 +434,131 @@ export default function CanvasBoard({
           vel: v0,
           dist: '0.00',
           time: '0.0',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (mcuvP) {
+        const omega0 = mcuvP.properties?.initialOmega ?? mcuvP.properties?.omega ?? 0.0;
+        const alpha = mcuvP.properties?.initialAlpha ?? mcuvP.properties?.alpha ?? 2.0;
+        const rM = mcuvP.properties?.radiusMeters ?? 1.0;
+        const vt = Math.abs(omega0) * rM;
+        const ac = omega0 * omega0 * rM;
+        const at = Math.abs(alpha) * rM;
+        const aTot = Math.hypot(ac, at);
+        const rpm = (Math.abs(omega0) * 60) / (2 * Math.PI);
+        setSimMetrics({
+          type: 'mcuv',
+          omega: Number(omega0.toFixed(2)),
+          alpha: Number(alpha.toFixed(2)),
+          vt: Number(vt.toFixed(2)),
+          at: Number(at.toFixed(2)),
+          ac: Number(ac.toFixed(2)),
+          aTotal: Number(aTot.toFixed(2)),
+          radiusM: Number(rM.toFixed(2)),
+          rpm: Number(rpm.toFixed(1)),
+          revolutions: '0.00',
+          time: '0.0',
+          stage: 'Listo para Aceleración',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (mcuP) {
+        const omega = mcuP.properties?.initialOmega ?? mcuP.properties?.omega ?? 3.0;
+        const rM = mcuP.properties?.radiusMeters ?? 1.0;
+        const period = Math.abs(omega) > 0 ? (2 * Math.PI) / Math.abs(omega) : 0;
+        const freq = Math.abs(omega) > 0 ? Math.abs(omega) / (2 * Math.PI) : 0;
+        setSimMetrics({
+          type: 'mcu',
+          omega: Number(omega.toFixed(2)),
+          vt: Number((Math.abs(omega) * rM).toFixed(2)),
+          ac: Number((omega * omega * rM).toFixed(2)),
+          radiusM: Number(rM.toFixed(2)),
+          period: Number(period.toFixed(2)),
+          frequency: Number(freq.toFixed(2)),
+          rpm: Number((freq * 60).toFixed(1)),
+          revolutions: '0.00',
+          time: '0.0',
+          stage: 'Listo para Rotación',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (eqObj) {
+        const p = eqObj.properties || {};
+        const showOfficial = !!p.showOfficialSolution;
+        const userVecs = Array.isArray(p.userVectors) ? p.userVectors : [];
+        const massKg = Number(p.mass) || 50;
+        let netFx = 0;
+        let netFy = 0;
+        if (!showOfficial && userVecs.length === 0) {
+          netFy = -(massKg * 9.8);
+        } else if (!showOfficial) {
+          const hasExplicitWeight = userVecs.some(
+            (v) => v.type === 'weight' || (Math.abs((v.angleDeg ?? 0) - 270) < 5 && (v.magnitude ?? 0) > 0)
+          );
+          userVecs.forEach((v) => {
+            const rad = ((v.angleDeg || 0) * Math.PI) / 180;
+            const mag = v.magnitude !== undefined ? v.magnitude : (v.lengthPx || 50);
+            netFx += mag * Math.cos(rad);
+            netFy += mag * Math.sin(rad);
+          });
+          if (!hasExplicitWeight) {
+            netFy -= massKg * 9.8;
+          }
+        }
+        const netF = Math.hypot(netFx, netFy);
+        const isEq = showOfficial || netF < 1.0;
+        const accel = isEq ? 0.0 : netF / massKg;
+        setSimMetrics({
+          type: 'equilibrio',
+          netFx: Number(netFx.toFixed(2)),
+          netFy: Number(netFy.toFixed(2)),
+          netForce: Number(netF.toFixed(2)),
+          accel: Number(accel.toFixed(2)),
+          accelUnit: 'm/s²',
+          isEquilibrium: isEq,
+          time: '0.0',
+          label: p.systemTitle || 'Equilibrio Traslacional (HT03)',
+          isFinished: false,
+          isSimulationComplete: false,
+        });
+      } else if (newtonObj) {
+        const p = newtonObj.properties || {};
+        const appType = p.apparatusType || 'two_connected_blocks';
+        const m1 = Number(p.mass1) || 2.0;
+        const m2 = Number(p.mass2) || 6.0;
+        const F = Number(p.appliedForce) || 0.0;
+        let accel = 0.0;
+        let tension = 0.0;
+        if (appType === 'two_connected_blocks') {
+          accel = F / (m1 + m2);
+          tension = m1 * accel;
+        } else if (appType === 'single_block_force') {
+          accel = F / m1;
+        } else if (appType === 'vertical_cable_mass') {
+          const W = m1 * 9.8;
+          const T = F > 0 ? F : (p.tension || 200.0);
+          accel = (T - W) / m1;
+          tension = T;
+        } else if (appType === 'atwood_frictionless') {
+          accel = ((m2 - m1) * 9.8) / (m1 + m2);
+          tension = (2 * m1 * m2 * 9.8) / (m1 + m2);
+        } else if (appType === 'inclined_plane_frictionless') {
+          const thetaDeg = p.angleDeg || 32.0;
+          const rad = (thetaDeg * Math.PI) / 180;
+          const netF = (m2 * 9.8) - (m1 * 9.8 * Math.sin(rad));
+          accel = netF / (m1 + m2);
+          tension = m2 * (9.8 - accel);
+        }
+        setSimMetrics({
+          type: 'segunda_ley_newton',
+          accel: Number(accel.toFixed(2)),
+          tension: Number(tension.toFixed(2)),
+          force: Number(F.toFixed(1)),
+          vel: 0.0,
+          disp: 0.0,
+          time: '0.0',
+          label: p.label || 'Segunda Ley de Newton (Sin Fricción)',
+          formula: appType === 'two_connected_blocks' ? 'a = F / (m₁ + m₂)' : 'a = ΣF / m',
           isFinished: false,
           isSimulationComplete: false,
         });
@@ -432,99 +667,96 @@ export default function CanvasBoard({
 
   // Real-time HUD telemetry & simulation state synchronization with whiteboard elements
   useEffect(() => {
-    if (isSimulating) return;
-
-    if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elements)) {
-      simStateRef.current = null;
-      lastInitialSnapshotRef.current = null;
-    }
+    const currentSig = computePhysicsSignature(elements);
+    const sigChanged = currentSig !== lastPhysicsSigRef.current;
+    lastPhysicsSigRef.current = currentSig;
 
     const physicsObjs = elements.filter((el) => el.type === 'physics_object');
     const conns = elements.filter((el) => el.type === 'physics_connection');
 
-    // Only capture initial snapshot if none exists, and DO NOT capture in-flight moved objects
-    const hasMovedObjects = physicsObjs.some(
-      (o) => o.properties?.isFinished || o.properties?.distance > 0 || o.properties?.distanceFallen > 0 || (o.properties?.trailPoints && o.properties.trailPoints.length > 1)
-    );
-
-    // Always ensure a fallback snapshot exists for baseline Reset
-    if (!lastInitialSnapshotRef.current && physicsObjs.length > 0 && !hasMovedObjects) {
-      lastInitialSnapshotRef.current = elements.map((el) => {
-        if (el.type === 'physics_object') {
-          return {
-            id: el.id,
-            x: el.x,
-            y: el.y,
-            properties: { ...el.properties },
-          };
-        }
-        if (el.type === 'physics_connection') {
-          return {
-            id: el.id,
-            properties: { ...el.properties },
-          };
-        }
-        return null;
-      }).filter(Boolean);
-    }
-
-    // If active simulation state already holds valid telemetry, preserve it
-    if (simStateRef.current?.telemetry) {
-      setSimMetrics(simStateRef.current.telemetry);
-      return;
-    }
-
-    const hasMru = physicsObjs.some((el) => el.physicsType === 'mru_cart');
-    const pulleys = physicsObjs.filter((el) => el.physicsType === 'pulley');
-    const hasAtwood = pulleys.some((p) => {
-      const pConns = conns.filter((c) => c.from?.elementId === p.id || c.to?.elementId === p.id);
-      return pConns.length >= 2;
-    });
-
+    let gScale = 1.0;
     let realG = 9.8;
-    if (gravityPreset === 'moon') realG = 1.62;
-    else if (gravityPreset === 'jupiter') realG = 24.8;
-    else if (gravityPreset === 'zero') realG = 0;
+    if (gravityPreset === 'moon') { gScale = 0.165; realG = 1.62; }
+    else if (gravityPreset === 'jupiter') { gScale = 2.53; realG = 24.8; }
+    else if (gravityPreset === 'zero') { gScale = 0; realG = 0; }
 
-    if (hasAtwood && !hasMru) {
-      const masses = physicsObjs.filter((el) => el.physicsType === 'mass');
-      const sortedMasses = [...masses].sort((a, b) => a.x - b.x);
-      const mA = sortedMasses[0]?.properties?.mass || 100;
-      const mB = sortedMasses[1]?.properties?.mass || 60;
-      const totalM = mA + mB;
-      const theoA = totalM > 0 ? Math.abs((mA - mB) / totalM) * realG : 0;
-      const theoT = totalM > 0 ? ((2 * mA * mB) / totalM) * realG : 0;
+    if (sigChanged) {
+      if (isSimulatingRef.current) {
+        // SCENARIO 2: Whiteboard elements modified, deleted or added MID-SIMULATION
+        if (physicsObjs.length === 0) {
+          // If all physics objects were deleted while running, stop simulation immediately
+          setIsSimulating(false);
+          isSimulatingRef.current = false;
+          if (animFrameIdRef.current) {
+            cancelAnimationFrame(animFrameIdRef.current);
+            animFrameIdRef.current = null;
+          }
+          simStateRef.current = null;
+          lastInitialSnapshotRef.current = null;
+          setSimMetrics(null);
+          return;
+        }
 
-      setSimMetrics({
-        type: 'atwood',
-        accel: theoA,
-        tension: theoT,
-        velA: '0.00',
-        time: '0.0',
-        isStopped: false,
-      });
-    } else if (hasMru) {
-      const cart = physicsObjs.find((el) => el.physicsType === 'mru_cart');
-      const dispV = cart?.properties?.displayVelocity !== undefined ? cart.properties.displayVelocity : (cart?.properties?.velocity ?? 2.0);
-      const vUnit = cart?.properties?.unit || 'm/s';
-      const cartLabel = cart?.properties?.label || 'Móvil MRU';
-      setSimMetrics({
-        type: 'mru',
-        vel: dispV,
-        unit: vUnit,
-        label: cartLabel,
-        accel: 0.0,
-        dist: (cart?.properties?.distance || 0).toFixed(2),
-        time: '0.0',
-        isFinished: false,
-      });
-    } else if (physicsObjs.length > 0) {
-      setSimMetrics({
-        accel: 0,
-        tension: 0,
-        velA: '0.00',
-        time: '0.0',
-      });
+        // Dynamically recompile simulation state on-the-fly so the new objects simulate immediately!
+        simStateRef.current = createHeadlessSimulation(elementsRef.current, {
+          gravityScale: gScale,
+          realG,
+        });
+        lastInitialSnapshotRef.current = simStateRef.current.initialSnapshot;
+        if (simStateRef.current.telemetry) {
+          setSimMetrics(simStateRef.current.telemetry);
+        }
+        return;
+      } else {
+        // SCENARIO 1: Whiteboard elements changed while STOPPED / PAUSED
+        simStateRef.current = null;
+        lastInitialSnapshotRef.current = null;
+
+        if (physicsObjs.length === 0) {
+          setSimMetrics(null);
+          return;
+        }
+
+        // Automatically prepare clean baseline snapshot & rich telemetry for the new objects
+        const tempSim = createHeadlessSimulation(elements, { gravityScale: gScale, realG });
+        lastInitialSnapshotRef.current = tempSim.initialSnapshot;
+        if (tempSim.telemetry) {
+          setSimMetrics(tempSim.telemetry);
+        }
+        return;
+      }
+    }
+
+    // When NOT simulating and signature hasn't changed:
+    if (!isSimulating) {
+      if (simStateRef.current && !isSimStateCompatible(simStateRef.current, elements)) {
+        simStateRef.current = null;
+        lastInitialSnapshotRef.current = null;
+      }
+
+      if (physicsObjs.length === 0) {
+        setSimMetrics(null);
+        return;
+      }
+
+      // If active simulation state already holds valid telemetry, preserve it
+      if (simStateRef.current?.telemetry) {
+        setSimMetrics(simStateRef.current.telemetry);
+        return;
+      }
+
+      // Only capture initial snapshot if none exists, and DO NOT capture in-flight moved objects
+      const hasMovedObjects = physicsObjs.some(
+        (o) => o.properties?.isFinished || o.properties?.distance > 0 || o.properties?.distanceFallen > 0 || (o.properties?.trailPoints && o.properties.trailPoints.length > 1)
+      );
+
+      if (!lastInitialSnapshotRef.current && !hasMovedObjects) {
+        const tempSim = createHeadlessSimulation(elements, { gravityScale: gScale, realG });
+        lastInitialSnapshotRef.current = tempSim.initialSnapshot;
+        if (tempSim.telemetry) {
+          setSimMetrics(tempSim.telemetry);
+        }
+      }
     }
   }, [elements, isSimulating, gravityPreset]);
 
@@ -646,6 +878,109 @@ export default function CanvasBoard({
     });
   }, [elements]);
 
+  // Helper to calculate rotation handle coordinates & bounding center for active selection
+  const getSelectionRotateHandle = useCallback(() => {
+    if (selectedIds.length === 0) return null;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    elements.forEach((el) => {
+      if (selectedIds.includes(el.id)) {
+        const b = getElementBounds(el);
+        if (b) {
+          if (b.minX < minX) minX = b.minX;
+          if (b.maxX > maxX) maxX = b.maxX;
+          if (b.minY < minY) minY = b.minY;
+          if (b.maxY > maxY) maxY = b.maxY;
+        }
+      }
+    });
+    if (minX === Infinity) return null;
+    const midX = (minX + maxX) / 2;
+    const midY = (minY + maxY) / 2;
+    const handleY = maxY + 22;
+    return {
+      handleX: midX,
+      handleY,
+      centerX: midX,
+      centerY: midY,
+      minX,
+      maxX,
+      minY,
+      maxY,
+    };
+  }, [selectedIds, elements]);
+
+  // Rotate selected elements by angleDeg degrees (default 45)
+  const handleRotateSelected = useCallback(
+    (angleDeg = 45) => {
+      if (selectedIds.length === 0) return;
+      pushHistory();
+      const rad = (angleDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      elements.forEach((el) => {
+        if (selectedIds.includes(el.id)) {
+          const b = getElementBounds(el);
+          if (b) {
+            if (b.minX < minX) minX = b.minX;
+            if (b.maxX > maxX) maxX = b.maxX;
+            if (b.minY < minY) minY = b.minY;
+            if (b.maxY > maxY) maxY = b.maxY;
+          }
+        }
+      });
+      if (minX === Infinity) return;
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (!selectedIds.includes(el.id)) return el;
+          if (el.startX !== undefined && el.endX !== undefined) {
+            const sx = el.startX - cx;
+            const sy = el.startY - cy;
+            const ex = el.endX - cx;
+            const ey = el.endY - cy;
+            return {
+              ...el,
+              startX: cx + (sx * cos - sy * sin),
+              startY: cy + (sx * sin + sy * cos),
+              endX: cx + (ex * cos - ey * sin),
+              endY: cy + (ex * sin + ey * cos),
+            };
+          } else if (el.points) {
+            return {
+              ...el,
+              points: el.points.map((p) => {
+                const px = p.x - cx;
+                const py = p.y - cy;
+                return {
+                  x: cx + (px * cos - py * sin),
+                  y: cy + (px * sin + py * cos),
+                };
+              }),
+            };
+          } else if (el.x !== undefined && el.width !== undefined) {
+            const elCx = el.x + el.width / 2;
+            const elCy = el.y + el.height / 2;
+            const rx = elCx - cx;
+            const ry = elCy - cy;
+            const nCx = cx + (rx * cos - ry * sin);
+            const nCy = cy + (rx * sin + ry * cos);
+            return {
+              ...el,
+              x: nCx - el.width / 2,
+              y: nCy - el.height / 2,
+            };
+          }
+          return el;
+        })
+      );
+    },
+    [selectedIds, elements, pushHistory]
+  );
+
   // Inline text editing state
   const [editingText, setEditingText] = useState(null);
   const inlineInputRef = useRef(null);
@@ -758,6 +1093,10 @@ export default function CanvasBoard({
             });
           });
           setSelectedIds([]);
+          if (!isSimulatingRef.current) {
+            simStateRef.current = null;
+            lastInitialSnapshotRef.current = null;
+          }
         }
       }
       // Duplicate hotkey (Ctrl+D)
@@ -841,6 +1180,15 @@ export default function CanvasBoard({
         else if (k === 'e') setActiveTool('stroke_eraser');
         else if (k === 't') setActiveTool('text');
         else if (k === 'n') setActiveTool('sticky');
+
+        // Photoshop shortcut brackets [ and ] to resize pencil eraser
+        if (activeTool === 'pencil_eraser') {
+          if (e.key === '[' && setEraserSize) {
+            setEraserSize((prev) => Math.max(8, prev - 4));
+          } else if (e.key === ']' && setEraserSize) {
+            setEraserSize((prev) => Math.min(100, prev + 4));
+          }
+        }
       }
     };
     const handleKeyUp = (e) => {
@@ -876,37 +1224,34 @@ export default function CanvasBoard({
       canvas.style.height = `${h}px`;
     }
 
-    // 1. Clear Canvas with Transparent pixels
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Prepare offscreen canvas for elements layer
+    // This completely isolates 'destination-out' erasing to drawn strokes,
+    // ensuring the background engineering grid and Cartesian plane are NEVER erased.
+    if (!elementsCanvasRef.current) {
+      elementsCanvasRef.current = document.createElement('canvas');
+    }
+    const offCanvas = elementsCanvasRef.current;
+    if (offCanvas.width !== targetW || offCanvas.height !== targetH) {
+      offCanvas.width = targetW;
+      offCanvas.height = targetH;
+    }
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.clearRect(0, 0, targetW, targetH);
 
-    // 2. Setup HiDPI scaling for CSS pixel coordinate space
-    ctx.save();
-    ctx.scale(dpr, dpr);
+    // 1. Draw Elements & active drawing draft onto offscreen canvas
+    offCtx.save();
+    offCtx.scale(dpr, dpr);
+    offCtx.save();
+    offCtx.translate(transform.x, transform.y);
+    offCtx.scale(transform.scale, transform.scale);
 
-    // 3. Save for world transform
-    ctx.save();
-    ctx.translate(transform.x, transform.y);
-    ctx.scale(transform.scale, transform.scale);
-
-    // 2. Draw Elements in order
     elements.forEach((el) => {
       const isSelected = selectedIds.includes(el.id);
-      ctx.save();
+      offCtx.save();
       if (el.type === 'eraser_brush') {
-        drawEraserBrush(ctx, el);
+        drawEraserBrush(offCtx, el);
       } else if (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen') {
-        drawStroke(ctx, el);
-        if (isSelected) {
-          const b = getElementBounds(el);
-          if (b) {
-            ctx.save();
-            ctx.strokeStyle = '#4262ff';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.strokeRect(b.minX - 4, b.minY - 4, b.maxX - b.minX + 8, b.maxY - b.minY + 8);
-            ctx.restore();
-          }
-        }
+        drawStroke(offCtx, el);
       } else if (
         el.type === 'rectangle' ||
         el.type === 'circle' ||
@@ -918,18 +1263,70 @@ export default function CanvasBoard({
         el.type === 'block_arrow' ||
         el.type === 'divider'
       ) {
-        drawShape(ctx, el, isSelected);
+        drawShape(offCtx, el, isSelected);
       } else if (el.type === 'text') {
-        drawText(ctx, el, isSelected, editingText && editingText.id === el.id);
+        drawText(offCtx, el, isSelected, editingText && editingText.id === el.id);
       } else if (el.type === 'physics_object') {
-        drawPhysicsObject(ctx, el, isSelected);
+        drawPhysicsObject(offCtx, el, isSelected);
       } else if (el.type === 'physics_connection') {
-        drawPhysicsConnection(ctx, el, elements, isSelected);
+        drawPhysicsConnection(offCtx, el, elements, isSelected);
       }
-      ctx.restore();
+      offCtx.restore();
     });
 
-    // 3. Multi-Selection Collective Bounding Box
+    // Draw active drawing draft onto offscreen canvas (pen, highlighter, smart_pen, eraser_brush, shapes)
+    if (currentDraft) {
+      if (currentDraft.type === 'eraser_brush') {
+        drawEraserBrush(offCtx, currentDraft);
+      } else if (
+        currentDraft.type === 'pen' ||
+        currentDraft.type === 'highlighter' ||
+        currentDraft.type === 'smart_pen'
+      ) {
+        drawStroke(offCtx, currentDraft);
+      } else if (currentDraft.type !== 'lasso') {
+        drawShape(offCtx, currentDraft, false);
+      }
+    }
+
+    offCtx.restore();
+    offCtx.restore();
+
+    // 2. Render Main Canvas
+    // Clear Main Canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Setup HiDPI scaling for CSS pixel coordinate space
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Draw Engineering Graph Paper Grid & Cartesian Coordinate Plane (Pristine background!)
+    drawMiroSquareGrid(ctx, w, h, transform, boardTemplate);
+
+    // Composite elements layer on top of Grid (transparent where erased, leaving grid intact)
+    ctx.drawImage(offCanvas, 0, 0, w, h);
+
+    // 3. Save for world transform (UI overlays: selection bounds, bounding boxes, lasso, marquee, cursor rings)
+    ctx.save();
+    ctx.translate(transform.x, transform.y);
+    ctx.scale(transform.scale, transform.scale);
+
+    // Selection dashed bounds for selected pen/strokes
+    elements.forEach((el) => {
+      if (selectedIds.includes(el.id) && (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen')) {
+        const b = getElementBounds(el);
+        if (b) {
+          ctx.save();
+          ctx.strokeStyle = '#4262ff';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(b.minX - 4, b.minY - 4, b.maxX - b.minX + 8, b.maxY - b.minY + 8);
+          ctx.restore();
+        }
+      }
+    });
+
+    // Multi-Selection Collective Bounding Box
     if (selectedIds.length > 1) {
       let groupMinX = Infinity, groupMaxX = -Infinity, groupMinY = Infinity, groupMaxY = -Infinity;
       elements.forEach((el) => {
@@ -965,25 +1362,47 @@ export default function CanvasBoard({
           ctx.fill();
           ctx.stroke();
         });
+        const midX = (groupMinX + groupMaxX) / 2;
+        const handleY = groupMaxY + 22;
+        ctx.beginPath();
+        ctx.moveTo(midX, groupMaxY + 6);
+        ctx.lineTo(midX, handleY);
+        ctx.strokeStyle = '#4262ff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        drawCircularArrowHandle(ctx, midX, handleY);
         ctx.restore();
       }
     }
 
-    // 4. Draw Draft Preview (Pen, Lasso, Eraser, Shapes)
-    if (currentDraft) {
-      if (currentDraft.type === 'eraser_brush') {
-        drawEraserBrush(ctx, currentDraft);
-      } else if (
-        currentDraft.type === 'pen' ||
-        currentDraft.type === 'highlighter' ||
-        currentDraft.type === 'smart_pen'
-      ) {
-        drawStroke(ctx, currentDraft);
-      } else if (currentDraft.type === 'lasso') {
-        drawLasso(ctx, currentDraft);
-      } else {
-        drawShape(ctx, currentDraft, false);
+    // Live Rotation Angle Badge Indicator while rotating
+    if (isRotating && rotationAngleDeg !== null) {
+      const handleInfo = getSelectionRotateHandle();
+      if (handleInfo) {
+        ctx.save();
+        const degText = `${rotationAngleDeg > 0 ? '+' : ''}${rotationAngleDeg}°`;
+        ctx.font = 'bold 12px Inter, sans-serif';
+        const tw = ctx.measureText(degText).width;
+        const badgeX = handleInfo.handleX;
+        const badgeY = handleInfo.handleY + 18;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX - tw / 2 - 8, badgeY - 10, tw + 16, 20, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(degText, badgeX, badgeY);
+        ctx.restore();
       }
+    }
+
+    // Lasso selection draft preview
+    if (currentDraft && currentDraft.type === 'lasso') {
+      drawLasso(ctx, currentDraft);
     }
 
     // 5. Draw Marquee Selection Box
@@ -1012,7 +1431,7 @@ export default function CanvasBoard({
       ctx.fillStyle = 'rgba(66, 98, 255, 0.12)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(cursorWorldPos.x, cursorWorldPos.y, 12, 0, Math.PI * 2);
+      ctx.arc(cursorWorldPos.x, cursorWorldPos.y, (eraserSize || 24) / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -1092,15 +1511,8 @@ export default function CanvasBoard({
     }
 
     ctx.restore(); // Restore world transform
-
-    // 10. Draw Graph Paper Grid UNDERNEATH using destination-over (in CSS coordinates)
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-over';
-    drawMiroSquareGrid(ctx, w, h, transform);
-    ctx.restore();
-
     ctx.restore(); // Restore HiDPI scale
-  }, [elements, currentDraft, selectionMarquee, transform, selectedIds, canvasRef, activeTool, cursorWorldPos, editingText, connectionDraft, hoveredAnchor]);
+  }, [elements, currentDraft, selectionMarquee, transform, selectedIds, canvasRef, activeTool, cursorWorldPos, editingText, connectionDraft, hoveredAnchor, eraserSize, eraserShape]);
 
   // Native non-passive Wheel listener attached to whiteboard container
   // Prevents native browser page zoom completely, and enables smooth vector infinite canvas zooming & panning
@@ -1198,7 +1610,7 @@ export default function CanvasBoard({
         if (wx >= el.x - 8 && wx <= el.x + w + 8 && wy >= el.y - 8 && wy <= el.y + h + 8) {
           return el;
         }
-      } else if (el.points && (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen')) {
+      } else if (el.points && (el.type === 'pen' || el.type === 'chalk' || el.type === 'highlighter' || el.type === 'smart_pen')) {
         for (let j = 0; j < el.points.length - 1; j++) {
           if (distToSegment(wx, wy, el.points[j].x, el.points[j].y, el.points[j + 1].x, el.points[j + 1].y) < 16) {
             return el;
@@ -1248,7 +1660,7 @@ export default function CanvasBoard({
   const eraseStrokesAt = (wx, wy) => {
     let hitFound = false;
     const remaining = elements.filter((el) => {
-      if (el.points && (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen')) {
+      if (el.points && (el.type === 'pen' || el.type === 'chalk' || el.type === 'highlighter' || el.type === 'smart_pen')) {
         for (let i = 0; i < el.points.length - 1; i++) {
           if (distToSegment(wx, wy, el.points[i].x, el.points[i].y, el.points[i + 1].x, el.points[i + 1].y) < 16) {
             hitFound = true;
@@ -1613,7 +2025,7 @@ export default function CanvasBoard({
       setCurrentDraft({
         id: `eraser-${Date.now()}`,
         type: 'eraser_brush',
-        size: 24,
+        size: eraserSize || 24,
         points: [{ x: world.x, y: world.y }],
       });
       return;
@@ -1634,6 +2046,12 @@ export default function CanvasBoard({
         pushHistory();
         setElements((prev) => prev.filter((el) => el.id !== hit.id));
         setSelectedIds((prev) => prev.filter((id) => id !== hit.id));
+        if (hit.type === 'physics_object' || hit.type === 'physics_connection') {
+          if (!isSimulatingRef.current) {
+            simStateRef.current = null;
+            lastInitialSnapshotRef.current = null;
+          }
+        }
       }
       setIsDrawing(true);
       return;
@@ -1641,6 +2059,44 @@ export default function CanvasBoard({
 
     // 4. LASSO SELECTION
     if (activeTool === 'lasso') {
+      // Check if clicking near the circular rotation arrow handle of selected elements
+      if (selectedIds.length > 0) {
+        const handleInfo = getSelectionRotateHandle();
+        if (handleInfo) {
+          const distToRotate = Math.hypot(world.x - handleInfo.handleX, world.y - handleInfo.handleY);
+          if (distToRotate <= 16) {
+            pushHistory();
+            dragStartSnapshotRef.current = elements;
+            const center = { x: handleInfo.centerX, y: handleInfo.centerY };
+            const startAngle = Math.atan2(world.y - center.y, world.x - center.x);
+            rotatingStateRef.current = {
+              center,
+              startAngle,
+              snapshot: elements,
+            };
+            setIsRotating(true);
+            setRotationAngleDeg(0);
+            try {
+              e.currentTarget?.setPointerCapture?.(e.pointerId);
+            } catch {}
+            return;
+          }
+        }
+      }
+
+      // If clicking directly on an already-selected element, allow moving it smoothly
+      if (selectedIds.length > 0) {
+        const hit = findElementAt(world.x, world.y);
+        if (hit && selectedIds.includes(hit.id)) {
+          dragStartSnapshotRef.current = elements;
+          setIsDraggingSelection(true);
+          setLastDragPos({ x: world.x, y: world.y });
+          try {
+            e.currentTarget?.setPointerCapture?.(e.pointerId);
+          } catch {}
+          return;
+        }
+      }
       setIsDrawing(true);
       setCurrentDraft({
         id: 'lasso-draft',
@@ -1702,6 +2158,59 @@ export default function CanvasBoard({
 
     // 7. SELECT TOOL
     if (activeTool === 'select') {
+      // Check if clicking near the circular rotation arrow handle of selected elements
+      if (selectedIds.length > 0) {
+        const handleInfo = getSelectionRotateHandle();
+        if (handleInfo) {
+          const distToRotate = Math.hypot(world.x - handleInfo.handleX, world.y - handleInfo.handleY);
+          if (distToRotate <= 16) {
+            pushHistory();
+            dragStartSnapshotRef.current = elements;
+            const center = { x: handleInfo.centerX, y: handleInfo.centerY };
+            const startAngle = Math.atan2(world.y - center.y, world.x - center.x);
+            rotatingStateRef.current = {
+              center,
+              startAngle,
+              snapshot: elements,
+            };
+            setIsRotating(true);
+            setRotationAngleDeg(0);
+            try {
+              e.currentTarget?.setPointerCapture?.(e.pointerId);
+            } catch {}
+            return;
+          }
+        }
+      }
+
+      // Check if clicking near any DCL vector tip of a selected DCL element
+      const selectedDcl = elements.find(
+        (el) =>
+          selectedIds.includes(el.id) &&
+          (el.physicsType === 'dcl_diagram' ||
+            el.physicsType === 'translational_equilibrium' ||
+            el.physicsType === 'mass' ||
+            el.physicsType === 'mru_cart' ||
+            el.physicsType === 'mruv_cart')
+      );
+      if (selectedDcl) {
+        const tips = getDclVectorTips(selectedDcl);
+        const hitTip = tips.find((t) => Math.hypot(world.x - t.tipX, world.y - t.tipY) <= 18);
+        if (hitTip) {
+          dragStartSnapshotRef.current = elements;
+          draggingDclVectorRef.current = {
+            elementId: selectedDcl.id,
+            vectorId: hitTip.id,
+            originX: hitTip.originX,
+            originY: hitTip.originY,
+          };
+          try {
+            e.currentTarget?.setPointerCapture?.(e.pointerId);
+          } catch {}
+          return;
+        }
+      }
+
       const hit = findElementAt(world.x, world.y);
       if (hit) {
         dragStartSnapshotRef.current = elements;
@@ -1733,14 +2242,14 @@ export default function CanvasBoard({
       return;
     }
 
-    // 8. TOOL 1 (PEN), TOOL 2 (HIGHLIGHTER), TOOL 3 (SMART PEN)
-    if (activeTool === 'pen' || activeTool === 'highlighter' || activeTool === 'smart_pen') {
+    // 8. TOOL 1 (PEN), TOOL 2 (HIGHLIGHTER), TOOL 3 (SMART PEN), CHALK
+    if (activeTool === 'pen' || activeTool === 'highlighter' || activeTool === 'smart_pen' || activeTool === 'chalk') {
       setIsDrawing(true);
       setCurrentDraft({
         id: `stroke-${Date.now()}`,
         type: activeTool,
-        color: penColor,
-        size: penWidth,
+        color: activeTool === 'chalk' && (penColor === '#050038' || !penColor) ? '#ffffff' : penColor,
+        size: activeTool === 'chalk' ? Math.max(3, penWidth) : penWidth,
         points: [{ x: world.x, y: world.y }],
       });
       return;
@@ -1759,7 +2268,21 @@ export default function CanvasBoard({
         endY: world.y,
         color: penColor,
         size: 2,
-        fill: ['rectangle', 'circle', 'triangle', 'diamond', 'block_arrow'].includes(shapeType)
+        fill: [
+          'rectangle',
+          'circle',
+          'triangle',
+          'diamond',
+          'block_arrow',
+          'capsule',
+          'parallelogram',
+          'cylinder',
+          'document',
+          'star',
+          'cloud',
+          'hexagon',
+          'pentagon',
+        ].includes(shapeType)
           ? 'solid'
           : 'none',
       });
@@ -1780,6 +2303,65 @@ export default function CanvasBoard({
 
     const world = screenToWorld(e.clientX, e.clientY);
     setCursorWorldPos(world);
+
+    // Interactive DCL Vector Tip Dragging (Rotating vector freely in 360°)
+    if (draggingDclVectorRef.current) {
+      const { elementId, vectorId, originX, originY } = draggingDclVectorRef.current;
+      const dx = world.x - originX;
+      const dy = world.y - originY;
+      const rad = Math.atan2(-dy, dx);
+      let deg = Math.round((rad * 180) / Math.PI);
+      if (deg < 0) deg += 360;
+      // Snap to cardinal axes within 6 degrees
+      if (Math.abs(deg - 0) < 6 || Math.abs(deg - 360) < 6) deg = 0;
+      else if (Math.abs(deg - 90) < 6) deg = 90;
+      else if (Math.abs(deg - 180) < 6) deg = 180;
+      else if (Math.abs(deg - 270) < 6) deg = 270;
+
+      const newLen = Math.max(36, Math.min(130, Math.round(Math.hypot(dx, dy))));
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (el.id !== elementId) return el;
+          const props = el.properties || {};
+          let userVectors = Array.isArray(props.userVectors) ? [...props.userVectors] : [];
+
+          // If dragging an official solution vector, copy into userVectors
+          if (userVectors.length === 0 && props.showOfficialSolution) {
+            const offList =
+              props.apparatusType === 'table_three_masses'
+                ? OFFICIAL_TABLE_THREE_MASSES_VECTORS
+                : props.apparatusType === 'table_two_masses'
+                ? OFFICIAL_TABLE_TWO_MASSES_VECTORS
+                : (props.apparatusType && OFFICIAL_EQUILIBRIO_VECTORS[props.apparatusType]
+                  ? OFFICIAL_EQUILIBRIO_VECTORS[props.apparatusType]
+                  : (props.apparatusType && OFFICIAL_NEWTON_VECTORS[props.apparatusType]
+                    ? OFFICIAL_NEWTON_VECTORS[props.apparatusType]
+                    : []));
+            userVectors = offList.map((v) => ({ ...v }));
+          }
+
+          const idx = userVectors.findIndex((v) => v.id === vectorId);
+          if (idx >= 0) {
+            userVectors[idx] = {
+              ...userVectors[idx],
+              angleDeg: deg,
+              lengthPx: newLen,
+            };
+            return {
+              ...el,
+              properties: {
+                ...props,
+                userVectors,
+                showOfficialSolution: false,
+              },
+            };
+          }
+          return el;
+        })
+      );
+      return;
+    }
 
     // 0. Active Physical Connection Drafting (Rope)
     if (connectingFrom) {
@@ -1819,6 +2401,69 @@ export default function CanvasBoard({
       setHoveredAnchor(anchorHit);
     } else if (hoveredAnchor) {
       setHoveredAnchor(null);
+    }
+
+    // Rotating Selected Elements
+    if (isRotating && rotatingStateRef.current) {
+      const { center, startAngle, snapshot } = rotatingStateRef.current;
+      const currentAngle = Math.atan2(world.y - center.y, world.x - center.x);
+      let deltaAngle = currentAngle - startAngle;
+
+      if (e.shiftKey) {
+        const step = (15 * Math.PI) / 180;
+        deltaAngle = Math.round(deltaAngle / step) * step;
+      }
+
+      const deg = Math.round((deltaAngle * 180) / Math.PI);
+      setRotationAngleDeg(deg);
+
+      const cos = Math.cos(deltaAngle);
+      const sin = Math.sin(deltaAngle);
+
+      setElements(
+        snapshot.map((el) => {
+          if (!selectedIds.includes(el.id)) return el;
+          if (el.startX !== undefined && el.endX !== undefined) {
+            const sx = el.startX - center.x;
+            const sy = el.startY - center.y;
+            const ex = el.endX - center.x;
+            const ey = el.endY - center.y;
+            return {
+              ...el,
+              startX: center.x + (sx * cos - sy * sin),
+              startY: center.y + (sx * sin + sy * cos),
+              endX: center.x + (ex * cos - ey * sin),
+              endY: center.y + (ex * sin + ey * cos),
+            };
+          } else if (el.points) {
+            return {
+              ...el,
+              points: el.points.map((p) => {
+                const px = p.x - center.x;
+                const py = p.y - center.y;
+                return {
+                  x: center.x + (px * cos - py * sin),
+                  y: center.y + (px * sin + py * cos),
+                };
+              }),
+            };
+          } else if (el.x !== undefined && el.width !== undefined) {
+            const elCx = el.x + el.width / 2;
+            const elCy = el.y + el.height / 2;
+            const rx = elCx - center.x;
+            const ry = elCy - center.y;
+            const nCx = center.x + (rx * cos - ry * sin);
+            const nCy = center.y + (rx * sin + ry * cos);
+            return {
+              ...el,
+              x: nCx - el.width / 2,
+              y: nCy - el.height / 2,
+            };
+          }
+          return el;
+        })
+      );
+      return;
     }
 
     // Dragging ALL Selected Elements together
@@ -1876,6 +2521,19 @@ export default function CanvasBoard({
       return;
     }
 
+    // Check Hover over Circular Arrow Rotation Handle
+    if ((activeTool === 'select' || activeTool === 'lasso') && selectedIds.length > 0 && !isDraggingSelection && !isRotating) {
+      const handleInfo = getSelectionRotateHandle();
+      if (handleInfo) {
+        const isHover = Math.hypot(world.x - handleInfo.handleX, world.y - handleInfo.handleY) <= 16;
+        setIsHoveringRotateHandle(isHover);
+      } else {
+        setIsHoveringRotateHandle(false);
+      }
+    } else if (isHoveringRotateHandle && !isRotating) {
+      setIsHoveringRotateHandle(false);
+    }
+
     if (!isDrawing) return;
 
     // Tool 5: Pencil eraser dragging
@@ -1917,6 +2575,7 @@ export default function CanvasBoard({
     if (
       currentDraft &&
       (currentDraft.type === 'pen' ||
+        currentDraft.type === 'chalk' ||
         currentDraft.type === 'highlighter' ||
         currentDraft.type === 'smart_pen')
     ) {
@@ -1952,6 +2611,13 @@ export default function CanvasBoard({
       setIsPanning(false);
     }
 
+    // Finalize DCL Vector Tip Dragging
+    if (draggingDclVectorRef.current) {
+      pushHistory();
+      draggingDclVectorRef.current = null;
+      return;
+    }
+
     // Finalize Physical Connection (Rope)
     if (connectingFrom) {
       if (connectionDraft?.snappedAnchor) {
@@ -1969,6 +2635,23 @@ export default function CanvasBoard({
       setConnectingFrom(null);
       setConnectionDraft(null);
       return;
+    }
+
+    if (isRotating) {
+      if (dragStartSnapshotRef.current) {
+        const didMove = JSON.stringify(dragStartSnapshotRef.current) !== JSON.stringify(elements);
+        if (didMove) {
+          pushHistory(dragStartSnapshotRef.current);
+          if (simStateRef.current) {
+            simStateRef.current = null;
+          }
+          lastInitialSnapshotRef.current = null;
+        }
+        dragStartSnapshotRef.current = null;
+      }
+      setIsRotating(false);
+      rotatingStateRef.current = null;
+      setRotationAngleDeg(null);
     }
 
     if (isDraggingSelection) {
@@ -2013,7 +2696,6 @@ export default function CanvasBoard({
           const captured = elements.filter((el) => isElementInLasso(el, currentDraft.points));
           if (captured.length > 0) {
             setSelectedIds(captured.map((el) => el.id));
-            setActiveTool('select');
           } else {
             setSelectedIds([]);
           }
@@ -2155,8 +2837,14 @@ export default function CanvasBoard({
   let cursorClass = 'crosshair';
   if (spacePressed || isPanning || activeTool === 'hand') {
     cursorClass = isPanning ? 'grabbing' : 'grab';
-  } else if (activeTool === 'select') {
-    cursorClass = isDraggingSelection ? 'grabbing' : 'default';
+  } else if (activeTool === 'select' || activeTool === 'lasso') {
+    if (isRotating) {
+      cursorClass = 'grabbing';
+    } else if (isHoveringRotateHandle) {
+      cursorClass = 'grab';
+    } else {
+      cursorClass = isDraggingSelection ? 'grabbing' : 'default';
+    }
   } else if (activeTool === 'text') {
     cursorClass = 'text';
   } else if (activeTool === 'stroke_eraser' || activeTool === 'eraser') {
@@ -2168,7 +2856,7 @@ export default function CanvasBoard({
   return (
     <div
       ref={containerRef}
-      className={`webwb-canvas-container cursor-${cursorClass}`}
+      className={`webwb-canvas-container cursor-${cursorClass} ${boardTemplate === 'chalkboard' ? 'theme-chalkboard' : ''}`}
       onContextMenu={(e) => e.preventDefault()}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -2176,12 +2864,34 @@ export default function CanvasBoard({
       onPointerCancel={handlePointerUp}
       onDoubleClick={handleDoubleClick}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('application/physics-object')) {
+        if (
+          e.dataTransfer.types.includes('application/physics-object') ||
+          e.dataTransfer.types.includes('application/teacher-custom-example')
+        ) {
           e.preventDefault();
           e.dataTransfer.dropEffect = 'copy';
         }
       }}
       onDrop={(e) => {
+        const customRaw = e.dataTransfer.getData('application/teacher-custom-example');
+        if (customRaw) {
+          e.preventDefault();
+          try {
+            const customEx = JSON.parse(customRaw);
+            const world = screenToWorld(e.clientX, e.clientY);
+            pushHistory();
+            const newEls = buildCustomExampleBoardElements(customEx, world.x, world.y);
+            setElements((prev) => [...prev, ...newEls]);
+            if (newEls.length > 0) {
+              setSelectedIds([newEls[0].id]);
+            }
+            setActiveTool('select');
+            return;
+          } catch (err) {
+            console.error('Error al soltar ejemplo personalizado:', err);
+          }
+        }
+
         const rawData = e.dataTransfer.getData('application/physics-object');
         if (rawData) {
           e.preventDefault();
@@ -2226,23 +2936,24 @@ export default function CanvasBoard({
             onClick={() => setAutoFormatEnabled((prev) => !prev)}
             title={
               autoFormatEnabled
-                ? 'Dibujo mágico automático activo para letras, figuras y ecuaciones (Clic para pausar)'
-                : 'Dibujo mágico automático pausado (Clic para activar)'
+                ? 'Digitalización inteligente activa para trazos, figuras y ecuaciones (Clic para pausar)'
+                : 'Digitalización inteligente en pausa (Clic para reactivar)'
             }
           >
-            <Sparkles size={16} className="sparkle-gold-icon" />
-            <span className="pill-bold-text">
-              {autoFormatEnabled ? '✨ Dibujo mágico: Auto-digitalizar' : '✨ Dibujo mágico: Pausado'}
+            <Wand2 size={15} className="magic-pill-wand-icon" />
+            <span className="pill-bold-text">Digitalización inteligente</span>
+            <span className={`pill-status-badge ${autoFormatEnabled ? 'badge-active' : 'badge-paused'}`}>
+              <span className="badge-dot" />
+              {autoFormatEnabled ? 'Activa' : 'Pausada'}
             </span>
-            <span className={`pill-status-dot ${autoFormatEnabled ? 'dot-active' : 'dot-paused'}`} />
           </button>
           {canvasHasSmartStrokes && (
             <button
               className="math-format-manual-btn"
               onClick={() => handleFormatHandwriting(null, false)}
-              title="Digitalizar trazos mágicos pendientes inmediatamente"
+              title="Digitalizar trazos pendientes inmediatamente"
             >
-              Digitalizar ya
+              Digitalizar trazos
             </button>
           )}
         </div>
@@ -2262,13 +2973,18 @@ export default function CanvasBoard({
         )}
       />
 
-      {/* Floating Contextual Toolbar above selected elements */}
-      {primarySelectedElement && contextPos && (
+      {/* Floating Contextual Toolbar above selected elements (except DCL / Equilibrium / Mass which have their own sleek unified HUD) */}
+      {primarySelectedElement &&
+        contextPos &&
+        primarySelectedElement.physicsType !== 'dcl_diagram' &&
+        primarySelectedElement.physicsType !== 'translational_equilibrium' &&
+        primarySelectedElement.physicsType !== 'mass' && (
         <ContextualToolbar
           selectedElement={primarySelectedElement}
           position={contextPos}
           onChangeColor={handleChangeColor}
           onDuplicate={handleDuplicateSelected}
+          onRotate={() => handleRotateSelected(45)}
           onDelete={() => {
             pushHistory();
             setElements((prev) => {
@@ -2282,10 +2998,65 @@ export default function CanvasBoard({
               });
             });
             setSelectedIds([]);
+            if (!isSimulatingRef.current) {
+              simStateRef.current = null;
+              lastInitialSnapshotRef.current = null;
+            }
           }}
           onFormatMath={handleFormatHandwriting}
           onEditPhysicsObject={() => handleOpenPhysicsInspector()}
           hasStrokes={selectedHasStrokes}
+        />
+      )}
+
+      {/* Interactive DCL, Equilibrium & Newton Dynamics Vector Overlay HUD for adding, editing & directing force vectors */}
+      {(primarySelectedElement?.physicsType === 'dcl_diagram' ||
+        primarySelectedElement?.physicsType === 'translational_equilibrium' ||
+        primarySelectedElement?.physicsType === 'mass') && (
+        <DclVectorOverlayHUD
+          element={primarySelectedElement}
+          transform={transform}
+          onDuplicate={handleDuplicateSelected}
+          onDelete={() => {
+            pushHistory();
+            setElements((prev) => prev.filter((el) => el.id !== primarySelectedElement.id));
+            setSelectedIds([]);
+          }}
+          onUpdateVectors={(newVectors, newShowOfficialSolution) => {
+            pushHistory();
+            setElements((prev) =>
+              prev.map((el) => {
+                if (el.id !== primarySelectedElement.id) return el;
+                const p = el.properties || {};
+                return {
+                  ...el,
+                  properties: {
+                    ...p,
+                    userVectors: newVectors,
+                    ...(newShowOfficialSolution !== undefined
+                      ? { showOfficialSolution: newShowOfficialSolution }
+                      : {}),
+                  },
+                };
+              })
+            );
+          }}
+          onOpenInspector={() => handleOpenPhysicsInspector(primarySelectedElement)}
+        />
+      )}
+
+
+      {/* MRU & Kinematics Variables & Formulas Customizer Modal */}
+      {isMruModalOpen && mruModalElement && (
+        <MruVariablesModal
+          element={mruModalElement}
+          isOpen={isMruModalOpen}
+          onClose={() => {
+            setIsMruModalOpen(false);
+            setMruModalElement(null);
+          }}
+          onUpdateElement={handleUpdatePhysicsElement}
+          onInsertFormulaCard={onInsertFormulaCard}
         />
       )}
 
@@ -2339,6 +3110,34 @@ export default function CanvasBoard({
           const scaledW = sticky.width * transform.scale;
           const scaledH = sticky.height * transform.scale;
 
+          const startStickyDrag = (e) => {
+            dragStartSnapshotRef.current = elements;
+            const world = screenToWorld(e.clientX, e.clientY);
+            if (e.button === 2) {
+              // Right-click drag: select this sticky if not already selected
+              if (!selectedIds.includes(sticky.id)) {
+                setSelectedIds([sticky.id]);
+              }
+            } else {
+              if (e.shiftKey) {
+                if (selectedIds.includes(sticky.id)) {
+                  setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                } else {
+                  setSelectedIds((prev) => [...prev, sticky.id]);
+                }
+              } else {
+                if (!selectedIds.includes(sticky.id)) {
+                  setSelectedIds([sticky.id]);
+                }
+              }
+            }
+            setIsDraggingSelection(true);
+            setLastDragPos({ x: world.x, y: world.y });
+            try {
+              containerRef.current?.setPointerCapture?.(e.pointerId);
+            } catch {}
+          };
+
           return (
             <div
               key={sticky.id}
@@ -2352,32 +3151,53 @@ export default function CanvasBoard({
               }}
               onContextMenu={(e) => e.preventDefault()}
               onPointerDown={(e) => {
-                if (e.button === 2) {
-                  // Right click pans the board freely! Allow event to bubble to container
+                // If eraser tool is active, erase the sticky note on click!
+                if (['object_eraser', 'stroke_eraser', 'eraser'].includes(activeTool)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pushHistory();
+                  setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                  setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
                   return;
                 }
-                e.stopPropagation();
-                dragStartSnapshotRef.current = elements;
-                const world = screenToWorld(e.clientX, e.clientY);
-                if (e.shiftKey) {
-                  if (selectedIds.includes(sticky.id)) {
-                    setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
-                  } else {
-                    setSelectedIds((prev) => [...prev, sticky.id]);
-                  }
-                } else {
-                  if (!selectedIds.includes(sticky.id)) {
-                    setSelectedIds([sticky.id]);
-                  }
+                if (e.button === 2) {
+                  // Right-click drags sticky note across the canvas
+                  e.preventDefault();
+                  e.stopPropagation();
+                  startStickyDrag(e);
+                  return;
                 }
-                setIsDraggingSelection(true);
-                setLastDragPos({ x: world.x, y: world.y });
+                if (e.button === 0) {
+                  e.stopPropagation();
+                  startStickyDrag(e);
+                }
               }}
             >
+              {/* Quick 1-click Delete Sticky Button on top right */}
+              <button
+                type="button"
+                className="sticky-delete-btn"
+                title="Eliminar esta nota (o usa la tecla Supr / Borrador)"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pushHistory();
+                  setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                  setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                  onNotify?.('🗑️ Nota adhesiva eliminada');
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
+
               <textarea
                 value={sticky.text}
                 onFocus={() => {
                   stickyTextSnapshotRef.current = sticky.text;
+                  if (!selectedIds.includes(sticky.id)) {
+                    setSelectedIds([sticky.id]);
+                  }
                 }}
                 onBlur={() => {
                   if (stickyTextSnapshotRef.current !== null && stickyTextSnapshotRef.current !== sticky.text) {
@@ -2394,12 +3214,51 @@ export default function CanvasBoard({
                     prev.map((el) => (el.id === sticky.id ? { ...el, text: newText } : el))
                   );
                 }}
+                onKeyDown={(e) => {
+                  // Escape blurs textarea so Del/Backspace key deletes the sticky
+                  if (e.key === 'Escape') {
+                    e.currentTarget.blur();
+                    return;
+                  }
+                  // Alt+Delete, Alt+Backspace, or Delete on empty note
+                  if ((e.altKey || e.metaKey) && (e.key === 'Delete' || e.key === 'Backspace')) {
+                    e.preventDefault();
+                    pushHistory();
+                    setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                    setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                    onNotify?.('🗑️ Nota adhesiva eliminada');
+                  }
+                }}
                 className="miro-sticky-textarea"
                 style={{
                   fontSize: `${Math.max(12, 15 * transform.scale)}px`,
+                  pointerEvents: isDraggingSelection ? 'none' : 'auto',
                 }}
-                placeholder="Type something..."
-                onPointerDown={(e) => e.stopPropagation()}
+                placeholder="Escribe algo aquí..."
+                onContextMenu={(e) => e.preventDefault()}
+                onPointerDown={(e) => {
+                  // If eraser tool is active, erase sticky note on click!
+                  if (['object_eraser', 'stroke_eraser', 'eraser'].includes(activeTool)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    pushHistory();
+                    setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                    setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                    return;
+                  }
+                  if (e.button === 2) {
+                    // Right-click inside textarea drags the sticky note
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.blur?.();
+                    startStickyDrag(e);
+                    return;
+                  }
+                  if (!selectedIds.includes(sticky.id)) {
+                    setSelectedIds([sticky.id]);
+                  }
+                  e.stopPropagation();
+                }}
               />
             </div>
           );
@@ -2412,6 +3271,41 @@ export default function CanvasBoard({
           overflow: hidden;
           background: #ffffff;
           touch-action: none;
+        }
+
+        .webwb-canvas-container.theme-chalkboard {
+          background: #0f2f21;
+        }
+
+        .sticky-delete-btn {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          width: 22px;
+          height: 22px;
+          border-radius: 4px;
+          border: none;
+          background: rgba(0, 0, 0, 0.08);
+          color: #475569;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0;
+          transition: all 0.15s ease;
+          z-index: 10;
+        }
+
+        .miro-sticky-note:hover .sticky-delete-btn,
+        .miro-sticky-note.selected .sticky-delete-btn {
+          opacity: 0.85;
+        }
+
+        .sticky-delete-btn:hover {
+          opacity: 1 !important;
+          background: #ef4444 !important;
+          color: #ffffff !important;
+          transform: scale(1.08);
         }
 
         .cursor-default { cursor: default; }
@@ -2457,14 +3351,15 @@ export default function CanvasBoard({
           left: 50%;
           transform: translateX(-50%);
           z-index: 45;
-          background: #ffffff;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
           border-radius: 30px;
           padding: 4px 6px;
           display: flex;
           align-items: center;
           gap: 6px;
-          box-shadow: 0 4px 20px rgba(5, 0, 56, 0.12);
-          border: 1.5px solid #4262ff;
+          box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+          border: 1px solid #cbd5e1;
           animation: contextFadeIn 0.2s ease-out;
         }
 
@@ -2472,76 +3367,82 @@ export default function CanvasBoard({
           display: flex;
           align-items: center;
           gap: 8px;
-          background: #edf2fe;
-          border: none;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           border-radius: 24px;
-          padding: 7px 14px;
-          color: #4262ff;
+          padding: 6px 14px;
+          color: #1e293b;
           font-family: var(--font-sans);
-          font-weight: 700;
-          font-size: 0.84rem;
+          font-weight: 600;
+          font-size: 0.82rem;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
-        .math-format-action-btn.active-auto {
-          background: #eef2ff;
-          color: #3730a3;
-        }
-
-        .math-format-action-btn.inactive-auto {
-          background: #f3f4f6;
-          color: #6b7280;
-        }
-
         .math-format-action-btn:hover {
-          background: #4262ff;
-          color: #ffffff;
-          transform: scale(1.02);
-          box-shadow: 0 4px 12px rgba(66, 98, 255, 0.25);
+          background: #f1f5f9;
+          border-color: #cbd5e1;
         }
 
-        .pill-status-dot {
-          width: 8px;
-          height: 8px;
+        .magic-pill-wand-icon {
+          color: #4f46e5;
+          flex-shrink: 0;
+        }
+
+        .pill-status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          letter-spacing: 0.2px;
+        }
+
+        .pill-status-badge.badge-active {
+          background: #ecfdf5;
+          color: #059669;
+          border: 1px solid #a7f3d0;
+        }
+
+        .pill-status-badge.badge-paused {
+          background: #f1f5f9;
+          color: #64748b;
+          border: 1px solid #e2e8f0;
+        }
+
+        .badge-dot {
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          display: inline-block;
-          margin-left: 2px;
         }
 
-        .pill-status-dot.dot-active {
+        .badge-active .badge-dot {
           background: #10b981;
-          box-shadow: 0 0 6px #10b981;
+          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
         }
 
-        .pill-status-dot.dot-paused {
-          background: #9ca3af;
+        .badge-paused .badge-dot {
+          background: #94a3b8;
         }
 
         .math-format-manual-btn {
-          background: #4262ff;
+          background: #4f46e5;
           color: #ffffff;
           border: none;
           border-radius: 20px;
           padding: 6px 12px;
           font-family: var(--font-sans);
           font-size: 0.78rem;
-          font-weight: 700;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .math-format-manual-btn:hover {
-          background: #314bd9;
-          transform: scale(1.02);
-        }
-
-        .sparkle-gold-icon {
-          color: #f59e0b;
-        }
-
-        .math-format-action-btn:hover .sparkle-gold-icon {
-          color: #ffd02f;
+          background: #4338ca;
+          box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
         }
       `}</style>
     </div>

@@ -9,7 +9,8 @@ import {
   Type, 
   CornerDownRight,
   MoreHorizontal,
-  Sliders
+  Sliders,
+  RotateCw
 } from 'lucide-react';
 
 export default function ContextualToolbar({
@@ -18,6 +19,7 @@ export default function ContextualToolbar({
   onChangeColor,
   onDuplicate,
   onDelete,
+  onRotate,
   onFormatMath,
   onEditPhysicsObject,
   hasStrokes,
@@ -49,8 +51,8 @@ export default function ContextualToolbar({
             <Sliders size={15} className="physics-sliders-icon" />
             <span className="edit-btn-text">
               {selectedElement.physicsType === 'mru_cart'
-                ? `Editar Móvil (${selectedElement.properties?.displayVelocity !== undefined ? selectedElement.properties.displayVelocity : selectedElement.properties?.velocity || 2.0} ${selectedElement.properties?.unit || 'm/s'})`
-                : 'Editar Datos Físicos'}
+                ? `Variables y Fórmulas (${selectedElement.properties?.displayVelocity !== undefined ? selectedElement.properties.displayVelocity : selectedElement.properties?.velocity || 2.0} ${selectedElement.properties?.unit || 'm/s'})`
+                : 'Variables y Fórmulas'}
             </span>
           </button>
           <div className="context-divider"></div>
@@ -96,6 +98,17 @@ export default function ContextualToolbar({
       >
         <Copy size={15} />
       </button>
+
+      {/* Rotate (+45°) */}
+      {onRotate && (
+        <button
+          className="context-btn rotate-action-btn"
+          onClick={onRotate}
+          title="Rotar flecha o figura (+45°)"
+        >
+          <RotateCw size={15} />
+        </button>
+      )}
 
       {/* Delete */}
       <button

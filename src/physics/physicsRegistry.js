@@ -5,12 +5,19 @@
 
 export const PHYSICS_TOPICS = [
   { id: 'mru', name: 'Cinemática (MRU)', active: true, icon: 'Gauge' },
-  { id: 'mruv', name: 'Cinemática (MRUV)', active: true, icon: 'TrendingUp' },
-  { id: 'freefall', name: 'Caída Libre (HT03)', active: true, icon: 'ArrowDownCircle' },
-  { id: 'tiro_vertical', name: 'Tiro Vertical (HT04)', active: true, icon: 'ArrowUpCircle' },
-  { id: 'lanzamiento_horizontal', name: 'Lanzamiento Horizontal (HT01)', active: true, icon: 'Navigation' },
-  { id: 'movimiento_proyectiles', name: 'Mov. Proyectiles (HT02)', active: true, icon: 'Target' },
-  { id: 'mechanics', name: 'Dinámica (Atwood & Poleas)', active: true, icon: 'Weight' },
+  // Temas ocultos por solicitud: solo MRU visible. Poner active: true para reactivar cualquiera.
+  { id: 'mruv', name: 'Cinemática (MRUV)', active: false, icon: 'TrendingUp' },
+  { id: 'freefall', name: 'Caída Libre (HT03)', active: false, icon: 'ArrowDownCircle' },
+  { id: 'tiro_vertical', name: 'Tiro Vertical (HT04)', active: false, icon: 'ArrowUpCircle' },
+  { id: 'lanzamiento_horizontal', name: 'Lanzamiento Horizontal (HT01)', active: false, icon: 'Navigation' },
+  { id: 'movimiento_proyectiles', name: 'Mov. Proyectiles (HT02)', active: false, icon: 'Target' },
+  { id: 'mcu', name: 'Mov. Circular Uniforme (MCU)', active: false, icon: 'RotateCw' },
+  { id: 'mcuv', name: 'Mov. Circular Acelerado (MCUV)', active: false, icon: 'RotateCw' },
+  { id: 'poleas_mcu', name: 'Poleas MCU (HT01 U3)', active: false, icon: 'Disc' },
+  { id: 'dcl', name: 'Diagramas de Cuerpo Libre (HT02)', active: false, icon: 'GitFork' },
+  { id: 'equilibrio', name: 'Equilibrio Traslacional (HT03)', active: false, icon: 'Scale' },
+  { id: 'segunda_ley_newton', name: 'Segunda Ley de Newton (HT01 U4)', active: false, icon: 'Weight' },
+  { id: 'mechanics', name: 'Dinámica (Atwood & Poleas)', active: false, icon: 'Weight' },
   { id: 'electricity', name: 'Electricidad', active: false, icon: 'Zap' },
   { id: 'waves', name: 'Ondas y Óptica', active: false, icon: 'Radio' },
   { id: 'thermodynamics', name: 'Termodinámica', active: false, icon: 'Flame' },
@@ -594,6 +601,963 @@ export const PHYSICS_OBJECT_DEFINITIONS = {
     ],
   },
 
+  mcu_turntable: {
+    type: 'mcu_turntable',
+    name: 'Plataforma Giratoria / Disco MCU',
+    category: 'movimiento_circular',
+    desc: 'Rotor, disco o plataforma giratoria con eje central graduado para experimentos de Movimiento Circular Uniforme (MCU).',
+    defaultWidth: 220,
+    defaultHeight: 220,
+    defaultColor: '#0284c7',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega: 3.0,
+      initialOmega: 3.0,
+      rpm: 28.65,
+      direction: 'ccw',
+      showGrid: true,
+      showVectors: true,
+      isStatic: true,
+      label: 'Plataforma Giratoria MCU',
+    },
+    presets: [
+      { label: 'Rueda Bicicleta (HT03 P1: ω = 18 rad/s, r = 0.35m)', radiusMeters: 0.35, omega: 18.0, rpm: 171.89, color: '#2563eb' },
+      { label: 'Satélite LEO (HT03 P2: T = 100min, r = 7.2×10⁶m)', radiusMeters: 7.2e6, omega: 0.001047, rpm: 0.01, color: '#0284c7' },
+      { label: 'Juego Mecánico (HT03 P3: T = 12s, r = 8m)', radiusMeters: 8.0, omega: 0.5236, rpm: 5.0, color: '#7c3aed' },
+      { label: 'Lavadora 1200 RPM (HT03 P4: r = 0.25m)', radiusMeters: 0.25, omega: 125.66, rpm: 1200.0, color: '#06b6d4' },
+      { label: 'Órbita Lunar (HT03 P5: T = 28 días)', radiusMeters: 3.84e8, omega: 2.6e-6, rpm: 0.000025, color: '#64748b' },
+      { label: 'Plataforma Disco (HT03 P6: ω = 4 rad/s, r = 1.2m)', radiusMeters: 1.2, omega: 4.0, rpm: 38.2, color: '#10b981' },
+      { label: 'Rueda A Alta Frecuencia (HT03 P8: ω = 60 rad/s, r = 0.2m)', radiusMeters: 0.2, omega: 60.0, rpm: 572.96, color: '#f59e0b' },
+      { label: 'Centrífuga Clínica (HT03 P9: 3200 RPM, r = 0.18m)', radiusMeters: 0.18, omega: 335.10, rpm: 3200.0, color: '#ef4444' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Eje de Giro', relX: 0.5, relY: 0.5 },
+      { id: 'rim_0', label: 'Borde 0° (Este)', relX: 1.0, relY: 0.5 },
+      { id: 'rim_90', label: 'Borde 90° (Norte)', relX: 0.5, relY: 0.0 },
+      { id: 'rim_180', label: 'Borde 180° (Oeste)', relX: 0.0, relY: 0.5 },
+      { id: 'rim_270', label: 'Borde 270° (Sur)', relX: 0.5, relY: 1.0 },
+    ],
+  },
+
+  mcu_particle: {
+    type: 'mcu_particle',
+    name: 'Partícula / Masa Orbitante MCU',
+    category: 'movimiento_circular',
+    desc: 'Cuerpo en trayectoria circular uniforme con vectores dinámicos de velocidad tangencial (v⃗_t) y aceleración centrípeta (a⃗_c).',
+    defaultWidth: 28,
+    defaultHeight: 28,
+    defaultColor: '#3b82f6',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega: 3.0,
+      initialOmega: 3.0,
+      angleRad: 0.0,
+      mass: 0.5,
+      showTangentialVector: true,
+      showCentripetalVector: true,
+      showOrbit: true,
+      showRadiusLine: true,
+      isStatic: false,
+      label: 'Masa Orbitante MCU',
+    },
+    presets: [
+      { label: 'Punto en Borde (HT03 P1: v_t = 6.3 m/s, r = 0.35m)', radiusMeters: 0.35, omega: 18.0, color: '#2563eb' },
+      { label: 'Satélite (HT03 P2: v = 7.54 km/s, ac = 7.9 m/s²)', radiusMeters: 7.2e6, omega: 0.001047, color: '#0284c7' },
+      { label: 'Cabina Mecánica (HT03 P3: v = 4.19 m/s, ac = 2.19 m/s²)', radiusMeters: 8.0, omega: 0.5236, color: '#7c3aed' },
+      { label: 'Prenda en Tambor (HT03 P4: v = 31.4 m/s, ac = 3948 m/s²)', radiusMeters: 0.25, omega: 125.66, color: '#06b6d4' },
+      { label: 'Cuerpo Lunar (HT03 P5: v = 997 m/s)', radiusMeters: 3.84e8, omega: 2.6e-6, color: '#64748b' },
+      { label: 'Masa Interior (HT03 P6: r = 0.4m, v = 1.6 m/s)', radiusMeters: 0.4, omega: 4.0, color: '#10b981' },
+      { label: 'Masa Exterior (HT03 P6: r = 1.2m, v = 4.8 m/s)', radiusMeters: 1.2, omega: 4.0, color: '#16a34a' },
+      { label: 'Muestra Centrífuga (HT03 P9: v = 60.3 m/s, ac = 20213 m/s²)', radiusMeters: 0.18, omega: 335.10, color: '#ef4444' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Centro de Masa', relX: 0.5, relY: 0.5 },
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // TEMA: MOVIMIENTO CIRCULAR UNIFORMEMENTE VARIADO / ACELERADO (MCUV / MCUA)
+  // Unidad 2 - Física 5to Diversificado - Colegio Kinal
+  // -----------------------------------------------------------------------
+  mcuv_turntable: {
+    type: 'mcuv_turntable',
+    name: 'Rotor Acelerado / Disco MCUV',
+    category: 'mcuv',
+    desc: 'Plataforma o disco con aceleración angular α constante, velocidad angular inicial ω₀ y tacómetro digital integrado.',
+    defaultWidth: 220,
+    defaultHeight: 220,
+    defaultColor: '#0891b2',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega0: 0.0,
+      omega: 0.0,
+      initialOmega: 0.0,
+      alpha: 2.0, // rad/s²
+      initialAlpha: 2.0,
+      rpm: 0.0,
+      direction: 'ccw',
+      showGrid: true,
+      showVectors: true,
+      isStatic: true,
+      label: 'Rotor Acelerado MCUV',
+    },
+    presets: [
+      { label: 'P11: Turbina Centrífuga (ω₀=0, α=3.5 rad/s², r=0.4m)', radiusMeters: 0.4, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 3.5, initialAlpha: 3.5, color: '#0284c7' },
+      { label: 'P12: Volante Frenado (ω₀=15 rad/s, α=-2.5 rad/s², r=0.6m)', radiusMeters: 0.6, omega0: 15.0, omega: 15.0, initialOmega: 15.0, alpha: -2.5, initialAlpha: -2.5, color: '#dc2626' },
+      { label: 'P13: Ventilador Eléctrico (ω₀=0, α=4 rad/s², r=0.3m)', radiusMeters: 0.3, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 4.0, initialAlpha: 4.0, color: '#16a34a' },
+      { label: 'P14: Centrífuga Médica (ω₀=50 rad/s, α=-5 rad/s², r=0.15m)', radiusMeters: 0.15, omega0: 50.0, omega: 50.0, initialOmega: 50.0, alpha: -5.0, initialAlpha: -5.0, color: '#d97706' },
+      { label: 'P15: Engranaje Motor (ω₀=2 rad/s, α=1.8 rad/s², r=0.25m)', radiusMeters: 0.25, omega0: 2.0, omega: 2.0, initialOmega: 2.0, alpha: 1.8, initialAlpha: 1.8, color: '#7c3aed' },
+      { label: 'P18: Polea Transmisión (ω₀=0, α=5 rad/s², r=0.2m)', radiusMeters: 0.2, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 5.0, initialAlpha: 5.0, color: '#0d9488' },
+      { label: 'P23: Generador Eólico (ω₀=30 rad/s, α=-1.5 rad/s², r=1.5m)', radiusMeters: 1.5, omega0: 30.0, omega: 30.0, initialOmega: 30.0, alpha: -1.5, initialAlpha: -1.5, color: '#475569' },
+      { label: 'P25: Tambor Lavado (ω₀=0, α=8 rad/s², r=0.28m)', radiusMeters: 0.28, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 8.0, initialAlpha: 8.0, color: '#2563eb' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Eje Central de Giro', relX: 0.5, relY: 0.5 },
+      { id: 'rim_0', label: 'Borde 0° (Este)', relX: 1.0, relY: 0.5 },
+      { id: 'rim_90', label: 'Borde 90° (Norte)', relX: 0.5, relY: 0.0 },
+      { id: 'rim_180', label: 'Borde 180° (Oeste)', relX: 0.0, relY: 0.5 },
+      { id: 'rim_270', label: 'Borde 270° (Sur)', relX: 0.5, relY: 1.0 },
+    ],
+  },
+
+  mcuv_particle: {
+    type: 'mcuv_particle',
+    name: 'Partícula Acelerada MCUV',
+    category: 'mcuv',
+    desc: 'Cuerpo en trayectoria circular acelerada con 4 vectores dinámicos: rapidez tangencial (v⃗_t), aceleración centrípeta (a⃗_c), aceleración tangencial (a⃗_t) y aceleración total (a⃗_total).',
+    defaultWidth: 28,
+    defaultHeight: 28,
+    defaultColor: '#06b6d4',
+    defaultProps: {
+      radiusMeters: 1.0,
+      radiusPx: 110,
+      omega0: 0.0,
+      omega: 0.0,
+      initialOmega: 0.0,
+      alpha: 2.0,
+      initialAlpha: 2.0,
+      angleRad: 0.0,
+      mass: 0.5,
+      showTangentialVector: true, // v_t (esmeralda)
+      showCentripetalVector: true, // a_c (carmesí al centro)
+      showTangentialAccelVector: true, // a_t (ámbar tangencial)
+      showTotalAccelVector: true, // a_total (violeta resultante)
+      showOrbit: true,
+      showRadiusLine: true,
+      isStatic: false,
+      label: 'Masa en MCUV',
+    },
+    presets: [
+      { label: 'P11: Turbina (r=0.4m, α=3.5 rad/s², at=1.4 m/s²)', radiusMeters: 0.4, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 3.5, initialAlpha: 3.5, color: '#0284c7' },
+      { label: 'P12: Frenado Volante (r=0.6m, ω₀=15 rad/s, α=-2.5)', radiusMeters: 0.6, omega0: 15.0, omega: 15.0, initialOmega: 15.0, alpha: -2.5, initialAlpha: -2.5, color: '#dc2626' },
+      { label: 'P13: Borde Ventilador (r=0.3m, α=4 rad/s², at=1.2 m/s²)', radiusMeters: 0.3, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 4.0, initialAlpha: 4.0, color: '#16a34a' },
+      { label: 'P14: Tubo Centrífuga (r=0.15m, ω₀=50, α=-5)', radiusMeters: 0.15, omega0: 50.0, omega: 50.0, initialOmega: 50.0, alpha: -5.0, initialAlpha: -5.0, color: '#d97706' },
+      { label: 'P18: Cuerda en Polea (r=0.2m, α=5 rad/s², at=1.0 m/s²)', radiusMeters: 0.2, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 5.0, initialAlpha: 5.0, color: '#0d9488' },
+      { label: 'P25: Aspa Lavadora (r=0.28m, α=8 rad/s², at=2.24 m/s²)', radiusMeters: 0.28, omega0: 0.0, omega: 0.0, initialOmega: 0.0, alpha: 8.0, initialAlpha: 8.0, color: '#2563eb' },
+    ],
+    anchors: [
+      { id: 'center', label: 'Centro de Masa', relX: 0.5, relY: 0.5 },
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // TEMA: POLEAS MCU — TRANSMISIONES POR FAJA Y EJES CONCÉNTRICOS
+  // Unidad 3 - Física II Quinto Diversificado - Colegio Kinal (HT01)
+  // -----------------------------------------------------------------------
+  mcu_pulley_system: {
+    type: 'mcu_pulley_system',
+    name: 'Sistema de Transmisión por Poleas (MCU)',
+    category: 'poleas_mcu',
+    desc: 'Transmisión cinemática por poleas: faja/correa sin deslizamiento (v₁ = v₂ = cte), discos en mismo eje concéntrico (ω₁ = ω₂ = cte) y trenes reductores compuestos.',
+    defaultWidth: 320,
+    defaultHeight: 180,
+    defaultColor: '#059669',
+    defaultProps: {
+      configuration: 'belt', // 'belt', 'concentric', 'concentric_hanging_block', 'concentric_and_belt', 'belt_and_concentric', 'compound_train_2stage', 'compound_train_3stage', 'double_reduction', 'washing_machine'
+      radiusMeters1: 0.20,
+      radiusMeters2: 0.10,
+      radiusMeters3: 0.25,
+      radiusMeters4: 0.50,
+      radiusPx1: 65,
+      radiusPx2: 45,
+      distancePx: 200,
+      omega1: 5.0,
+      initialOmega1: 5.0,
+      omega2: 10.0,
+      initialOmega2: 10.0,
+      angleRad1: 0.0,
+      angleRad2: 0.0,
+      beltCrossed: false,
+      rpm1: 47.75,
+      rpm2: 95.49,
+      linearSpeed: 1.0,
+      showBelt: true,
+      showVectors: true,
+      showSpokes: true,
+      showTelemetry: true,
+      isStatic: true,
+      label: 'Transmisión por Poleas MCU',
+    },
+    presets: [
+      {
+        label: 'P1: Mismo Eje (r₁ = 5 in, r₂ = 15 in, v₁ = 15 in/s → v₂ = 45 in/s)',
+        configuration: 'concentric',
+        radiusMeters1: 0.127,
+        radiusMeters2: 0.381,
+        omega1: 3.0,
+        initialOmega1: 3.0,
+        omega2: 3.0,
+        initialOmega2: 3.0,
+        linearSpeed: 0.381,
+        exerciseNumber: 1,
+        label: 'P1: Discos Concéntricos (Mismo Eje)',
+        color: '#2563eb',
+      },
+      {
+        label: 'P2: Tambor Concéntrico con Bloque (RA = 8 cm, RB = 12 cm, v = 6 m/s → ω = 75 rad/s)',
+        configuration: 'concentric_hanging_block',
+        radiusMeters1: 0.08,
+        radiusMeters2: 0.12,
+        omega1: 75.0,
+        initialOmega1: 75.0,
+        omega2: 75.0,
+        initialOmega2: 75.0,
+        linearSpeed: 6.0,
+        exerciseNumber: 2,
+        label: 'P2: Tambor Concéntrico con Bloque Colgante',
+        color: '#d97706',
+      },
+      {
+        label: 'P3: Poleas con Faja (RA = 20 cm, RB = 10 cm, ωA = 5 rad/s → ac = 10 m/s²)',
+        configuration: 'belt',
+        radiusMeters1: 0.20,
+        radiusMeters2: 0.10,
+        omega1: 5.0,
+        initialOmega1: 5.0,
+        omega2: 10.0,
+        initialOmega2: 10.0,
+        linearSpeed: 1.0,
+        exerciseNumber: 3,
+        label: 'P3: Poleas con Faja (ac = 10 m/s²)',
+        color: '#16a34a',
+      },
+      {
+        label: 'P4: Eje Común A-B y Faja B-C (rA = 7m, rB = 4m, rC = 6m, ωA = 12 rad/s → vC = 48 m/s)',
+        configuration: 'concentric_and_belt',
+        radiusMeters1: 0.70,
+        radiusMeters2: 0.40,
+        radiusMeters3: 0.60,
+        omega1: 12.0,
+        initialOmega1: 12.0,
+        omega2: 12.0,
+        initialOmega2: 12.0,
+        linearSpeed: 4.8,
+        exerciseNumber: 4,
+        label: 'P4: Eje Común A-B + Faja B-C',
+        color: '#0891b2',
+      },
+      {
+        label: 'P5: Faja A-B y Eje Común B-C (rA = 3m, rB = 5m, rC = 2m, vA = 40 m/s → vC = 16 m/s)',
+        configuration: 'belt_and_concentric',
+        radiusMeters1: 0.30,
+        radiusMeters2: 0.50,
+        radiusMeters3: 0.20,
+        omega1: 13.33,
+        initialOmega1: 13.33,
+        omega2: 8.0,
+        initialOmega2: 8.0,
+        linearSpeed: 4.0,
+        exerciseNumber: 5,
+        label: 'P5: Faja A-B + Eje Común B-C',
+        color: '#7c3aed',
+      },
+      {
+        label: 'P6: Tren Compuesto 3 Etapas (N₁ = 3000 RPM → N_salida = 150 RPM, f = 2.5 Hz)',
+        configuration: 'compound_train_3stage',
+        radiusMeters1: 0.01,
+        radiusMeters2: 0.04,
+        radiusMeters3: 0.02,
+        radiusMeters4: 0.05,
+        omega1: 314.16,
+        initialOmega1: 314.16,
+        omega2: 15.71,
+        initialOmega2: 15.71,
+        linearSpeed: 3.14,
+        exerciseNumber: 6,
+        label: 'P6: Tren de Poleas 3 Etapas',
+        color: '#db2777',
+      },
+      {
+        label: 'P7: Tren Reductor 2 Etapas (d₁=20cm, d₃=25cm, d₄=50cm, N₁=200 RPM → N₄=50 RPM, d₂=40cm)',
+        configuration: 'compound_train_2stage',
+        radiusMeters1: 0.10,
+        radiusMeters2: 0.20,
+        radiusMeters3: 0.125,
+        radiusMeters4: 0.25,
+        omega1: 20.94,
+        initialOmega1: 20.94,
+        omega2: 5.24,
+        initialOmega2: 5.24,
+        linearSpeed: 2.09,
+        exerciseNumber: 7,
+        label: 'P7: Tren Reductor 2 Etapas (d2 = 40 cm)',
+        color: '#0284c7',
+      },
+      {
+        label: 'P8: Tren Reductor Doble 4:1 (d₁=d₃=5cm, d₂=d₄=20cm, N₁=2000 RPM → N₄=125 RPM, v₄=1.31 m/s)',
+        configuration: 'double_reduction',
+        radiusMeters1: 0.025,
+        radiusMeters2: 0.10,
+        radiusMeters3: 0.025,
+        radiusMeters4: 0.10,
+        omega1: 209.44,
+        initialOmega1: 209.44,
+        omega2: 13.09,
+        initialOmega2: 13.09,
+        linearSpeed: 1.31,
+        exerciseNumber: 8,
+        label: 'P8: Tren Reductor Doble 4:1',
+        color: '#059669',
+      },
+      {
+        label: 'P9: Transmisión Lavadora (d_motor = 9 cm, d_tambor = 45 cm, N₁ = 450 RPM → v = 2.12 m/s)',
+        configuration: 'washing_machine',
+        radiusMeters1: 0.045,
+        radiusMeters2: 0.225,
+        omega1: 47.12,
+        initialOmega1: 47.12,
+        omega2: 9.42,
+        initialOmega2: 9.42,
+        linearSpeed: 2.12,
+        exerciseNumber: 9,
+        label: 'P9: Transmisión Lavadora con Faja',
+        color: '#ea580c',
+      },
+    ],
+    anchors: [
+      { id: 'pulley1_center', label: 'Eje Polea 1 (Entrada)', relX: 0.25, relY: 0.5 },
+      { id: 'pulley2_center', label: 'Eje Polea 2 (Salida)', relX: 0.75, relY: 0.5 },
+      { id: 'belt_top', label: 'Tramo Superior de Correa', relX: 0.5, relY: 0.15 },
+      { id: 'belt_bottom', label: 'Tramo Inferior de Correa', relX: 0.5, relY: 0.85 },
+      { id: 'center', label: 'Centro de Montaje', relX: 0.5, relY: 0.5 },
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // TEMA: FUERZAS Y DIAGRAMAS DE CUERPO LIBRE (DCL)
+  // Unidad 3 - Física II Quinto Diversificado - Colegio Kinal (HT02)
+  // -----------------------------------------------------------------------
+  dcl_diagram: {
+    type: 'dcl_diagram',
+    name: 'Diagrama de Cuerpo Libre (DCL)',
+    category: 'dcl',
+    desc: 'Diagrama vectorial de cuerpo libre con ejes cartesianos (normales o inclinados), vectores de fuerza identificados por origen (peso, normal, tensión, fricción, fuerza aplicada), descomposición en componentes ortogonales y ecuaciones de equilibrio.',
+    defaultWidth: 280,
+    defaultHeight: 280,
+    defaultColor: '#ea580c',
+    defaultProps: {
+      exerciseNumber: 1,
+      systemTitle: 'Masa Suspendida (HT02 P1)',
+      bodyName: 'Masa Suspendida (m)',
+      axisAngleDeg: 0,
+      showComponents: true,
+      showEquations: true,
+      showGrid: true,
+      isStatic: true,
+      label: 'DCL: Masa Suspendida',
+      forces: [
+        { id: 'f_w', name: 'W', label: 'W = m·g', type: 'weight', origin: 'A distancia (Tierra)', magnitude: 98, angleDeg: 270, direction: 'Abajo (-Y)', color: '#ef4444' },
+        { id: 'f_t1', name: 'T₁', label: 'T₁', type: 'tension', origin: 'Contacto (Cuerda 1)', magnitude: 60, angleDeg: 125, direction: 'Arriba-Izq', color: '#10b981' },
+        { id: 'f_t2', name: 'T₂', label: 'T₂', type: 'tension', origin: 'Contacto (Cuerda 2)', magnitude: 60, angleDeg: 55, direction: 'Arriba-Der', color: '#059669' },
+      ],
+      equations: [
+        'ΣFx = T₂·sin(α) - T₁·sin(α) = 0  ⇒  T₁ = T₂',
+        'ΣFy = 2T·cos(α) - W = 0  ⇒  T = W / (2·cos α)',
+      ],
+      criticalPoint: 'Masa suspendida (Punto de concurrencia)',
+    },
+    presets: [
+      {
+        label: 'Mesa con 3 Masas (Limpia para Dibujar D.C.L. HT02 #10)',
+        exerciseNumber: 11,
+        apparatusType: 'table_three_masses',
+        width: 680,
+        height: 390,
+        systemTitle: 'Problema 10: Mesa con Tres Masas (6kg, 10kg, 9kg)',
+        bodyName: 'Mesa y 3 Masas (m₁, m₂, m₃)',
+        axisAngleDeg: 0,
+        color: '#ea580c',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'Mesa con 2 Masas (Limpia para Dibujar D.C.L. HT02 #2)',
+        exerciseNumber: 2,
+        apparatusType: 'table_two_masses',
+        width: 560,
+        height: 350,
+        systemTitle: 'Problema 2: Mesa con Bloque y Masa Suspendida',
+        bodyName: 'Mesa y 2 Masas (m₁, m₂)',
+        axisAngleDeg: 0,
+        color: '#2563eb',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'Mesa con 3 Masas (Con Solución Teórica HT02 #10)',
+        exerciseNumber: 11,
+        apparatusType: 'table_three_masses',
+        width: 680,
+        height: 390,
+        systemTitle: 'Problema 10: Mesa con Fricción y Tres Masas (Solución Oficial)',
+        bodyName: 'Mesa y 3 Masas (m₁, m₂, m₃)',
+        axisAngleDeg: 0,
+        color: '#ea580c',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'Mesa con 2 Masas (Con Solución Teórica HT02 #2)',
+        exerciseNumber: 2,
+        apparatusType: 'table_two_masses',
+        width: 560,
+        height: 350,
+        systemTitle: 'Problema 2: Mesa con Bloque y Masa Suspendida (Solución Oficial)',
+        bodyName: 'Mesa y 2 Masas (m₁, m₂)',
+        axisAngleDeg: 0,
+        color: '#2563eb',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P1: Masa Suspendida por 2 Cuerdas Simétricas (Ángulo α)',
+        exerciseNumber: 1,
+        systemTitle: 'Problema 1: Masa con 2 Cuerdas',
+        bodyName: 'Masa Suspendida (m)',
+        axisAngleDeg: 0,
+        color: '#2563eb',
+        forces: [
+          { id: 'f_w', name: 'W', label: 'W = m·g', type: 'weight', origin: 'A distancia', magnitude: 98, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_t1', name: 'T₁', label: 'T₁', type: 'tension', origin: 'Contacto', magnitude: 60, angleDeg: 125, color: '#10b981' },
+          { id: 'f_t2', name: 'T₂', label: 'T₂', type: 'tension', origin: 'Contacto', magnitude: 60, angleDeg: 55, color: '#059669' },
+        ],
+        equations: [
+          'ΣFx = T₂·sin(α) - T₁·sin(α) = 0  ⇒  T₁ = T₂',
+          'ΣFy = 2T·cos(α) - W = 0  ⇒  T = W / (2·cos α)',
+        ],
+      },
+      {
+        label: 'P2: Bloque m₁ en Mesa Horizontal',
+        exerciseNumber: 2,
+        systemTitle: 'Problema 2: Bloque en Mesa y Masa Colgante',
+        bodyName: 'Bloque m₁ (Mesa)',
+        axisAngleDeg: 0,
+        color: '#0891b2',
+        forces: [
+          { id: 'f_w1', name: 'W₁', label: 'W₁ = m₁·g', type: 'weight', origin: 'A distancia', magnitude: 98, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_n', name: 'N', label: 'N', type: 'normal', origin: 'Contacto', magnitude: 98, angleDeg: 90, color: '#3b82f6' },
+          { id: 'f_t', name: 'T', label: 'T', type: 'tension', origin: 'Contacto', magnitude: 49, angleDeg: 0, color: '#10b981' },
+          { id: 'f_fr', name: 'fr', label: 'fr', type: 'friction', origin: 'Contacto', magnitude: 19.6, angleDeg: 180, color: '#f59e0b' },
+        ],
+        equations: ['ΣFy = N - W₁ = 0', 'ΣFx = T - fr = m₁·a'],
+      },
+      {
+        label: 'P2: Masa Suspendida m₂',
+        exerciseNumber: 2,
+        systemTitle: 'Problema 2: Bloque en Mesa y Masa Colgante',
+        bodyName: 'Masa Colgante m₂',
+        axisAngleDeg: 0,
+        color: '#059669',
+        forces: [
+          { id: 'f_w2', name: 'W₂', label: 'W₂ = m₂·g', type: 'weight', origin: 'A distancia', magnitude: 49, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_t', name: 'T', label: 'T', type: 'tension', origin: 'Contacto', magnitude: 49, angleDeg: 90, color: '#10b981' },
+        ],
+        equations: ['ΣFy = W₂ - T = m₂·a', 'ΣFx = 0'],
+      },
+      {
+        label: 'P3: Tres Bloques en Contacto (m₁, m₂, m₃)',
+        exerciseNumber: 3,
+        systemTitle: 'Problema 3: Bloques en Contacto',
+        bodyName: 'Bloque Central m₂ (Crítico)',
+        axisAngleDeg: 0,
+        color: '#7c3aed',
+        forces: [
+          { id: 'f_w2', name: 'W₂', label: 'W₂ = m₂·g', type: 'weight', origin: 'A distancia', magnitude: 98, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_n2', name: 'N₂', label: 'N₂', type: 'normal', origin: 'Contacto', magnitude: 98, angleDeg: 90, color: '#3b82f6' },
+          { id: 'f_f32', name: 'F₃₂', label: 'F₃₂ (de m₃)', type: 'applied', origin: 'Contacto', magnitude: 60, angleDeg: 180, color: '#8b5cf6' },
+          { id: 'f_f12', name: 'F₁₂', label: 'F₁₂ (de m₁)', type: 'applied', origin: 'Contacto', magnitude: 30, angleDeg: 0, color: '#06b6d4' },
+        ],
+        equations: ['ΣFy = N₂ - W₂ = 0', 'ΣFx = F₃₂ - F₁₂ = m₂·a'],
+      },
+      {
+        label: 'P4: Bloque Retenido por Cuerda y Fuerza F',
+        exerciseNumber: 4,
+        systemTitle: 'Problema 4: Bloque con Cuerda Fija',
+        bodyName: 'Bloque Retenido',
+        axisAngleDeg: 0,
+        color: '#ea580c',
+        forces: [
+          { id: 'f_w', name: 'W', label: 'W', type: 'weight', origin: 'A distancia', magnitude: 80, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_n', name: 'N', label: 'N', type: 'normal', origin: 'Contacto', magnitude: 80, angleDeg: 90, color: '#3b82f6' },
+          { id: 'f_f', name: 'F', label: 'F', type: 'applied', origin: 'Contacto', magnitude: 60, angleDeg: 0, color: '#8b5cf6' },
+          { id: 'f_t', name: 'T', label: 'T', type: 'tension', origin: 'Contacto', magnitude: 45, angleDeg: 180, color: '#10b981' },
+          { id: 'f_fr', name: 'fr', label: 'fr', type: 'friction', origin: 'Contacto', magnitude: 15, angleDeg: 180, color: '#f59e0b' },
+        ],
+        equations: ['ΣFy = N - W = 0', 'ΣFx = F - T - fr = 0'],
+      },
+      {
+        label: 'P5: Nudo Concurrente "O" (Cuerdas y Peso W)',
+        exerciseNumber: 5,
+        systemTitle: 'Problema 5: Nudo Concurrente O',
+        bodyName: 'Nudo Concurrente O',
+        axisAngleDeg: 0,
+        color: '#16a34a',
+        forces: [
+          { id: 'f_t1', name: 'T₁', label: 'T₁ (Horizontal)', type: 'tension', origin: 'Contacto', magnitude: 53.3, angleDeg: 180, color: '#10b981' },
+          { id: 'f_t2', name: 'T₂', label: 'T₂ (a 37°)', type: 'tension', origin: 'Contacto', magnitude: 66.5, angleDeg: 37, color: '#059669' },
+          { id: 'f_t3', name: 'T₃', label: 'T₃ = W', type: 'tension', origin: 'Contacto', magnitude: 40, angleDeg: 270, color: '#14b8a6' },
+        ],
+        equations: ['ΣFx = T₂·cos(37°) - T₁ = 0', 'ΣFy = T₂·sin(37°) - W = 0'],
+      },
+      {
+        label: 'P6: Bloque Q en Plano Inclinado (37°)',
+        exerciseNumber: 6,
+        systemTitle: 'Problema 6: Plano Inclinado 37°',
+        bodyName: 'Bloque Q (Ejes Rotados 37°)',
+        axisAngleDeg: 37,
+        color: '#d97706',
+        forces: [
+          { id: 'f_n', name: 'N', label: 'N', type: 'normal', origin: 'Contacto', magnitude: 78.4, angleDeg: 90, color: '#3b82f6' },
+          { id: 'f_t', name: 'T', label: 'T', type: 'tension', origin: 'Contacto', magnitude: 75, angleDeg: 0, color: '#10b981' },
+          { id: 'f_wqy', name: 'WQy', label: 'WQ·cos(37°)', type: 'weight', origin: 'Descomposición', magnitude: 78.4, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_wqx', name: 'WQx', label: 'WQ·sin(37°)', type: 'weight', origin: 'Descomposición', magnitude: 59.0, angleDeg: 180, color: '#dc2626' },
+          { id: 'f_fr', name: 'fr', label: 'fr', type: 'friction', origin: 'Contacto', magnitude: 15.7, angleDeg: 180, color: '#f59e0b' },
+        ],
+        equations: ['ΣFy = N - WQ·cos(37°) = 0', 'ΣFx = T - WQ·sin(37°) - fr = mQ·a'],
+      },
+      {
+        label: 'P7: Dos Bloques en Serie Vertical (A y B)',
+        exerciseNumber: 7,
+        systemTitle: 'Problema 7: Bloques en Serie',
+        bodyName: 'Bloque Superior A (Crítico)',
+        axisAngleDeg: 0,
+        color: '#dc2626',
+        forces: [
+          { id: 'f_wa', name: 'WA', label: 'WA = mA·g', type: 'weight', origin: 'A distancia', magnitude: 50, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_t2', name: 'T₂', label: 'T₂ (hacia B)', type: 'tension', origin: 'Contacto', magnitude: 40, angleDeg: 270, color: '#059669' },
+          { id: 'f_t1', name: 'T₁', label: 'T₁ (Techo)', type: 'tension', origin: 'Contacto', magnitude: 90, angleDeg: 90, color: '#10b981' },
+        ],
+        equations: ['ΣFy = T₁ - WA - T₂ = 0  ⇒  T₁ = WA + WB'],
+      },
+      {
+        label: 'P11: Mesa con Fricción (μ=0.20) y 3 Masas (10kg, 6kg, 9kg)',
+        exerciseNumber: 11,
+        systemTitle: 'Problema 11: Mesa con Fricción y 3 Masas',
+        bodyName: 'Masa Central m₂ = 10 kg',
+        axisAngleDeg: 0,
+        color: '#10b981',
+        forces: [
+          { id: 'f_w2', name: 'W₂', label: 'W₂ = 98.00 N', type: 'weight', origin: 'A distancia', magnitude: 98.0, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_n', name: 'N', label: 'N = 98.00 N', type: 'normal', origin: 'Contacto', magnitude: 98.0, angleDeg: 90, color: '#3b82f6' },
+          { id: 'f_t2', name: 'T₂', label: 'T₂ = 84.67 N', type: 'tension', origin: 'Contacto', magnitude: 84.67, angleDeg: 0, color: '#059669' },
+          { id: 'f_t1', name: 'T₁', label: 'T₁ = 61.15 N', type: 'tension', origin: 'Contacto', magnitude: 61.15, angleDeg: 180, color: '#10b981' },
+          { id: 'f_fk', name: 'fk', label: 'fk = 19.60 N', type: 'friction', origin: 'Contacto', magnitude: 19.6, angleDeg: 180, color: '#f59e0b' },
+        ],
+        equations: [
+          'ΣFy = N - W₂ = 0  ⇒  N = 98 N,  fk = 0.20·N = 19.6 N',
+          'a = (W₃ - W₁ - fk) / (m₁+m₂+m₃) = 0.392 m/s²',
+          'ΣFx = T₂ - T₁ - fk = m₂·a',
+        ],
+      },
+      {
+        label: 'P12: Grúa con Carga 1200 lb y Punto Crítico "C"',
+        exerciseNumber: 12,
+        systemTitle: 'Problema 12: Grúa y Punto C',
+        bodyName: 'Punto Crítico Concurrente C',
+        axisAngleDeg: 0,
+        color: '#0284c7',
+        forces: [
+          { id: 'f_w', name: 'W', label: 'W = 1200 lb', type: 'weight', origin: 'A distancia', magnitude: 1200, angleDeg: 270, color: '#ef4444' },
+          { id: 'f_fa', name: 'FA', label: 'FA (Pluma 5° con vertical)', type: 'applied', origin: 'Contacto', magnitude: 1350, angleDeg: 95, color: '#3b82f6' },
+          { id: 'f_tb', name: 'TB', label: 'TB (Tensor ángulo α)', type: 'tension', origin: 'Contacto', magnitude: 450, angleDeg: 340, color: '#10b981' },
+        ],
+        equations: [
+          'ΣFx = -FA·sin(5°) + TB·cos(α) = 0',
+          'ΣFy = FA·cos(5°) - TB·sin(α) - 1200 lb = 0',
+        ],
+      },
+    ],
+    anchors: [
+      { id: 'center', label: 'Origen (0, 0)', relX: 0.5, relY: 0.5 },
+      { id: 'pos_x', label: 'Eje +X', relX: 1.0, relY: 0.5 },
+      { id: 'neg_x', label: 'Eje -X', relX: 0.0, relY: 0.5 },
+      { id: 'pos_y', label: 'Eje +Y', relX: 0.5, relY: 0.0 },
+      { id: 'neg_y', label: 'Eje -Y', relX: 0.5, relY: 1.0 },
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // TEMA: EQUILIBRIO TRASLACIONAL – PRIMERA LEY DE NEWTON (HT03)
+  // Unidad 3 - Física II Quinto Diversificado - Colegio Kinal
+  // -----------------------------------------------------------------------
+  translational_equilibrium: {
+    type: 'translational_equilibrium',
+    name: 'Equilibrio Traslacional (1ra Ley Newton)',
+    category: 'equilibrio',
+    desc: 'Sistema mecánico en equilibrio estático traslacional (ΣFx = 0, ΣFy = 0) con nudos concurrentes, cables, poleas, pesos y planos inclinados.',
+    defaultWidth: 620,
+    defaultHeight: 400,
+    defaultColor: '#059669',
+    defaultProps: {
+      exerciseNumber: 1,
+      apparatusType: 'cable_knot_wall',
+      systemTitle: 'Problema 1: Objeto de 600 N con Cable a 50°',
+      showOfficialSolution: false, // Limpio por defecto para que el profesor y alumnos dibujen los vectores
+      userVectors: [],
+      mass: 61.22, // 600 N / 9.8 m/s²
+      label: 'Equilibrio: P1 Objeto 600 N (Limpio para Clase)',
+    },
+    presets: [
+      {
+        label: 'P1: Objeto 600 N con Cable a 50° (Limpio para Clase)',
+        exerciseNumber: 1,
+        apparatusType: 'cable_knot_wall',
+        systemTitle: 'Problema 1: Objeto de 600 N con Cable a 50°',
+        width: 620,
+        height: 380,
+        mass: 61.22,
+        color: '#059669',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P1: Objeto 600 N con Cable a 50° (Solución Teórica Oficial)',
+        exerciseNumber: 1,
+        apparatusType: 'cable_knot_wall',
+        systemTitle: 'Problema 1: Objeto de 600 N con Cable a 50° (Solución Oficial)',
+        width: 620,
+        height: 380,
+        mass: 61.22,
+        color: '#059669',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P2: Sistema 2 Poleas y 3 Pesas (Limpio para Clase)',
+        exerciseNumber: 2,
+        apparatusType: 'two_pulleys_three_weights',
+        systemTitle: 'Problema 2: Sistema de Poleas con Pesas FW2 y FW3',
+        width: 640,
+        height: 390,
+        mass: 51.02,
+        color: '#0284c7',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P2: Sistema 2 Poleas y 3 Pesas (Solución Teórica Oficial)',
+        exerciseNumber: 2,
+        apparatusType: 'two_pulleys_three_weights',
+        systemTitle: 'Problema 2: Poleas y Pesas FW2 y FW3 (Solución Oficial)',
+        width: 640,
+        height: 390,
+        mass: 51.02,
+        color: '#0284c7',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P3: Motor 200 kg Suspendido (Limpio para Clase)',
+        exerciseNumber: 3,
+        apparatusType: 'engine_suspended_cables',
+        systemTitle: 'Problema 3: Motor de 200 kg Suspendido por Cables AB y AC',
+        width: 620,
+        height: 380,
+        mass: 200.0,
+        color: '#d97706',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P3: Motor 200 kg Suspendido (Solución Teórica Oficial)',
+        exerciseNumber: 3,
+        apparatusType: 'engine_suspended_cables',
+        systemTitle: 'Problema 3: Motor 200 kg Suspendido (Solución Oficial)',
+        width: 620,
+        height: 380,
+        mass: 200.0,
+        color: '#d97706',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P4: Pesa 200 N Pendiente 3-4-5 (Limpio para Clase)',
+        exerciseNumber: 4,
+        apparatusType: 'triangular_knot_slope',
+        systemTitle: 'Problema 4: Objeto 200 N con Triángulo de Pendiente 3-4-5',
+        width: 620,
+        height: 380,
+        mass: 20.41,
+        color: '#7c3aed',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P4: Pesa 200 N Pendiente 3-4-5 (Solución Teórica Oficial)',
+        exerciseNumber: 4,
+        apparatusType: 'triangular_knot_slope',
+        systemTitle: 'Problema 4: Objeto 200 N (Solución Oficial)',
+        width: 620,
+        height: 380,
+        mass: 20.41,
+        color: '#7c3aed',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P5: Caja 500 lb con 2 Cables (Limpio para Clase)',
+        exerciseNumber: 5,
+        apparatusType: 'crate_two_cables',
+        systemTitle: 'Problema 5: Caja de 500 lb Soportada por Cables AB y AC',
+        width: 620,
+        height: 380,
+        mass: 226.8,
+        color: '#b45309',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P5: Caja 500 lb con 2 Cables (Solución Teórica Oficial)',
+        exerciseNumber: 5,
+        apparatusType: 'crate_two_cables',
+        systemTitle: 'Problema 5: Caja 500 lb (Solución Oficial)',
+        width: 620,
+        height: 380,
+        mass: 226.8,
+        color: '#b45309',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P6: Cilindro con Polea a 30° (Limpio para Clase)',
+        exerciseNumber: 6,
+        apparatusType: 'pulley_cylinder_knot',
+        systemTitle: 'Problema 6: Cilindro C de 40 kg Sosteniendo Cilindro A',
+        width: 640,
+        height: 380,
+        mass: 20.0,
+        color: '#0891b2',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P6: Cilindro con Polea a 30° (Solución Teórica Oficial)',
+        exerciseNumber: 6,
+        apparatusType: 'pulley_cylinder_knot',
+        systemTitle: 'Problema 6: Cilindro C de 40 kg Sosteniendo Cilindro A (Solución Oficial)',
+        width: 640,
+        height: 380,
+        mass: 20.0,
+        color: '#0891b2',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P7: Dos Semáforos entre Postes (Limpio para Clase)',
+        exerciseNumber: 7,
+        apparatusType: 'traffic_lights_span',
+        systemTitle: 'Problema 7: Dos Semáforos Suspendidos entre Postes',
+        width: 660,
+        height: 380,
+        mass: 10.0,
+        color: '#4f46e5',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P7: Dos Semáforos entre Postes (Solución Teórica Oficial)',
+        exerciseNumber: 7,
+        apparatusType: 'traffic_lights_span',
+        systemTitle: 'Problema 7: Dos Semáforos Suspendidos entre Postes (Solución Oficial)',
+        width: 660,
+        height: 380,
+        mass: 10.0,
+        color: '#4f46e5',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P8: Cajas en Planos Inclinados (Limpio para Clase)',
+        exerciseNumber: 8,
+        apparatusType: 'double_inclined_planes',
+        systemTitle: 'Problema 8: Dos Cajas en Planos Inclinados Lisos',
+        width: 660,
+        height: 390,
+        mass: 18.14,
+        color: '#16a34a',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P8: Cajas en Planos Inclinados (Solución Teórica Oficial)',
+        exerciseNumber: 8,
+        apparatusType: 'double_inclined_planes',
+        systemTitle: 'Problema 8: Dos Cajas en Planos Inclinados Lisos (Solución Oficial)',
+        width: 660,
+        height: 390,
+        mass: 18.14,
+        color: '#16a34a',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+    ],
+    anchors: [
+      { id: 'center', label: 'Centro del Aparato', relX: 0.5, relY: 0.5 },
+      { id: 'knot', label: 'Nudo Concurrente', relX: 0.5, relY: 0.45 },
+    ],
+  },
+
+  // -----------------------------------------------------------------------
+  // TEMA: SEGUNDA LEY DE NEWTON SIN FRICCIÓN (HT01)
+  // Unidad 4 - Física II Quinto Diversificado - Colegio Kinal
+  // -----------------------------------------------------------------------
+  newton_frictionless_system: {
+    type: 'newton_frictionless_system',
+    name: 'Segunda Ley de Newton (Sin Fricción)',
+    category: 'segunda_ley_newton',
+    desc: 'Sistema dinámico con aceleración F = m·a, masas conectadas por cuerda sobre mesa sin fricción (HT01 P7, P1, P2, P6, P8, P12a).',
+    defaultWidth: 640,
+    defaultHeight: 380,
+    defaultColor: '#4f46e5',
+    defaultProps: {
+      exerciseNumber: 7,
+      apparatusType: 'two_connected_blocks',
+      systemTitle: 'Problema 7: Dos Bloques de 2 kg y 6 kg con F = 80 N',
+      mass: 8.0,
+      mass1: 2.0,
+      mass2: 6.0,
+      appliedForce: 80.0,
+      frictionCoeff: 0.0,
+      angleDeg: 0.0,
+      showOfficialSolution: false, // Limpio por defecto para que el profesor/alumnos expliquen y añadan vectores
+      userVectors: [],
+      displacementX: 0.0,
+      currentVelocity: 0.0,
+      label: '2ª Ley Newton: P7 Dos Bloques (Limpio para Clase)',
+    },
+    presets: [
+      {
+        label: 'P7: Dos Bloques 2 kg y 6 kg con F = 80 N (Limpio para Clase)',
+        exerciseNumber: 7,
+        apparatusType: 'two_connected_blocks',
+        systemTitle: 'Problema 7: Dos Bloques de 2 kg y 6 kg con F = 80 N',
+        mass: 8.0,
+        mass1: 2.0,
+        mass2: 6.0,
+        appliedForce: 80.0,
+        frictionCoeff: 0.0,
+        angleDeg: 0.0,
+        color: '#4f46e5',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P7: Dos Bloques 2 kg y 6 kg (Solución Teórica: a = 10 m/s², T = 20 N)',
+        exerciseNumber: 7,
+        apparatusType: 'two_connected_blocks',
+        systemTitle: 'Problema 7: Dos Bloques de 2 kg y 6 kg (Solución Oficial)',
+        mass: 8.0,
+        mass1: 2.0,
+        mass2: 6.0,
+        appliedForce: 80.0,
+        frictionCoeff: 0.0,
+        angleDeg: 0.0,
+        color: '#4f46e5',
+        showOfficialSolution: true,
+        userVectors: [],
+      },
+      {
+        label: 'P1: Masa 4 kg con F = 12 N (Limpio para Clase)',
+        exerciseNumber: 1,
+        apparatusType: 'single_block_force',
+        systemTitle: 'Problema 1: Masa de 4 kg bajo Fuerza Resultante',
+        mass: 4.0,
+        mass1: 4.0,
+        mass2: 0.0,
+        appliedForce: 12.0,
+        frictionCoeff: 0.0,
+        color: '#0284c7',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P2: Fuerza 20 N sobre Masa 2 kg (Limpio para Clase)',
+        exerciseNumber: 2,
+        apparatusType: 'single_block_force',
+        systemTitle: 'Problema 2: Fuerza Constante de 20 N',
+        mass: 2.0,
+        mass1: 2.0,
+        mass2: 0.0,
+        appliedForce: 20.0,
+        frictionCoeff: 0.0,
+        color: '#059669',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P6: Cable Elevador con Masa 10 kg (Limpio para Clase)',
+        exerciseNumber: 6,
+        apparatusType: 'vertical_cable_mass',
+        systemTitle: 'Problema 6: Tensión en Cable Vertical de 10 kg',
+        mass: 10.0,
+        mass1: 10.0,
+        mass2: 0.0,
+        appliedForce: 158.0,
+        frictionCoeff: 0.0,
+        color: '#7c3aed',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P8: Máquina de Atwood 7 kg y 9 kg (Limpio para Clase)',
+        exerciseNumber: 8,
+        apparatusType: 'atwood_frictionless',
+        systemTitle: 'Problema 8: Máquina de Atwood sin Fricción (7 kg y 9 kg)',
+        mass: 16.0,
+        mass1: 7.0,
+        mass2: 9.0,
+        frictionCoeff: 0.0,
+        color: '#0891b2',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+      {
+        label: 'P12a: Plano Inclinado 32° Sin Fricción (Limpio para Clase)',
+        exerciseNumber: 12,
+        apparatusType: 'inclined_plane_frictionless',
+        systemTitle: 'Problema 12: Bloque 10 kg en Plano 32° y Masa 2 kg (μ = 0)',
+        mass: 12.0,
+        mass1: 10.0,
+        mass2: 2.0,
+        angleDeg: 32.0,
+        frictionCoeff: 0.0,
+        color: '#ea580c',
+        showOfficialSolution: false,
+        userVectors: [],
+      },
+    ],
+    anchors: [
+      { id: 'center', label: 'Centro del Montaje', relX: 0.5, relY: 0.5 },
+      { id: 'block1', label: 'Bloque Trasero (m₁)', relX: 0.28, relY: 0.5 },
+      { id: 'block2', label: 'Bloque Delantero (m₂)', relX: 0.62, relY: 0.5 },
+      { id: 'rope', label: 'Cuerda de Conexión', relX: 0.45, relY: 0.5 },
+      { id: 'force_hook', label: 'Punto de Tracción F', relX: 0.85, relY: 0.5 },
+    ],
+  },
+
   mass: {
     type: 'mass',
     name: 'Masa / Bloque',
@@ -603,16 +1567,19 @@ export const PHYSICS_OBJECT_DEFINITIONS = {
     defaultHeight: 64,
     defaultColor: '#3b82f6',
     defaultProps: {
-      mass: 100, // kg
+      mass: 10, // kg
       friction: 0.1,
       frictionAir: 0.005,
       restitution: 0.05,
       isStatic: false,
+      userVectors: [],
     },
     presets: [
-      { label: '100 kg (Masa A)', mass: 100, color: '#3b82f6', width: 64, height: 64 },
-      { label: '60 kg (Masa B)', mass: 60, color: '#ec4899', width: 52, height: 52 },
-      { label: '25 kg (Cuerpo C)', mass: 25, color: '#10b981', width: 44, height: 44 },
+      { label: '10 kg (Bloque de Laboratorio)', mass: 10, color: '#3b82f6', width: 64, height: 64 },
+      { label: '5 kg (Bloque Ligero)', mass: 5, color: '#10b981', width: 54, height: 54 },
+      { label: '20 kg (Bloque Pesado)', mass: 20, color: '#8b5cf6', width: 72, height: 72 },
+      { label: '50 kg (Masa Dinámica)', mass: 50, color: '#f59e0b', width: 80, height: 80 },
+      { label: '100 kg (Masa Grande)', mass: 100, color: '#ef4444', width: 88, height: 88 },
     ],
     anchors: [
       { id: 'top', label: 'Enganche Superior', relX: 0.5, relY: 0 },
@@ -681,6 +1648,14 @@ export function createPhysicsElement(physicsType, worldX, worldY, options = {}) 
       isStatic,
       ...options,
       ...options.properties,
+      ...(physicsType === 'mcuv_turntable' || physicsType === 'mcuv_particle'
+        ? {
+            omega: options.omega !== undefined ? options.omega : (options.omega0 !== undefined ? options.omega0 : definition.defaultProps.omega),
+            initialOmega: options.initialOmega !== undefined ? options.initialOmega : (options.omega0 !== undefined ? options.omega0 : definition.defaultProps.initialOmega),
+            alpha: options.alpha !== undefined ? options.alpha : definition.defaultProps.alpha,
+            initialAlpha: options.initialAlpha !== undefined ? options.initialAlpha : (options.alpha !== undefined ? options.alpha : definition.defaultProps.initialAlpha),
+          }
+        : {}),
     },
     anchors: definition.anchors.map((a) => ({ ...a })),
   };
@@ -1140,4 +2115,420 @@ export function createProjectileMotionLabAssembly(cx, cy) {
   });
 
   return [cannon, projectile, targetSensor];
+}
+
+/**
+ * Pre-configured Complete Movimiento Circular Uniforme (HT03 MCU) Laboratory Assembly:
+ * - 1 Central Turntable / Rotor Platform (r = 1.0 m, ω = 3.0 rad/s)
+ * - 1 Orbiting Particle / Test Mass with Tangential & Centripetal Vectors
+ * - 1 Optical Lap / Revolution Counter Photogate Sensor
+ */
+export function createMcuLabAssembly(cx, cy) {
+  const visualRadiusPx = 110;
+  const radiusMeters = 1.0;
+  const omegaRadS = 3.0;
+
+  const turntable = createPhysicsElement('mcu_turntable', cx - visualRadiusPx, cy - visualRadiusPx, {
+    label: 'Plataforma Giratoria MCU (ω = 3.0 rad/s)',
+    width: visualRadiusPx * 2,
+    height: visualRadiusPx * 2,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega: omegaRadS,
+    initialOmega: omegaRadS,
+    direction: 'ccw',
+    color: '#0284c7',
+  });
+
+  const particleSize = 28;
+  const particle = createPhysicsElement('mcu_particle', cx + visualRadiusPx - particleSize / 2, cy - particleSize / 2, {
+    label: 'Masa Orbitante (vt = 3.0 m/s, ac = 9.0 m/s²)',
+    width: particleSize,
+    height: particleSize,
+    centerX: cx,
+    centerY: cy,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega: omegaRadS,
+    initialOmega: omegaRadS,
+    angleRad: 0.0,
+    color: '#3b82f6',
+    showTangentialVector: true,
+    showCentripetalVector: true,
+    showOrbit: true,
+    showRadiusLine: true,
+  });
+
+  const gateW = 46;
+  const gateH = 40;
+  const photogate = createPhysicsElement('mru_photogate', cx + visualRadiusPx - gateW / 2, cy - gateH / 2, {
+    label: 'Sensor de Vueltas (Lap)',
+    gateName: 'Contador Lap',
+  });
+
+  return [turntable, particle, photogate];
+}
+
+/**
+ * Pre-configured Complete Movimiento Circular Uniformemente Acelerado (MCUV / MCUA) Laboratory Assembly:
+ * - 1 Central Rotor Platform (r = 1.0 m, ω₀ = 0.0 rad/s, α = 2.0 rad/s²)
+ * - 1 Orbiting Particle / Test Mass with 4 dynamic vectors (v⃗_t, a⃗_c, a⃗_t, a⃗_total)
+ * - 1 Optical Lap / Revolution Counter Photogate Sensor
+ */
+export function createMcuvLabAssembly(cx, cy) {
+  const visualRadiusPx = 110;
+  const radiusMeters = 1.0;
+  const omega0 = 0.0;
+  const alpha = 2.0;
+
+  const turntable = createPhysicsElement('mcuv_turntable', cx - visualRadiusPx, cy - visualRadiusPx, {
+    label: `Rotor MCUV (α = ${alpha} rad/s²)`,
+    width: visualRadiusPx * 2,
+    height: visualRadiusPx * 2,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega0,
+    omega: omega0,
+    initialOmega: omega0,
+    alpha,
+    initialAlpha: alpha,
+    direction: 'ccw',
+    color: '#0891b2',
+  });
+
+  const particleSize = 28;
+  const particle = createPhysicsElement('mcuv_particle', cx + visualRadiusPx - particleSize / 2, cy - particleSize / 2, {
+    label: `Masa MCUV (α = ${alpha} rad/s²)`,
+    width: particleSize,
+    height: particleSize,
+    centerX: cx,
+    centerY: cy,
+    radiusMeters,
+    radiusPx: visualRadiusPx,
+    omega0,
+    omega: omega0,
+    initialOmega: omega0,
+    alpha,
+    initialAlpha: alpha,
+    angleRad: 0.0,
+    color: '#06b6d4',
+    showTangentialVector: true,
+    showCentripetalVector: true,
+    showTangentialAccelVector: true,
+    showTotalAccelVector: true,
+    showOrbit: true,
+    showRadiusLine: true,
+  });
+
+  const gateW = 46;
+  const gateH = 40;
+  const photogate = createPhysicsElement('mru_photogate', cx + visualRadiusPx - gateW / 2, cy - gateH / 2, {
+    label: 'Sensor de Vueltas (MCUV)',
+    gateName: 'Contador MCUV',
+  });
+
+  return [turntable, particle, photogate];
+}
+
+/**
+ * Pre-configured Complete Poleas MCU Laboratory Assembly:
+ * - 1 Complete Pulley Transmission System (belt configuration: RA = 20cm, RB = 10cm, ωA = 5 rad/s)
+ * - 1 Digital Optical Tachometer / Lap Sensor
+ */
+export function createPoleasMcuLabAssembly(cx, cy) {
+  const sysW = 340;
+  const sysH = 190;
+  const system = createPhysicsElement('mcu_pulley_system', cx - sysW / 2, cy - sysH / 2, {
+    label: 'Banco de Transmisión por Poleas MCU',
+    configuration: 'belt',
+    radiusMeters1: 0.20,
+    radiusMeters2: 0.10,
+    radiusPx1: 65,
+    radiusPx2: 45,
+    distancePx: 200,
+    omega1: 5.0,
+    initialOmega1: 5.0,
+    omega2: 10.0,
+    initialOmega2: 10.0,
+    linearSpeed: 1.0,
+    exerciseNumber: 3,
+    color: '#16a34a',
+  });
+
+  const gateW = 46;
+  const gateH = 40;
+  const photogate = createPhysicsElement('mru_photogate', cx - sysW / 2 + 50, cy - sysH / 2 - 28, {
+    label: 'Tacómetro Digital de Entrada',
+    gateName: 'Tacómetro Poleas MCU',
+  });
+
+  return [system, photogate];
+}
+
+/**
+ * Pre-configured Complete Diagrama de Cuerpo Libre (DCL) Assembly:
+ * - 1 Interactive DCL Vector Diagram with Cartesian axes, forces & equilibrium equations
+ */
+export function createDclLabAssembly(cx, cy, exerciseNumber = 11) {
+  const dclDef = PHYSICS_OBJECT_DEFINITIONS.dcl_diagram;
+  const preset = dclDef.presets.find((p) => p.exerciseNumber === exerciseNumber) || dclDef.presets[0];
+  const diagram = createPhysicsElement('dcl_diagram', cx, cy, {
+    exerciseNumber: preset.exerciseNumber,
+    systemTitle: preset.systemTitle,
+    bodyName: preset.bodyName,
+    apparatusType: preset.apparatusType,
+    width: preset.width || dclDef.defaultWidth,
+    height: preset.height || dclDef.defaultHeight,
+    axisAngleDeg: preset.axisAngleDeg || 0,
+    forces: preset.forces,
+    equations: preset.equations,
+    color: preset.color,
+    userVectors: preset.userVectors ? [...preset.userVectors] : [],
+    showOfficialSolution: !!preset.showOfficialSolution,
+    label: preset.label || `DCL: ${preset.bodyName}`,
+  });
+
+  return [diagram];
+}
+
+/**
+ * Pre-configured Complete Equilibrio Traslacional (HT03) Assembly:
+ * - 1 Interactive Translational Equilibrium Apparatus with cables, pulleys, weights & vectors
+ */
+export function createTranslationalEquilibriumLabAssembly(cx, cy, exerciseNumber = 1, options = {}) {
+  const eqDef = PHYSICS_OBJECT_DEFINITIONS.translational_equilibrium;
+  const isClean = options.cleanPractice !== false;
+  const preset = eqDef.presets.find(
+    (p) => p.exerciseNumber === exerciseNumber && (isClean ? !p.showOfficialSolution : p.showOfficialSolution)
+  ) || eqDef.presets[0];
+
+  const apparatus = createPhysicsElement('translational_equilibrium', cx, cy, {
+    exerciseNumber: preset.exerciseNumber,
+    systemTitle: preset.systemTitle,
+    apparatusType: preset.apparatusType,
+    width: preset.width || eqDef.defaultWidth,
+    height: preset.height || eqDef.defaultHeight,
+    color: preset.color,
+    mass: preset.mass || 61.22,
+    userVectors: preset.userVectors ? [...preset.userVectors] : [],
+    showOfficialSolution: !isClean,
+    label: isClean ? `Aparato Limpio (Práctica): P${preset.exerciseNumber}` : `Equilibrio Resuelto: P${preset.exerciseNumber} (HT03)`,
+  });
+
+  return [apparatus];
+}
+
+/**
+ * Pre-configured Complete Segunda Ley de Newton sin Fricción (HT01 U4) Assembly:
+ * - 1 Interactive Newton Second Law Apparatus with connected masses, smooth table, forces & ropes
+ */
+export function createNewtonSecondLawAssembly(cx, cy, exerciseNumber = 7, options = {}) {
+  const newtonDef = PHYSICS_OBJECT_DEFINITIONS.newton_frictionless_system;
+  const isClean = options.cleanPractice !== false;
+  const preset =
+    newtonDef.presets.find(
+      (p) => p.exerciseNumber === exerciseNumber && (isClean ? !p.showOfficialSolution : p.showOfficialSolution)
+    ) || newtonDef.presets[0];
+
+  const apparatus = createPhysicsElement('newton_frictionless_system', cx, cy, {
+    exerciseNumber: preset.exerciseNumber,
+    systemTitle: preset.systemTitle,
+    apparatusType: preset.apparatusType,
+    width: preset.width || newtonDef.defaultWidth,
+    height: preset.height || newtonDef.defaultHeight,
+    color: preset.color,
+    mass: preset.mass || 8.0,
+    mass1: preset.mass1 !== undefined ? preset.mass1 : 2.0,
+    mass2: preset.mass2 !== undefined ? preset.mass2 : 6.0,
+    appliedForce: preset.appliedForce !== undefined ? preset.appliedForce : 80.0,
+    frictionCoeff: preset.frictionCoeff !== undefined ? preset.frictionCoeff : 0.0,
+    angleDeg: preset.angleDeg || 0.0,
+    userVectors: preset.userVectors ? [...preset.userVectors] : [],
+    showOfficialSolution: !isClean,
+    label: isClean
+      ? `2ª Ley de Newton: P${preset.exerciseNumber} (Limpio para Clase)`
+      : `2ª Ley Resuelta: P${preset.exerciseNumber} (HT01)`,
+  });
+
+  return [apparatus];
+}
+
+
+
+// ---------------------------------------------------------------------------
+// SEGUNDA LEY DE NEWTON: helpers compartidos (render + anclas + simulación)
+// ---------------------------------------------------------------------------
+
+/** Normaliza alias de tipo de aparato (p.ej. 'inclined_plane_masses' del solver). */
+export function normalizeNewtonApparatusType(type) {
+  if (type === 'inclined_plane_masses' || type === 'inclined_plane') return 'inclined_plane_frictionless';
+  if (type === 'atwood' || type === 'atwood_machine') return 'atwood_frictionless';
+  const known = ['two_connected_blocks', 'single_block_force', 'vertical_cable_mass', 'atwood_frictionless', 'inclined_plane_frictionless'];
+  return known.includes(type) ? type : 'two_connected_blocks';
+}
+
+/**
+ * Dinámica teórica (μ = 0) calculada a partir de las propiedades reales del aparato.
+ * Convención de signo de `a`:
+ *  - Mesa / bloque simple: + hacia la derecha.
+ *  - Cable vertical: + hacia arriba.
+ *  - Atwood / plano inclinado: + cuando m₂ desciende.
+ */
+export function computeNewtonDynamics(props = {}, overrideForce) {
+  const g = 9.8;
+  const type = normalizeNewtonApparatusType(props.apparatusType);
+  const defM1 = type === 'atwood_frictionless' ? 7 : (type === 'inclined_plane_frictionless' || type === 'vertical_cable_mass') ? 10 : type === 'single_block_force' ? 4 : 2;
+  const defM2 = type === 'atwood_frictionless' ? 9 : type === 'inclined_plane_frictionless' ? 2 : 6;
+  const m1 = Math.max(0.01, Number(props.mass1) || defM1);
+  const m2 = Math.max(0.01, Number(props.mass2) || defM2);
+  const rawF = overrideForce !== undefined ? overrideForce : Number(props.appliedForce);
+  const F = Number.isFinite(rawF) ? rawF : 0;
+  const thetaDeg = Number(props.angleDeg) > 0 ? Number(props.angleDeg) : 32;
+  const th = (thetaDeg * Math.PI) / 180;
+
+  const r = { type, g, m1, m2, F, thetaDeg, a: 0, T: 0, W1: m1 * g, W2: m2 * g, N1: m1 * g, N2: m2 * g, W1par: 0, formula: 'a = ΣF / m' };
+
+  if (type === 'two_connected_blocks') {
+    r.a = F / (m1 + m2);
+    r.T = m1 * r.a;
+    r.formula = 'a = F / (m₁ + m₂)';
+  } else if (type === 'single_block_force') {
+    r.a = F / m1;
+    r.formula = 'a = F / m';
+  } else if (type === 'vertical_cable_mass') {
+    r.T = F;
+    r.a = (F - m1 * g) / m1;
+    r.formula = 'a = (T − W) / m';
+  } else if (type === 'atwood_frictionless') {
+    r.a = ((m2 - m1) * g) / (m1 + m2);
+    r.T = (2 * m1 * m2 * g) / (m1 + m2);
+    r.formula = 'a = (m₂ − m₁)·g / (m₁ + m₂)';
+  } else if (type === 'inclined_plane_frictionless') {
+    r.W1par = m1 * g * Math.sin(th);
+    r.N1 = m1 * g * Math.cos(th);
+    r.a = (m2 * g - r.W1par) / (m1 + m2);
+    r.T = m2 * (g - r.a);
+    r.formula = 'a = (m₂·g − m₁·g·senθ) / (m₁ + m₂)';
+  }
+  return r;
+}
+
+/**
+ * Geometría exacta del aparato (píxeles de mundo) para un desplazamiento dado.
+ * Devuelve posiciones de cuerpos y los límites de recorrido [minDisp, maxDisp]
+ * para que nada se salga de la mesa / tarjeta.
+ */
+export function getNewtonApparatusLayout(el, dispOverride) {
+  const { x, y, width, height } = el;
+  const props = el.properties || {};
+  const type = normalizeNewtonApparatusType(props.apparatusType);
+  const rawDisp = dispOverride !== undefined ? dispOverride : Number(props.displacementX) || 0;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const L = { type };
+
+  if (type === 'two_connected_blocks') {
+    const tableX = x + 24;
+    const tableW = width - 48;
+    const tableY = y + height * 0.70;
+    const b1W = 72, b1H = 50, b2W = 88, b2H = 56, cord = 95, arrowLen = 70;
+    const b1X0 = tableX + 36;
+    const b2X0 = b1X0 + b1W + cord;
+    const maxDisp = Math.max(0, x + width - 22 - (b2X0 + b2W + arrowLen));
+    const minDisp = -Math.max(0, b1X0 - tableX - 4);
+    const d = clamp(rawDisp, minDisp, maxDisp);
+    Object.assign(L, {
+      tableX, tableW, tableY, b1W, b1H, b2W, b2H, arrowLen, b1X0, b2X0,
+      b1X: b1X0 + d, b1Y: tableY - b1H, b2X: b2X0 + d, b2Y: tableY - b2H,
+      minDisp, maxDisp, disp: d,
+      bodies: {
+        block1: { x: b1X0 + d + b1W / 2, y: tableY - b1H / 2 },
+        block2: { x: b2X0 + d + b2W / 2, y: tableY - b2H / 2 },
+      },
+    });
+  } else if (type === 'single_block_force') {
+    const tableX = x + 30;
+    const tableW = width - 60;
+    const tableY = y + height * 0.70;
+    const bW = 86, bH = 56, arrowLen = 70;
+    const bX0 = tableX + 60;
+    const maxDisp = Math.max(0, x + width - 22 - (bX0 + bW + arrowLen));
+    const minDisp = -Math.max(0, bX0 - tableX - 4);
+    const d = clamp(rawDisp, minDisp, maxDisp);
+    Object.assign(L, {
+      tableX, tableW, tableY, bW, bH, arrowLen, bX0, bX: bX0 + d, bY: tableY - bH,
+      minDisp, maxDisp, disp: d,
+      bodies: { block: { x: bX0 + d + bW / 2, y: tableY - bH / 2 } },
+    });
+  } else if (type === 'vertical_cable_mass') {
+    const beamY = y + 62;
+    const cx = x + width / 2;
+    const mW = 76, mH = 56;
+    const mY0 = y + height * 0.48;
+    const maxDisp = Math.max(0, mY0 - (beamY + 30));
+    const minDisp = -Math.max(0, y + height - 44 - mH - mY0);
+    const d = clamp(rawDisp, minDisp, maxDisp);
+    const mY = mY0 - d;
+    Object.assign(L, {
+      beamY, cx, mW, mH, mY0, mY, minDisp, maxDisp, disp: d,
+      bodies: { mass: { x: cx, y: mY + mH / 2 } },
+    });
+  } else if (type === 'atwood_frictionless') {
+    const pX = x + width / 2;
+    const pY = y + 78;
+    const r = 26;
+    const m1W = 56, m1H = 48, m2W = 60, m2H = 54;
+    const mY0 = pY + 120;
+    const upRoom = mY0 - (pY + r + 12);
+    const downRoom = y + height - 44 - Math.max(m1H, m2H) - mY0;
+    const lim = Math.max(0, Math.min(upRoom, downRoom));
+    const d = clamp(rawDisp, -lim, lim);
+    const m1Y = mY0 - d;
+    const m2Y = mY0 + d;
+    Object.assign(L, {
+      pX, pY, r, m1W, m1H, m2W, m2H, m1Y, m2Y, minDisp: -lim, maxDisp: lim, disp: d,
+      bodies: {
+        mass1: { x: pX - r, y: m1Y + m1H / 2 },
+        mass2: { x: pX + r, y: m2Y + m2H / 2 },
+      },
+    });
+  } else {
+    // inclined_plane_frictionless
+    const thetaDeg = Number(props.angleDeg) > 0 ? Number(props.angleDeg) : 32;
+    const th = (thetaDeg * Math.PI) / 180;
+    const groundY = y + height - 46;
+    const baseX = x + 40;
+    const maxH = height - 46 - 84;
+    const run = Math.min(width * 0.58, maxH / Math.tan(th));
+    const rise = run * Math.tan(th);
+    const apexX = baseX + run;
+    const apexY = groundY - rise;
+    const slopeLen = Math.hypot(run, rise);
+    const ux = -Math.cos(th), uy = Math.sin(th); // hacia abajo por la rampa
+    const nx = -Math.sin(th), ny = -Math.cos(th); // normal saliente de la superficie
+    const bL = 60, bH = 36, pr = 16;
+    const Px = apexX + (bH / 2 - pr) * nx;
+    const Py = apexY + (bH / 2 - pr) * ny;
+    const hW = 28, hH = 38;
+    const hangX = Px + pr;
+    const hY0 = Py + Math.min(130, (groundY - Py) * 0.55);
+    const d0 = slopeLen * 0.55;
+
+    // + desplazamiento = m₂ baja y el bloque sube hacia la polea
+    const maxDisp = Math.max(0, Math.min(groundY - 2 - hH - hY0, d0 - (bL / 2 + pr * 2 + 6)));
+    const minDisp = -Math.max(0, Math.min(hY0 - (Py + pr + 10), slopeLen - bL / 2 - 4 - d0));
+    const d = clamp(rawDisp, minDisp, maxDisp);
+    const dist = d0 - d;
+    const cX = apexX + dist * ux + (bH / 2) * nx;
+    const cY = apexY + dist * uy + (bH / 2) * ny;
+    const hY = hY0 + d;
+    Object.assign(L, {
+      thetaDeg, th, groundY, baseX, apexX, apexY, ux, uy, nx, ny, bL, bH, pr, Px, Py,
+      hW, hH, hangX, hY, blockCX: cX, blockCY: cY, minDisp, maxDisp, disp: d,
+      bodies: {
+        block_plane: { x: cX, y: cY },
+        hanging_mass: { x: hangX, y: hY + hH / 2 },
+      },
+    });
+  }
+  return L;
 }
