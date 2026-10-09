@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import ContextualToolbar from './ContextualToolbar';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Wand2, Trash2 } from 'lucide-react';
 import {
   distToSegment,
   getElementBounds,
@@ -17,6 +17,7 @@ import {
   drawStroke,
   drawLasso,
   drawShape,
+  drawCircularArrowHandle,
   drawText,
   drawPhysicsObject,
   drawPhysicsConnection,
@@ -39,6 +40,7 @@ import {
 } from '../../physics/physicsSimulation';
 import PhysicsSimulationBar from './PhysicsSimulationBar';
 import PhysicsObjectInspector from '../modals/PhysicsObjectInspector';
+import MruVariablesModal from '../modals/MruVariablesModal';
 import DclVectorOverlayHUD from './DclVectorOverlayHUD';
 import { buildCustomExampleBoardElements } from '../../services/customExampleBuilder';
 
@@ -82,6 +84,11 @@ export default function CanvasBoard({
   stickyColor,
   penColor,
   penWidth,
+  eraserSize = 24,
+  setEraserSize,
+  eraserShape = 'circle',
+  setEraserShape,
+  boardTemplate = 'cartesian',
   transform,
   setTransform,
   viewportSize,
@@ -89,8 +96,10 @@ export default function CanvasBoard({
   pushHistory,
   canvasRef,
   onNotify,
+  onInsertFormulaCard,
 }) {
   const containerRef = useRef(null);
+  const elementsCanvasRef = useRef(null);
 
   // Interaction States
   const [isDrawing, setIsDrawing] = useState(false);
@@ -112,6 +121,10 @@ export default function CanvasBoard({
   const [selectedIds, setSelectedIds] = useState([]);
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
   const [lastDragPos, setLastDragPos] = useState(null);
+  const [isRotating, setIsRotating] = useState(false);
+  const [rotationAngleDeg, setRotationAngleDeg] = useState(null);
+  const [isHoveringRotateHandle, setIsHoveringRotateHandle] = useState(false);
+  const rotatingStateRef = useRef(null);
 
   // Physical Connection (Rope / Wire) Drafting States
   const [hoveredAnchor, setHoveredAnchor] = useState(null);
@@ -138,10 +151,22 @@ export default function CanvasBoard({
   // Physics Object Inspector Modal state
   const [inspectorElement, setInspectorElement] = useState(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
+  const [mruModalElement, setMruModalElement] = useState(null);
+  const [isMruModalOpen, setIsMruModalOpen] = useState(false);
 
   const handleOpenPhysicsInspector = useCallback((targetEl) => {
     const el = targetEl || (selectedIds.length > 0 ? elementsRef.current.find((e) => e.id === selectedIds[0]) : null);
-    if (el && el.type === 'physics_object') {
+    if (!el || el.type !== 'physics_object') return;
+
+    if (
+      el.physicsType === 'mru_cart' ||
+      el.physicsType === 'mru_track' ||
+      el.physicsType === 'mru_photogate' ||
+      el.physicsType === 'mruv_cart'
+    ) {
+      setMruModalElement(el);
+      setIsMruModalOpen(true);
+    } else {
       setInspectorElement(el);
       setIsInspectorOpen(true);
     }
@@ -853,6 +878,109 @@ export default function CanvasBoard({
     });
   }, [elements]);
 
+  // Helper to calculate rotation handle coordinates & bounding center for active selection
+  const getSelectionRotateHandle = useCallback(() => {
+    if (selectedIds.length === 0) return null;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    elements.forEach((el) => {
+      if (selectedIds.includes(el.id)) {
+        const b = getElementBounds(el);
+        if (b) {
+          if (b.minX < minX) minX = b.minX;
+          if (b.maxX > maxX) maxX = b.maxX;
+          if (b.minY < minY) minY = b.minY;
+          if (b.maxY > maxY) maxY = b.maxY;
+        }
+      }
+    });
+    if (minX === Infinity) return null;
+    const midX = (minX + maxX) / 2;
+    const midY = (minY + maxY) / 2;
+    const handleY = maxY + 22;
+    return {
+      handleX: midX,
+      handleY,
+      centerX: midX,
+      centerY: midY,
+      minX,
+      maxX,
+      minY,
+      maxY,
+    };
+  }, [selectedIds, elements]);
+
+  // Rotate selected elements by angleDeg degrees (default 45)
+  const handleRotateSelected = useCallback(
+    (angleDeg = 45) => {
+      if (selectedIds.length === 0) return;
+      pushHistory();
+      const rad = (angleDeg * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      elements.forEach((el) => {
+        if (selectedIds.includes(el.id)) {
+          const b = getElementBounds(el);
+          if (b) {
+            if (b.minX < minX) minX = b.minX;
+            if (b.maxX > maxX) maxX = b.maxX;
+            if (b.minY < minY) minY = b.minY;
+            if (b.maxY > maxY) maxY = b.maxY;
+          }
+        }
+      });
+      if (minX === Infinity) return;
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (!selectedIds.includes(el.id)) return el;
+          if (el.startX !== undefined && el.endX !== undefined) {
+            const sx = el.startX - cx;
+            const sy = el.startY - cy;
+            const ex = el.endX - cx;
+            const ey = el.endY - cy;
+            return {
+              ...el,
+              startX: cx + (sx * cos - sy * sin),
+              startY: cy + (sx * sin + sy * cos),
+              endX: cx + (ex * cos - ey * sin),
+              endY: cy + (ex * sin + ey * cos),
+            };
+          } else if (el.points) {
+            return {
+              ...el,
+              points: el.points.map((p) => {
+                const px = p.x - cx;
+                const py = p.y - cy;
+                return {
+                  x: cx + (px * cos - py * sin),
+                  y: cy + (px * sin + py * cos),
+                };
+              }),
+            };
+          } else if (el.x !== undefined && el.width !== undefined) {
+            const elCx = el.x + el.width / 2;
+            const elCy = el.y + el.height / 2;
+            const rx = elCx - cx;
+            const ry = elCy - cy;
+            const nCx = cx + (rx * cos - ry * sin);
+            const nCy = cy + (rx * sin + ry * cos);
+            return {
+              ...el,
+              x: nCx - el.width / 2,
+              y: nCy - el.height / 2,
+            };
+          }
+          return el;
+        })
+      );
+    },
+    [selectedIds, elements, pushHistory]
+  );
+
   // Inline text editing state
   const [editingText, setEditingText] = useState(null);
   const inlineInputRef = useRef(null);
@@ -1052,6 +1180,15 @@ export default function CanvasBoard({
         else if (k === 'e') setActiveTool('stroke_eraser');
         else if (k === 't') setActiveTool('text');
         else if (k === 'n') setActiveTool('sticky');
+
+        // Photoshop shortcut brackets [ and ] to resize pencil eraser
+        if (activeTool === 'pencil_eraser') {
+          if (e.key === '[' && setEraserSize) {
+            setEraserSize((prev) => Math.max(8, prev - 4));
+          } else if (e.key === ']' && setEraserSize) {
+            setEraserSize((prev) => Math.min(100, prev + 4));
+          }
+        }
       }
     };
     const handleKeyUp = (e) => {
@@ -1087,40 +1224,34 @@ export default function CanvasBoard({
       canvas.style.height = `${h}px`;
     }
 
-    // 1. Clear Canvas with Transparent pixels
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Prepare offscreen canvas for elements layer
+    // This completely isolates 'destination-out' erasing to drawn strokes,
+    // ensuring the background engineering grid and Cartesian plane are NEVER erased.
+    if (!elementsCanvasRef.current) {
+      elementsCanvasRef.current = document.createElement('canvas');
+    }
+    const offCanvas = elementsCanvasRef.current;
+    if (offCanvas.width !== targetW || offCanvas.height !== targetH) {
+      offCanvas.width = targetW;
+      offCanvas.height = targetH;
+    }
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.clearRect(0, 0, targetW, targetH);
 
-    // 2. Setup HiDPI scaling for CSS pixel coordinate space
-    ctx.save();
-    ctx.scale(dpr, dpr);
+    // 1. Draw Elements & active drawing draft onto offscreen canvas
+    offCtx.save();
+    offCtx.scale(dpr, dpr);
+    offCtx.save();
+    offCtx.translate(transform.x, transform.y);
+    offCtx.scale(transform.scale, transform.scale);
 
-    // 3. Draw Engineering Graph Paper Grid as canvas background (in CSS coordinates)
-    drawMiroSquareGrid(ctx, w, h, transform);
-
-    // 4. Save for world transform
-    ctx.save();
-    ctx.translate(transform.x, transform.y);
-    ctx.scale(transform.scale, transform.scale);
-
-    // 2. Draw Elements in order
     elements.forEach((el) => {
       const isSelected = selectedIds.includes(el.id);
-      ctx.save();
+      offCtx.save();
       if (el.type === 'eraser_brush') {
-        drawEraserBrush(ctx, el);
+        drawEraserBrush(offCtx, el);
       } else if (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen') {
-        drawStroke(ctx, el);
-        if (isSelected) {
-          const b = getElementBounds(el);
-          if (b) {
-            ctx.save();
-            ctx.strokeStyle = '#4262ff';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.strokeRect(b.minX - 4, b.minY - 4, b.maxX - b.minX + 8, b.maxY - b.minY + 8);
-            ctx.restore();
-          }
-        }
+        drawStroke(offCtx, el);
       } else if (
         el.type === 'rectangle' ||
         el.type === 'circle' ||
@@ -1132,18 +1263,70 @@ export default function CanvasBoard({
         el.type === 'block_arrow' ||
         el.type === 'divider'
       ) {
-        drawShape(ctx, el, isSelected);
+        drawShape(offCtx, el, isSelected);
       } else if (el.type === 'text') {
-        drawText(ctx, el, isSelected, editingText && editingText.id === el.id);
+        drawText(offCtx, el, isSelected, editingText && editingText.id === el.id);
       } else if (el.type === 'physics_object') {
-        drawPhysicsObject(ctx, el, isSelected);
+        drawPhysicsObject(offCtx, el, isSelected);
       } else if (el.type === 'physics_connection') {
-        drawPhysicsConnection(ctx, el, elements, isSelected);
+        drawPhysicsConnection(offCtx, el, elements, isSelected);
       }
-      ctx.restore();
+      offCtx.restore();
     });
 
-    // 3. Multi-Selection Collective Bounding Box
+    // Draw active drawing draft onto offscreen canvas (pen, highlighter, smart_pen, eraser_brush, shapes)
+    if (currentDraft) {
+      if (currentDraft.type === 'eraser_brush') {
+        drawEraserBrush(offCtx, currentDraft);
+      } else if (
+        currentDraft.type === 'pen' ||
+        currentDraft.type === 'highlighter' ||
+        currentDraft.type === 'smart_pen'
+      ) {
+        drawStroke(offCtx, currentDraft);
+      } else if (currentDraft.type !== 'lasso') {
+        drawShape(offCtx, currentDraft, false);
+      }
+    }
+
+    offCtx.restore();
+    offCtx.restore();
+
+    // 2. Render Main Canvas
+    // Clear Main Canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Setup HiDPI scaling for CSS pixel coordinate space
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Draw Engineering Graph Paper Grid & Cartesian Coordinate Plane (Pristine background!)
+    drawMiroSquareGrid(ctx, w, h, transform, boardTemplate);
+
+    // Composite elements layer on top of Grid (transparent where erased, leaving grid intact)
+    ctx.drawImage(offCanvas, 0, 0, w, h);
+
+    // 3. Save for world transform (UI overlays: selection bounds, bounding boxes, lasso, marquee, cursor rings)
+    ctx.save();
+    ctx.translate(transform.x, transform.y);
+    ctx.scale(transform.scale, transform.scale);
+
+    // Selection dashed bounds for selected pen/strokes
+    elements.forEach((el) => {
+      if (selectedIds.includes(el.id) && (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen')) {
+        const b = getElementBounds(el);
+        if (b) {
+          ctx.save();
+          ctx.strokeStyle = '#4262ff';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(b.minX - 4, b.minY - 4, b.maxX - b.minX + 8, b.maxY - b.minY + 8);
+          ctx.restore();
+        }
+      }
+    });
+
+    // Multi-Selection Collective Bounding Box
     if (selectedIds.length > 1) {
       let groupMinX = Infinity, groupMaxX = -Infinity, groupMinY = Infinity, groupMaxY = -Infinity;
       elements.forEach((el) => {
@@ -1179,25 +1362,47 @@ export default function CanvasBoard({
           ctx.fill();
           ctx.stroke();
         });
+        const midX = (groupMinX + groupMaxX) / 2;
+        const handleY = groupMaxY + 22;
+        ctx.beginPath();
+        ctx.moveTo(midX, groupMaxY + 6);
+        ctx.lineTo(midX, handleY);
+        ctx.strokeStyle = '#4262ff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        drawCircularArrowHandle(ctx, midX, handleY);
         ctx.restore();
       }
     }
 
-    // 4. Draw Draft Preview (Pen, Lasso, Eraser, Shapes)
-    if (currentDraft) {
-      if (currentDraft.type === 'eraser_brush') {
-        drawEraserBrush(ctx, currentDraft);
-      } else if (
-        currentDraft.type === 'pen' ||
-        currentDraft.type === 'highlighter' ||
-        currentDraft.type === 'smart_pen'
-      ) {
-        drawStroke(ctx, currentDraft);
-      } else if (currentDraft.type === 'lasso') {
-        drawLasso(ctx, currentDraft);
-      } else {
-        drawShape(ctx, currentDraft, false);
+    // Live Rotation Angle Badge Indicator while rotating
+    if (isRotating && rotationAngleDeg !== null) {
+      const handleInfo = getSelectionRotateHandle();
+      if (handleInfo) {
+        ctx.save();
+        const degText = `${rotationAngleDeg > 0 ? '+' : ''}${rotationAngleDeg}°`;
+        ctx.font = 'bold 12px Inter, sans-serif';
+        const tw = ctx.measureText(degText).width;
+        const badgeX = handleInfo.handleX;
+        const badgeY = handleInfo.handleY + 18;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX - tw / 2 - 8, badgeY - 10, tw + 16, 20, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(degText, badgeX, badgeY);
+        ctx.restore();
       }
+    }
+
+    // Lasso selection draft preview
+    if (currentDraft && currentDraft.type === 'lasso') {
+      drawLasso(ctx, currentDraft);
     }
 
     // 5. Draw Marquee Selection Box
@@ -1226,7 +1431,7 @@ export default function CanvasBoard({
       ctx.fillStyle = 'rgba(66, 98, 255, 0.12)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(cursorWorldPos.x, cursorWorldPos.y, 12, 0, Math.PI * 2);
+      ctx.arc(cursorWorldPos.x, cursorWorldPos.y, (eraserSize || 24) / 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -1307,7 +1512,7 @@ export default function CanvasBoard({
 
     ctx.restore(); // Restore world transform
     ctx.restore(); // Restore HiDPI scale
-  }, [elements, currentDraft, selectionMarquee, transform, selectedIds, canvasRef, activeTool, cursorWorldPos, editingText, connectionDraft, hoveredAnchor]);
+  }, [elements, currentDraft, selectionMarquee, transform, selectedIds, canvasRef, activeTool, cursorWorldPos, editingText, connectionDraft, hoveredAnchor, eraserSize, eraserShape]);
 
   // Native non-passive Wheel listener attached to whiteboard container
   // Prevents native browser page zoom completely, and enables smooth vector infinite canvas zooming & panning
@@ -1405,7 +1610,7 @@ export default function CanvasBoard({
         if (wx >= el.x - 8 && wx <= el.x + w + 8 && wy >= el.y - 8 && wy <= el.y + h + 8) {
           return el;
         }
-      } else if (el.points && (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen')) {
+      } else if (el.points && (el.type === 'pen' || el.type === 'chalk' || el.type === 'highlighter' || el.type === 'smart_pen')) {
         for (let j = 0; j < el.points.length - 1; j++) {
           if (distToSegment(wx, wy, el.points[j].x, el.points[j].y, el.points[j + 1].x, el.points[j + 1].y) < 16) {
             return el;
@@ -1455,7 +1660,7 @@ export default function CanvasBoard({
   const eraseStrokesAt = (wx, wy) => {
     let hitFound = false;
     const remaining = elements.filter((el) => {
-      if (el.points && (el.type === 'pen' || el.type === 'highlighter' || el.type === 'smart_pen')) {
+      if (el.points && (el.type === 'pen' || el.type === 'chalk' || el.type === 'highlighter' || el.type === 'smart_pen')) {
         for (let i = 0; i < el.points.length - 1; i++) {
           if (distToSegment(wx, wy, el.points[i].x, el.points[i].y, el.points[i + 1].x, el.points[i + 1].y) < 16) {
             hitFound = true;
@@ -1817,7 +2022,7 @@ export default function CanvasBoard({
       setCurrentDraft({
         id: `eraser-${Date.now()}`,
         type: 'eraser_brush',
-        size: 24,
+        size: eraserSize || 24,
         points: [{ x: world.x, y: world.y }],
       });
       return;
@@ -1851,6 +2056,44 @@ export default function CanvasBoard({
 
     // 4. LASSO SELECTION
     if (activeTool === 'lasso') {
+      // Check if clicking near the circular rotation arrow handle of selected elements
+      if (selectedIds.length > 0) {
+        const handleInfo = getSelectionRotateHandle();
+        if (handleInfo) {
+          const distToRotate = Math.hypot(world.x - handleInfo.handleX, world.y - handleInfo.handleY);
+          if (distToRotate <= 16) {
+            pushHistory();
+            dragStartSnapshotRef.current = elements;
+            const center = { x: handleInfo.centerX, y: handleInfo.centerY };
+            const startAngle = Math.atan2(world.y - center.y, world.x - center.x);
+            rotatingStateRef.current = {
+              center,
+              startAngle,
+              snapshot: elements,
+            };
+            setIsRotating(true);
+            setRotationAngleDeg(0);
+            try {
+              e.currentTarget?.setPointerCapture?.(e.pointerId);
+            } catch {}
+            return;
+          }
+        }
+      }
+
+      // If clicking directly on an already-selected element, allow moving it smoothly
+      if (selectedIds.length > 0) {
+        const hit = findElementAt(world.x, world.y);
+        if (hit && selectedIds.includes(hit.id)) {
+          dragStartSnapshotRef.current = elements;
+          setIsDraggingSelection(true);
+          setLastDragPos({ x: world.x, y: world.y });
+          try {
+            e.currentTarget?.setPointerCapture?.(e.pointerId);
+          } catch {}
+          return;
+        }
+      }
       setIsDrawing(true);
       setCurrentDraft({
         id: 'lasso-draft',
@@ -1912,6 +2155,31 @@ export default function CanvasBoard({
 
     // 7. SELECT TOOL
     if (activeTool === 'select') {
+      // Check if clicking near the circular rotation arrow handle of selected elements
+      if (selectedIds.length > 0) {
+        const handleInfo = getSelectionRotateHandle();
+        if (handleInfo) {
+          const distToRotate = Math.hypot(world.x - handleInfo.handleX, world.y - handleInfo.handleY);
+          if (distToRotate <= 16) {
+            pushHistory();
+            dragStartSnapshotRef.current = elements;
+            const center = { x: handleInfo.centerX, y: handleInfo.centerY };
+            const startAngle = Math.atan2(world.y - center.y, world.x - center.x);
+            rotatingStateRef.current = {
+              center,
+              startAngle,
+              snapshot: elements,
+            };
+            setIsRotating(true);
+            setRotationAngleDeg(0);
+            try {
+              e.currentTarget?.setPointerCapture?.(e.pointerId);
+            } catch {}
+            return;
+          }
+        }
+      }
+
       // Check if clicking near any DCL vector tip of a selected DCL element
       const selectedDcl = elements.find(
         (el) =>
@@ -1971,14 +2239,14 @@ export default function CanvasBoard({
       return;
     }
 
-    // 8. TOOL 1 (PEN), TOOL 2 (HIGHLIGHTER), TOOL 3 (SMART PEN)
-    if (activeTool === 'pen' || activeTool === 'highlighter' || activeTool === 'smart_pen') {
+    // 8. TOOL 1 (PEN), TOOL 2 (HIGHLIGHTER), TOOL 3 (SMART PEN), CHALK
+    if (activeTool === 'pen' || activeTool === 'highlighter' || activeTool === 'smart_pen' || activeTool === 'chalk') {
       setIsDrawing(true);
       setCurrentDraft({
         id: `stroke-${Date.now()}`,
         type: activeTool,
-        color: penColor,
-        size: penWidth,
+        color: activeTool === 'chalk' && (penColor === '#050038' || !penColor) ? '#ffffff' : penColor,
+        size: activeTool === 'chalk' ? Math.max(3, penWidth) : penWidth,
         points: [{ x: world.x, y: world.y }],
       });
       return;
@@ -1997,7 +2265,21 @@ export default function CanvasBoard({
         endY: world.y,
         color: penColor,
         size: 2,
-        fill: ['rectangle', 'circle', 'triangle', 'diamond', 'block_arrow'].includes(shapeType)
+        fill: [
+          'rectangle',
+          'circle',
+          'triangle',
+          'diamond',
+          'block_arrow',
+          'capsule',
+          'parallelogram',
+          'cylinder',
+          'document',
+          'star',
+          'cloud',
+          'hexagon',
+          'pentagon',
+        ].includes(shapeType)
           ? 'solid'
           : 'none',
       });
@@ -2118,6 +2400,69 @@ export default function CanvasBoard({
       setHoveredAnchor(null);
     }
 
+    // Rotating Selected Elements
+    if (isRotating && rotatingStateRef.current) {
+      const { center, startAngle, snapshot } = rotatingStateRef.current;
+      const currentAngle = Math.atan2(world.y - center.y, world.x - center.x);
+      let deltaAngle = currentAngle - startAngle;
+
+      if (e.shiftKey) {
+        const step = (15 * Math.PI) / 180;
+        deltaAngle = Math.round(deltaAngle / step) * step;
+      }
+
+      const deg = Math.round((deltaAngle * 180) / Math.PI);
+      setRotationAngleDeg(deg);
+
+      const cos = Math.cos(deltaAngle);
+      const sin = Math.sin(deltaAngle);
+
+      setElements(
+        snapshot.map((el) => {
+          if (!selectedIds.includes(el.id)) return el;
+          if (el.startX !== undefined && el.endX !== undefined) {
+            const sx = el.startX - center.x;
+            const sy = el.startY - center.y;
+            const ex = el.endX - center.x;
+            const ey = el.endY - center.y;
+            return {
+              ...el,
+              startX: center.x + (sx * cos - sy * sin),
+              startY: center.y + (sx * sin + sy * cos),
+              endX: center.x + (ex * cos - ey * sin),
+              endY: center.y + (ex * sin + ey * cos),
+            };
+          } else if (el.points) {
+            return {
+              ...el,
+              points: el.points.map((p) => {
+                const px = p.x - center.x;
+                const py = p.y - center.y;
+                return {
+                  x: center.x + (px * cos - py * sin),
+                  y: center.y + (px * sin + py * cos),
+                };
+              }),
+            };
+          } else if (el.x !== undefined && el.width !== undefined) {
+            const elCx = el.x + el.width / 2;
+            const elCy = el.y + el.height / 2;
+            const rx = elCx - center.x;
+            const ry = elCy - center.y;
+            const nCx = center.x + (rx * cos - ry * sin);
+            const nCy = center.y + (rx * sin + ry * cos);
+            return {
+              ...el,
+              x: nCx - el.width / 2,
+              y: nCy - el.height / 2,
+            };
+          }
+          return el;
+        })
+      );
+      return;
+    }
+
     // Dragging ALL Selected Elements together
     if (isDraggingSelection && lastDragPos) {
       const dx = world.x - lastDragPos.x;
@@ -2173,6 +2518,19 @@ export default function CanvasBoard({
       return;
     }
 
+    // Check Hover over Circular Arrow Rotation Handle
+    if ((activeTool === 'select' || activeTool === 'lasso') && selectedIds.length > 0 && !isDraggingSelection && !isRotating) {
+      const handleInfo = getSelectionRotateHandle();
+      if (handleInfo) {
+        const isHover = Math.hypot(world.x - handleInfo.handleX, world.y - handleInfo.handleY) <= 16;
+        setIsHoveringRotateHandle(isHover);
+      } else {
+        setIsHoveringRotateHandle(false);
+      }
+    } else if (isHoveringRotateHandle && !isRotating) {
+      setIsHoveringRotateHandle(false);
+    }
+
     if (!isDrawing) return;
 
     // Tool 5: Pencil eraser dragging
@@ -2214,6 +2572,7 @@ export default function CanvasBoard({
     if (
       currentDraft &&
       (currentDraft.type === 'pen' ||
+        currentDraft.type === 'chalk' ||
         currentDraft.type === 'highlighter' ||
         currentDraft.type === 'smart_pen')
     ) {
@@ -2275,6 +2634,23 @@ export default function CanvasBoard({
       return;
     }
 
+    if (isRotating) {
+      if (dragStartSnapshotRef.current) {
+        const didMove = JSON.stringify(dragStartSnapshotRef.current) !== JSON.stringify(elements);
+        if (didMove) {
+          pushHistory(dragStartSnapshotRef.current);
+          if (simStateRef.current) {
+            simStateRef.current = null;
+          }
+          lastInitialSnapshotRef.current = null;
+        }
+        dragStartSnapshotRef.current = null;
+      }
+      setIsRotating(false);
+      rotatingStateRef.current = null;
+      setRotationAngleDeg(null);
+    }
+
     if (isDraggingSelection) {
       if (dragStartSnapshotRef.current) {
         const didMove = JSON.stringify(dragStartSnapshotRef.current) !== JSON.stringify(elements);
@@ -2317,7 +2693,6 @@ export default function CanvasBoard({
           const captured = elements.filter((el) => isElementInLasso(el, currentDraft.points));
           if (captured.length > 0) {
             setSelectedIds(captured.map((el) => el.id));
-            setActiveTool('select');
           } else {
             setSelectedIds([]);
           }
@@ -2459,8 +2834,14 @@ export default function CanvasBoard({
   let cursorClass = 'crosshair';
   if (spacePressed || isPanning || activeTool === 'hand') {
     cursorClass = isPanning ? 'grabbing' : 'grab';
-  } else if (activeTool === 'select') {
-    cursorClass = isDraggingSelection ? 'grabbing' : 'default';
+  } else if (activeTool === 'select' || activeTool === 'lasso') {
+    if (isRotating) {
+      cursorClass = 'grabbing';
+    } else if (isHoveringRotateHandle) {
+      cursorClass = 'grab';
+    } else {
+      cursorClass = isDraggingSelection ? 'grabbing' : 'default';
+    }
   } else if (activeTool === 'text') {
     cursorClass = 'text';
   } else if (activeTool === 'stroke_eraser' || activeTool === 'eraser') {
@@ -2472,7 +2853,7 @@ export default function CanvasBoard({
   return (
     <div
       ref={containerRef}
-      className={`webwb-canvas-container cursor-${cursorClass}`}
+      className={`webwb-canvas-container cursor-${cursorClass} ${boardTemplate === 'chalkboard' ? 'theme-chalkboard' : ''}`}
       onContextMenu={(e) => e.preventDefault()}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -2552,23 +2933,24 @@ export default function CanvasBoard({
             onClick={() => setAutoFormatEnabled((prev) => !prev)}
             title={
               autoFormatEnabled
-                ? 'Dibujo mágico automático activo para letras, figuras y ecuaciones (Clic para pausar)'
-                : 'Dibujo mágico automático pausado (Clic para activar)'
+                ? 'Digitalización inteligente activa para trazos, figuras y ecuaciones (Clic para pausar)'
+                : 'Digitalización inteligente en pausa (Clic para reactivar)'
             }
           >
-            <Sparkles size={16} className="sparkle-gold-icon" />
-            <span className="pill-bold-text">
-              {autoFormatEnabled ? '✨ Dibujo mágico: Auto-digitalizar' : '✨ Dibujo mágico: Pausado'}
+            <Wand2 size={15} className="magic-pill-wand-icon" />
+            <span className="pill-bold-text">Digitalización inteligente</span>
+            <span className={`pill-status-badge ${autoFormatEnabled ? 'badge-active' : 'badge-paused'}`}>
+              <span className="badge-dot" />
+              {autoFormatEnabled ? 'Activa' : 'Pausada'}
             </span>
-            <span className={`pill-status-dot ${autoFormatEnabled ? 'dot-active' : 'dot-paused'}`} />
           </button>
           {canvasHasSmartStrokes && (
             <button
               className="math-format-manual-btn"
               onClick={() => handleFormatHandwriting(null, false)}
-              title="Digitalizar trazos mágicos pendientes inmediatamente"
+              title="Digitalizar trazos pendientes inmediatamente"
             >
-              Digitalizar ya
+              Digitalizar trazos
             </button>
           )}
         </div>
@@ -2599,6 +2981,7 @@ export default function CanvasBoard({
           position={contextPos}
           onChangeColor={handleChangeColor}
           onDuplicate={handleDuplicateSelected}
+          onRotate={() => handleRotateSelected(45)}
           onDelete={() => {
             pushHistory();
             setElements((prev) => {
@@ -2660,6 +3043,20 @@ export default function CanvasBoard({
       )}
 
 
+      {/* MRU & Kinematics Variables & Formulas Customizer Modal */}
+      {isMruModalOpen && mruModalElement && (
+        <MruVariablesModal
+          element={mruModalElement}
+          isOpen={isMruModalOpen}
+          onClose={() => {
+            setIsMruModalOpen(false);
+            setMruModalElement(null);
+          }}
+          onUpdateElement={handleUpdatePhysicsElement}
+          onInsertFormulaCard={onInsertFormulaCard}
+        />
+      )}
+
       {/* Physics Object Property Inspector Modal */}
       <PhysicsObjectInspector
         element={inspectorElement}
@@ -2710,6 +3107,34 @@ export default function CanvasBoard({
           const scaledW = sticky.width * transform.scale;
           const scaledH = sticky.height * transform.scale;
 
+          const startStickyDrag = (e) => {
+            dragStartSnapshotRef.current = elements;
+            const world = screenToWorld(e.clientX, e.clientY);
+            if (e.button === 2) {
+              // Right-click drag: select this sticky if not already selected
+              if (!selectedIds.includes(sticky.id)) {
+                setSelectedIds([sticky.id]);
+              }
+            } else {
+              if (e.shiftKey) {
+                if (selectedIds.includes(sticky.id)) {
+                  setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                } else {
+                  setSelectedIds((prev) => [...prev, sticky.id]);
+                }
+              } else {
+                if (!selectedIds.includes(sticky.id)) {
+                  setSelectedIds([sticky.id]);
+                }
+              }
+            }
+            setIsDraggingSelection(true);
+            setLastDragPos({ x: world.x, y: world.y });
+            try {
+              containerRef.current?.setPointerCapture?.(e.pointerId);
+            } catch {}
+          };
+
           return (
             <div
               key={sticky.id}
@@ -2723,32 +3148,53 @@ export default function CanvasBoard({
               }}
               onContextMenu={(e) => e.preventDefault()}
               onPointerDown={(e) => {
-                if (e.button === 2) {
-                  // Right click pans the board freely! Allow event to bubble to container
+                // If eraser tool is active, erase the sticky note on click!
+                if (['object_eraser', 'stroke_eraser', 'eraser'].includes(activeTool)) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pushHistory();
+                  setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                  setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
                   return;
                 }
-                e.stopPropagation();
-                dragStartSnapshotRef.current = elements;
-                const world = screenToWorld(e.clientX, e.clientY);
-                if (e.shiftKey) {
-                  if (selectedIds.includes(sticky.id)) {
-                    setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
-                  } else {
-                    setSelectedIds((prev) => [...prev, sticky.id]);
-                  }
-                } else {
-                  if (!selectedIds.includes(sticky.id)) {
-                    setSelectedIds([sticky.id]);
-                  }
+                if (e.button === 2) {
+                  // Right-click drags sticky note across the canvas
+                  e.preventDefault();
+                  e.stopPropagation();
+                  startStickyDrag(e);
+                  return;
                 }
-                setIsDraggingSelection(true);
-                setLastDragPos({ x: world.x, y: world.y });
+                if (e.button === 0) {
+                  e.stopPropagation();
+                  startStickyDrag(e);
+                }
               }}
             >
+              {/* Quick 1-click Delete Sticky Button on top right */}
+              <button
+                type="button"
+                className="sticky-delete-btn"
+                title="Eliminar esta nota (o usa la tecla Supr / Borrador)"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pushHistory();
+                  setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                  setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                  onNotify?.('🗑️ Nota adhesiva eliminada');
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
+
               <textarea
                 value={sticky.text}
                 onFocus={() => {
                   stickyTextSnapshotRef.current = sticky.text;
+                  if (!selectedIds.includes(sticky.id)) {
+                    setSelectedIds([sticky.id]);
+                  }
                 }}
                 onBlur={() => {
                   if (stickyTextSnapshotRef.current !== null && stickyTextSnapshotRef.current !== sticky.text) {
@@ -2765,12 +3211,51 @@ export default function CanvasBoard({
                     prev.map((el) => (el.id === sticky.id ? { ...el, text: newText } : el))
                   );
                 }}
+                onKeyDown={(e) => {
+                  // Escape blurs textarea so Del/Backspace key deletes the sticky
+                  if (e.key === 'Escape') {
+                    e.currentTarget.blur();
+                    return;
+                  }
+                  // Alt+Delete, Alt+Backspace, or Delete on empty note
+                  if ((e.altKey || e.metaKey) && (e.key === 'Delete' || e.key === 'Backspace')) {
+                    e.preventDefault();
+                    pushHistory();
+                    setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                    setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                    onNotify?.('🗑️ Nota adhesiva eliminada');
+                  }
+                }}
                 className="miro-sticky-textarea"
                 style={{
                   fontSize: `${Math.max(12, 15 * transform.scale)}px`,
+                  pointerEvents: isDraggingSelection ? 'none' : 'auto',
                 }}
-                placeholder="Type something..."
-                onPointerDown={(e) => e.stopPropagation()}
+                placeholder="Escribe algo aquí..."
+                onContextMenu={(e) => e.preventDefault()}
+                onPointerDown={(e) => {
+                  // If eraser tool is active, erase sticky note on click!
+                  if (['object_eraser', 'stroke_eraser', 'eraser'].includes(activeTool)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    pushHistory();
+                    setElements((prev) => prev.filter((el) => el.id !== sticky.id));
+                    setSelectedIds((prev) => prev.filter((id) => id !== sticky.id));
+                    return;
+                  }
+                  if (e.button === 2) {
+                    // Right-click inside textarea drags the sticky note
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.blur?.();
+                    startStickyDrag(e);
+                    return;
+                  }
+                  if (!selectedIds.includes(sticky.id)) {
+                    setSelectedIds([sticky.id]);
+                  }
+                  e.stopPropagation();
+                }}
               />
             </div>
           );
@@ -2783,6 +3268,41 @@ export default function CanvasBoard({
           overflow: hidden;
           background: #ffffff;
           touch-action: none;
+        }
+
+        .webwb-canvas-container.theme-chalkboard {
+          background: #0f2f21;
+        }
+
+        .sticky-delete-btn {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          width: 22px;
+          height: 22px;
+          border-radius: 4px;
+          border: none;
+          background: rgba(0, 0, 0, 0.08);
+          color: #475569;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          opacity: 0;
+          transition: all 0.15s ease;
+          z-index: 10;
+        }
+
+        .miro-sticky-note:hover .sticky-delete-btn,
+        .miro-sticky-note.selected .sticky-delete-btn {
+          opacity: 0.85;
+        }
+
+        .sticky-delete-btn:hover {
+          opacity: 1 !important;
+          background: #ef4444 !important;
+          color: #ffffff !important;
+          transform: scale(1.08);
         }
 
         .cursor-default { cursor: default; }
@@ -2828,14 +3348,15 @@ export default function CanvasBoard({
           left: 50%;
           transform: translateX(-50%);
           z-index: 45;
-          background: #ffffff;
+          background: rgba(255, 255, 255, 0.95);
+          backdrop-filter: blur(10px);
           border-radius: 30px;
           padding: 4px 6px;
           display: flex;
           align-items: center;
           gap: 6px;
-          box-shadow: 0 4px 20px rgba(5, 0, 56, 0.12);
-          border: 1.5px solid #4262ff;
+          box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+          border: 1px solid #cbd5e1;
           animation: contextFadeIn 0.2s ease-out;
         }
 
@@ -2843,76 +3364,82 @@ export default function CanvasBoard({
           display: flex;
           align-items: center;
           gap: 8px;
-          background: #edf2fe;
-          border: none;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           border-radius: 24px;
-          padding: 7px 14px;
-          color: #4262ff;
+          padding: 6px 14px;
+          color: #1e293b;
           font-family: var(--font-sans);
-          font-weight: 700;
-          font-size: 0.84rem;
+          font-weight: 600;
+          font-size: 0.82rem;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
-        .math-format-action-btn.active-auto {
-          background: #eef2ff;
-          color: #3730a3;
-        }
-
-        .math-format-action-btn.inactive-auto {
-          background: #f3f4f6;
-          color: #6b7280;
-        }
-
         .math-format-action-btn:hover {
-          background: #4262ff;
-          color: #ffffff;
-          transform: scale(1.02);
-          box-shadow: 0 4px 12px rgba(66, 98, 255, 0.25);
+          background: #f1f5f9;
+          border-color: #cbd5e1;
         }
 
-        .pill-status-dot {
-          width: 8px;
-          height: 8px;
+        .magic-pill-wand-icon {
+          color: #4f46e5;
+          flex-shrink: 0;
+        }
+
+        .pill-status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 0.7rem;
+          font-weight: 600;
+          letter-spacing: 0.2px;
+        }
+
+        .pill-status-badge.badge-active {
+          background: #ecfdf5;
+          color: #059669;
+          border: 1px solid #a7f3d0;
+        }
+
+        .pill-status-badge.badge-paused {
+          background: #f1f5f9;
+          color: #64748b;
+          border: 1px solid #e2e8f0;
+        }
+
+        .badge-dot {
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          display: inline-block;
-          margin-left: 2px;
         }
 
-        .pill-status-dot.dot-active {
+        .badge-active .badge-dot {
           background: #10b981;
-          box-shadow: 0 0 6px #10b981;
+          box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
         }
 
-        .pill-status-dot.dot-paused {
-          background: #9ca3af;
+        .badge-paused .badge-dot {
+          background: #94a3b8;
         }
 
         .math-format-manual-btn {
-          background: #4262ff;
+          background: #4f46e5;
           color: #ffffff;
           border: none;
           border-radius: 20px;
           padding: 6px 12px;
           font-family: var(--font-sans);
           font-size: 0.78rem;
-          font-weight: 700;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.15s ease;
         }
 
         .math-format-manual-btn:hover {
-          background: #314bd9;
-          transform: scale(1.02);
-        }
-
-        .sparkle-gold-icon {
-          color: #f59e0b;
-        }
-
-        .math-format-action-btn:hover .sparkle-gold-icon {
-          color: #ffd02f;
+          background: #4338ca;
+          box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
         }
       `}</style>
     </div>

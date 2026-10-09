@@ -5,23 +5,9 @@ import CanvasBoard from './components/canvas/CanvasBoard';
 import Minimap from './components/controls/Minimap';
 import ShareModal from './components/modals/ShareModal';
 import SaveBoardModal from './components/modals/SaveBoardModal';
-import TemplatesModal from './components/modals/TemplatesModal';
 import ToastContainer from './components/controls/ToastContainer';
 import CanvasStatusBar from './components/controls/CanvasStatusBar';
-import PhysicsSandbox from './components/canvas/PhysicsSandbox';
-import MruExerciseSolverModal from './components/modals/MruExerciseSolverModal';
-import MruvExerciseSolverModal from './components/modals/MruvExerciseSolverModal';
-import FreefallExerciseSolverModal from './components/modals/FreefallExerciseSolverModal';
-import TiroVerticalExerciseSolverModal from './components/modals/TiroVerticalExerciseSolverModal';
-import HorizontalLaunchExerciseSolverModal from './components/modals/HorizontalLaunchExerciseSolverModal';
-import ProjectileMotionExerciseSolverModal from './components/modals/ProjectileMotionExerciseSolverModal';
-import McuExerciseSolverModal from './components/modals/McuExerciseSolverModal';
-import McuvExerciseSolverModal from './components/modals/McuvExerciseSolverModal';
-import PoleasMcuExerciseSolverModal from './components/modals/PoleasMcuExerciseSolverModal';
-import DclExerciseSolverModal from './components/modals/DclExerciseSolverModal';
-import TranslationalEquilibriumModal from './components/modals/TranslationalEquilibriumModal';
-import NewtonSecondLawModal from './components/modals/NewtonSecondLawModal';
-import CustomExampleBuilderModal from './components/modals/CustomExampleBuilderModal';
+import SimulationView from './components/simulation/SimulationView';
 import { buildCustomExampleBoardElements } from './services/customExampleBuilder';
 import { getMruTemplate } from './data/mruTemplates';
 import { 
@@ -47,59 +33,6 @@ import { buildFreefallExerciseBoardElements } from './services/freefallExerciseS
 import { buildVerticalLaunchExerciseBoardElements } from './services/tiroVerticalExerciseSolver';
 import { buildHorizontalLaunchExerciseBoardElements } from './services/horizontalLaunchExerciseSolver';
 import { buildProjectileMotionExerciseBoardElements } from './services/projectileMotionExerciseSolver';
-import { buildMcuExerciseBoardElements } from './services/mcuExerciseSolver';
-import { buildMcuvExerciseBoardElements } from './services/mcuvExerciseSolver';
-import { buildPoleasMcuExerciseBoardElements } from './services/poleasMcuExerciseSolver';
-import { generateDclCanvasElements } from './services/dclExerciseSolver';
-import { generateEquilibrioCanvasElements } from './services/translationalEquilibriumSolver';
-import { generateNewtonCanvasElements } from './services/newtonSecondLawSolver';
-
-class SandboxErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, errorInfo) {
-    console.error('PhysicsSandbox error:', error, errorInfo);
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <div style={{
-            background: '#1e293b', border: '1px solid #ef4444',
-            borderRadius: 12, padding: 24, maxWidth: 500, color: '#f8fafc'
-          }}>
-            <h3 style={{ color: '#ef4444', marginBottom: 8 }}>Error al iniciar el Sandbox Físico</h3>
-            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: 16 }}>
-              {this.state.error?.message || 'Error inesperado'}
-            </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false });
-                this.props.onClose();
-              }}
-              style={{
-                padding: '8px 16px', background: '#3b82f6', color: '#fff',
-                border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600
-              }}
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 export default function App() {
   const [boardName, setBoardName] = useState('Untitled whiteboard');
@@ -122,26 +55,14 @@ export default function App() {
   const [stickyColor, setStickyColor] = useState('#fff9b1');
   const [penColor, setPenColor] = useState('#050038');
   const [penWidth, setPenWidth] = useState(3);
+  const [eraserSize, setEraserSize] = useState(24);
+  const [eraserShape, setEraserShape] = useState('circle');
+  const [boardTemplate, setBoardTemplate] = useState('cartesian');
+  const [activeNav, setActiveNav] = useState('board'); // 'board' | 'simulation'
 
   // Modals & Popups
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
-  const [isMruSolverOpen, setIsMruSolverOpen] = useState(false);
-  const [isMruvSolverOpen, setIsMruvSolverOpen] = useState(false);
-  const [isFreefallSolverOpen, setIsFreefallSolverOpen] = useState(false);
-  const [isTiroVerticalSolverOpen, setIsTiroVerticalSolverOpen] = useState(false);
-  const [isHorizontalLaunchSolverOpen, setIsHorizontalLaunchSolverOpen] = useState(false);
-  const [isProjectileMotionSolverOpen, setIsProjectileMotionSolverOpen] = useState(false);
-  const [isMcuSolverOpen, setIsMcuSolverOpen] = useState(false);
-  const [isMcuvSolverOpen, setIsMcuvSolverOpen] = useState(false);
-  const [isPoleasMcuSolverOpen, setIsPoleasMcuSolverOpen] = useState(false);
-  const [isDclSolverOpen, setIsDclSolverOpen] = useState(false);
-  const [isEquilibrioSolverOpen, setIsEquilibrioSolverOpen] = useState(false);
-  const [isNewtonSolverOpen, setIsNewtonSolverOpen] = useState(false);
-  const [isCustomExampleBuilderOpen, setIsCustomExampleBuilderOpen] = useState(false);
-  const [customExampleBuilderTopic, setCustomExampleBuilderTopic] = useState('mru');
-  const [isPhysicsSandboxOpen, setIsPhysicsSandboxOpen] = useState(false);
   const [isMinimapOpen, setIsMinimapOpen] = useState(false);
 
   // Toasts
@@ -370,6 +291,117 @@ export default function App() {
     [pushHistory, transform, penColor]
   );
 
+  const handleSelectTemplate = useCallback(
+    (tmpl) => {
+      setBoardTemplate(tmpl);
+      if (tmpl === 'chalkboard') {
+        if (penColor === '#050038' || !penColor) {
+          setPenColor('#ffffff');
+        }
+        addToast('🏫 Pizarra verde de tiza activada');
+      } else {
+        if (penColor === '#ffffff') {
+          setPenColor('#050038');
+        }
+      }
+    },
+    [penColor, addToast]
+  );
+
+  const handleInsertFlowchart = useCallback(() => {
+    pushHistory();
+    const wx = Math.round((window.innerWidth / 2 - transform.x) / transform.scale);
+    const wy = Math.round((window.innerHeight / 2 - transform.y) / transform.scale);
+    const startX = wx - 270;
+    const startY = wy - 27;
+
+    const newElements = [
+      {
+        id: `flow-start-${Date.now()}`,
+        type: 'capsule',
+        startX: startX,
+        startY: startY,
+        endX: startX + 105,
+        endY: startY + 54,
+        color: '#10b981',
+        fill: '#ecfdf5',
+        size: 2,
+        text: 'Inicio',
+      },
+      {
+        id: `flow-arr1-${Date.now()}`,
+        type: 'arrow',
+        startX: startX + 105,
+        startY: startY + 27,
+        endX: startX + 155,
+        endY: startY + 27,
+        color: '#64748b',
+        size: 2,
+      },
+      {
+        id: `flow-proc-${Date.now()}`,
+        type: 'rectangle',
+        startX: startX + 155,
+        startY: startY,
+        endX: startX + 285,
+        endY: startY + 54,
+        color: '#2563eb',
+        fill: '#eff6ff',
+        size: 2,
+        text: 'Proceso',
+      },
+      {
+        id: `flow-arr2-${Date.now()}`,
+        type: 'arrow',
+        startX: startX + 285,
+        startY: startY + 27,
+        endX: startX + 335,
+        endY: startY + 27,
+        color: '#64748b',
+        size: 2,
+      },
+      {
+        id: `flow-dec-${Date.now()}`,
+        type: 'diamond',
+        startX: startX + 335,
+        startY: startY - 8,
+        endX: startX + 435,
+        endY: startY + 62,
+        color: '#d97706',
+        fill: '#fef3c7',
+        size: 2,
+        text: '¿Válido?',
+      },
+      {
+        id: `flow-arr3-${Date.now()}`,
+        type: 'arrow',
+        startX: startX + 435,
+        startY: startY + 27,
+        endX: startX + 485,
+        endY: startY + 27,
+        color: '#64748b',
+        size: 2,
+      },
+      {
+        id: `flow-end-${Date.now()}`,
+        type: 'capsule',
+        startX: startX + 485,
+        startY: startY,
+        endX: startX + 590,
+        endY: startY + 54,
+        color: '#ef4444',
+        fill: '#fef2f2',
+        size: 2,
+        text: 'Fin',
+      },
+    ];
+
+    setElements((prev) => [...prev, ...newElements]);
+    setSelectedIds(newElements.map((e) => e.id));
+    setActiveTool('select');
+    addToast('📊 Flujograma insertado en el lienzo');
+  }, [pushHistory, transform, addToast]);
+
   const handleClearBoard = useCallback(() => {
     if (elementsRef.current.length === 0) return;
     pushHistory();
@@ -542,6 +574,44 @@ export default function App() {
         setActiveTool('select');
         addToast('⚖️ Laboratorio de Segunda Ley de Newton (HT01 U4) montado en el lienzo');
       }
+    },
+    [pushHistory, transform, setActiveTool, addToast]
+  );
+
+  // Insert Formula Card onto Canvas (MRU formulas & system variables)
+  const handleInsertFormulaCard = useCallback(
+    (cardData = null) => {
+      pushHistory();
+      const cx = (window.innerWidth / 2 - transform.x) / transform.scale;
+      const cy = (window.innerHeight / 2 - transform.y) / transform.scale;
+
+      const title = cardData?.title || 'Fórmula Fundamental MRU';
+      const formula = cardData?.formula || 'd = v · t';
+
+      let textContent = `📐 ${title}\n\nEcuación:\n${formula}\n`;
+      if (cardData?.variables && cardData.variables.length > 0) {
+        textContent += '\nVariables del Sistema:\n';
+        cardData.variables.forEach((v) => {
+          textContent += `• ${v.symbol} = ${v.value}\n`;
+        });
+      } else {
+        textContent += '\nDespejes Fundamentales:\n• v = d / t\n• t = d / v\n• x(t) = x₀ + v · t';
+      }
+
+      const newCard = {
+        id: `sticky-formula-${Date.now()}`,
+        type: 'sticky',
+        x: cx - 120,
+        y: cy - 90,
+        width: 250,
+        height: 210,
+        text: textContent,
+        color: '#d5f0ff', // light cyan scientific sticky
+      };
+
+      setElements((prev) => [...prev, newCard]);
+      setActiveTool('select');
+      addToast('📌 Tarjeta de fórmulas insertada en la pizarra');
     },
     [pushHistory, transform, setActiveTool, addToast]
   );
@@ -742,7 +812,7 @@ export default function App() {
 
   return (
     <div className="webwhiteboard-app">
-      {/* Top Bar with PhyBoard / Physics branding */}
+      {/* Top Bar with PhyBoard / Physics branding & Nav tabs */}
       <TopBar
         boardName={boardName}
         setBoardName={setBoardName}
@@ -754,22 +824,19 @@ export default function App() {
         onExportJSON={handleExportJSON}
         onOpenShare={() => setIsShareOpen(true)}
         onOpenSaveModal={() => setIsSaveModalOpen(true)}
-        onOpenTemplates={() => setIsTemplatesOpen(true)}
-        onOpenMruSolver={() => setIsMruSolverOpen(true)}
-        onOpenMruvSolver={() => setIsMruvSolverOpen(true)}
-        onOpenFreefallSolver={() => setIsFreefallSolverOpen(true)}
-        onOpenTiroVerticalSolver={() => setIsTiroVerticalSolverOpen(true)}
-        onOpenHorizontalLaunchSolver={() => setIsHorizontalLaunchSolverOpen(true)}
-        onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
-        onOpenMcuSolver={() => setIsMcuSolverOpen(true)}
-        onOpenMcuvSolver={() => setIsMcuvSolverOpen(true)}
-        onOpenPoleasMcuSolver={() => setIsPoleasMcuSolverOpen(true)}
-        onOpenDclSolver={() => setIsDclSolverOpen(true)}
-        onOpenEquilibrioSolver={() => setIsEquilibrioSolverOpen(true)}
-        onOpenNewtonSolver={() => setIsNewtonSolverOpen(true)}
-        onOpenPhysicsSandbox={() => setIsPhysicsSandboxOpen(true)}
         onClearBoard={handleClearBoard}
+        boardTemplate={boardTemplate}
+        setBoardTemplate={handleSelectTemplate}
+        activeNav={activeNav}
+        onSelectNav={setActiveNav}
       />
+
+      {/* Full-view Simulation Module */}
+      {activeNav === 'simulation' && (
+        <SimulationView
+          onBackToBoard={() => setActiveNav('board')}
+        />
+      )}
 
       {/* Signature Vertical Left Toolbar with Undo/Redo & Flyouts */}
       <LeftToolbar
@@ -783,57 +850,20 @@ export default function App() {
         setPenColor={setPenColor}
         penWidth={penWidth}
         setPenWidth={setPenWidth}
+        eraserSize={eraserSize}
+        setEraserSize={setEraserSize}
+        eraserShape={eraserShape}
+        setEraserShape={setEraserShape}
         canUndo={history.length > 0}
         canRedo={redoStack.length > 0}
         onUndo={handleUndo}
         onRedo={handleRedo}
         onOpenSaveModal={() => setIsSaveModalOpen(true)}
         onInsertSymbol={handleInsertSymbol}
+        onInsertFlowchart={handleInsertFlowchart}
         onAddPhysicsObject={handleAddPhysicsObject}
         onAddAssembly={handleAddAssembly}
-        onSelectRopeTool={() => setActiveTool('rope')}
-        onOpenMruSolver={() => setIsMruSolverOpen(true)}
-        onOpenMruvSolver={() => setIsMruvSolverOpen(true)}
-        onOpenFreefallSolver={() => setIsFreefallSolverOpen(true)}
-        onOpenTiroVerticalSolver={() => setIsTiroVerticalSolverOpen(true)}
-        onOpenHorizontalLaunchSolver={() => setIsHorizontalLaunchSolverOpen(true)}
-        onOpenProjectileMotionSolver={() => setIsProjectileMotionSolverOpen(true)}
-        onOpenMcuSolver={() => setIsMcuSolverOpen(true)}
-        onOpenMcuvSolver={() => setIsMcuvSolverOpen(true)}
-        onOpenPoleasMcuSolver={() => setIsPoleasMcuSolverOpen(true)}
-        onOpenDclSolver={() => setIsDclSolverOpen(true)}
-        onOpenEquilibrioSolver={() => setIsEquilibrioSolverOpen(true)}
-        onOpenNewtonSolver={() => setIsNewtonSolverOpen(true)}
-        onOpenCustomExampleBuilder={(topicId) => {
-          setCustomExampleBuilderTopic(topicId || 'mru');
-          setIsCustomExampleBuilderOpen(true);
-        }}
-        onMountCustomExample={handleMountCustomExample}
-        onLoadTemplate={(tplArg) => {
-          pushHistory();
-          // 1. Direct object format from modal { elements, boardName, toast }
-          if (tplArg && typeof tplArg === 'object' && Array.isArray(tplArg.elements)) {
-            setElements(tplArg.elements);
-            if (tplArg.boardName) setBoardName(tplArg.boardName);
-            addToast(tplArg.toast || '📋 Plantilla cargada');
-            return;
-          }
-
-          // 2. MRU & Movimiento Unidimensional subtopic template
-          const mruData = getMruTemplate(tplArg);
-          if (mruData) {
-            setElements(mruData.elements);
-            if (mruData.boardName) setBoardName(mruData.boardName);
-            addToast(mruData.toast || '📋 Plantilla cargada');
-            return;
-          }
-
-          // 3. Fallbacks
-          if (tplArg === 'blank') {
-            setElements([]);
-            addToast('🧹 Pizarra en blanco');
-          }
-        }}
+        onInsertFormulaCard={handleInsertFormulaCard}
       />
 
       {/* Main Canvas with dot grid, stickies and contextual toolbar */}
@@ -846,6 +876,11 @@ export default function App() {
         stickyColor={stickyColor}
         penColor={penColor}
         penWidth={penWidth}
+        eraserSize={eraserSize}
+        setEraserSize={setEraserSize}
+        eraserShape={eraserShape}
+        setEraserShape={setEraserShape}
+        boardTemplate={boardTemplate}
         transform={transform}
         setTransform={setTransform}
         viewportSize={viewportSize}
@@ -853,6 +888,7 @@ export default function App() {
         pushHistory={pushHistory}
         canvasRef={canvasRef}
         onNotify={addToast}
+        onInsertFormulaCard={handleInsertFormulaCard}
       />
 
       {/* Minimap (if toggled) */}
@@ -881,117 +917,7 @@ export default function App() {
         onNotify={addToast}
       />
 
-      {/* Templates Library Modal */}
-      <TemplatesModal
-        isOpen={isTemplatesOpen}
-        onClose={() => setIsTemplatesOpen(false)}
-        onLoadTemplate={({ elements: tplEls, boardName: tplName }) => {
-          pushHistory();
-          setElements(tplEls);
-          if (tplName) setBoardName(tplName);
-          addToast(`📋 Template loaded: ${tplName}`);
-        }}
-      />
 
-      {/* MRU Exercise Solver & Laboratory Generator Modal */}
-      <MruExerciseSolverModal
-        isOpen={isMruSolverOpen}
-        onClose={() => setIsMruSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountExercise}
-      />
-
-      {/* MRUV Exercise Solver (HT02 Kinal) & Laboratory Generator Modal */}
-      <MruvExerciseSolverModal
-        isOpen={isMruvSolverOpen}
-        onClose={() => setIsMruvSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountMruvExercise}
-      />
-
-      {/* Freefall Exercise Solver (HT03 Kinal) & Laboratory Generator Modal */}
-      <FreefallExerciseSolverModal
-        isOpen={isFreefallSolverOpen}
-        onClose={() => setIsFreefallSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountFreefallExercise}
-      />
-
-      {/* Tiro Vertical Exercise Solver (HT04 Kinal) & Laboratory Generator Modal */}
-      <TiroVerticalExerciseSolverModal
-        isOpen={isTiroVerticalSolverOpen}
-        onClose={() => setIsTiroVerticalSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountTiroVerticalExercise}
-      />
-
-      {/* Horizontal Launch Exercise Solver (HT01 Kinal) & Laboratory Generator Modal */}
-      <HorizontalLaunchExerciseSolverModal
-        isOpen={isHorizontalLaunchSolverOpen}
-        onClose={() => setIsHorizontalLaunchSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountHorizontalLaunchExercise}
-      />
-
-      {/* Projectile Motion Exercise Solver (HT02 Kinal) & Laboratory Generator Modal */}
-      <ProjectileMotionExerciseSolverModal
-        isOpen={isProjectileMotionSolverOpen}
-        onClose={() => setIsProjectileMotionSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountProjectileMotionExercise}
-      />
-
-      {/* MCU Exercise Solver (HT03 Kinal) & Circular Motion Laboratory Modal */}
-      <McuExerciseSolverModal
-        isOpen={isMcuSolverOpen}
-        onClose={() => setIsMcuSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountMcuExercise}
-      />
-
-      {/* MCUV Exercise Solver (Unidad 2 Kinal) & Accelerated Circular Motion Laboratory Modal */}
-      <McuvExerciseSolverModal
-        isOpen={isMcuvSolverOpen}
-        onClose={() => setIsMcuvSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountMcuvExercise}
-      />
-
-      {/* Poleas MCU Exercise Solver (HT01 U3 Kinal) & Laboratory Generator Modal */}
-      <PoleasMcuExerciseSolverModal
-        isOpen={isPoleasMcuSolverOpen}
-        onClose={() => setIsPoleasMcuSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountPoleasMcuExercise}
-      />
-
-      {/* Diagramas de Cuerpo Libre (HT02 Unidad 3 Kinal) Exercise Solver Modal */}
-      <DclExerciseSolverModal
-        isOpen={isDclSolverOpen}
-        onClose={() => setIsDclSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountDclExercise}
-      />
-
-      {/* Equilibrio Traslacional - 1ra Ley Newton (HT03 Unidad 3 Kinal) Solver Modal */}
-      <TranslationalEquilibriumModal
-        isOpen={isEquilibrioSolverOpen}
-        onClose={() => setIsEquilibrioSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountEquilibrioExercise}
-      />
-
-      {/* Segunda Ley de Newton Sin Fricción (HT01 Unidad 4 Kinal) Solver Modal */}
-      <NewtonSecondLawModal
-        isOpen={isNewtonSolverOpen}
-        onClose={() => setIsNewtonSolverOpen(false)}
-        onMountExerciseOnBoard={handleMountNewtonExercise}
-      />
-
-      {/* Teacher Custom Example Builder Workshop Modal */}
-      <CustomExampleBuilderModal
-        isOpen={isCustomExampleBuilderOpen}
-        onClose={() => setIsCustomExampleBuilderOpen(false)}
-        initialTopic={customExampleBuilderTopic}
-        onMountCustomExample={handleMountCustomExample}
-        onNotify={addToast}
-      />
-
-      {/* Physics Sandbox Modal (Matter.js Atwood Machine) */}
-      {isPhysicsSandboxOpen && (
-        <SandboxErrorBoundary onClose={() => setIsPhysicsSandboxOpen(false)}>
-          <PhysicsSandbox onClose={() => setIsPhysicsSandboxOpen(false)} />
-        </SandboxErrorBoundary>
-      )}
 
       {/* Studio Bottom Status Bar & Zoom Controls */}
       <CanvasStatusBar

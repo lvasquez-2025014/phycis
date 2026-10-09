@@ -4,18 +4,16 @@ import {
   Hand,
   Type, 
   StickyNote,
-  Shapes, 
-  BookOpen,
+  Shapes,
   Undo2, 
   Redo2,
-  Weight
+  Gauge,
 } from 'lucide-react';
 import PenFlyout from './PenFlyout';
-import TemplatesFlyout from './TemplatesFlyout';
 import StickyFlyout from './StickyFlyout';
 import ShapesFlyout from './ShapesFlyout';
 import GreekSymbolsFlyout from './GreekSymbolsFlyout';
-import PhysicsObjectsFlyout from './PhysicsObjectsFlyout';
+import MruSystemsFlyout from './MruSystemsFlyout';
 
 export default function LeftToolbar({
   activeTool,
@@ -28,6 +26,10 @@ export default function LeftToolbar({
   setPenColor,
   penWidth,
   setPenWidth,
+  eraserSize,
+  setEraserSize,
+  eraserShape,
+  setEraserShape,
   canUndo,
   canRedo,
   onUndo,
@@ -52,12 +54,15 @@ export default function LeftToolbar({
   onOpenNewtonSolver,
   onOpenCustomExampleBuilder,
   onMountCustomExample,
+  onInsertFlowchart,
+  onInsertFormulaCard,
 }) {
   // Flyout submenu visibility states ('pen' | 'templates' | 'sticky' | 'shapes' | 'greek_symbols' | 'physics_objects' | null)
   const [activeFlyout, setActiveFlyout] = useState(null);
 
   const isPenFamilyActive = [
     'pen',
+    'chalk',
     'highlighter',
     'smart_pen',
     'stroke_eraser',
@@ -188,13 +193,13 @@ export default function LeftToolbar({
 
         <div className="toolbar-section-divider"></div>
 
-        {/* SECTION 3: Physics & Mathematics Specialized Tools */}
+        {/* SECTION 3: Mathematics & Physics Specialized Tools */}
         <button
-          className={`wb-tool-btn physics-accent-tool ${activeFlyout === 'physics_objects' ? 'active' : ''}`}
-          onClick={() => toggleFlyout('physics_objects')}
-          title="Objetos Físicos Interactivos (Masas, Poleas, Cuerdas...)"
+          className={`wb-tool-btn physics-accent-tool ${activeFlyout === 'mru_systems' ? 'active' : ''}`}
+          onClick={() => toggleFlyout('mru_systems')}
+          title="Sistemas Físicos MRU (Móviles, pistas, sensores, variables y fórmulas)"
         >
-          <Weight size={19} />
+          <Gauge size={19} />
         </button>
 
         <button
@@ -203,14 +208,6 @@ export default function LeftToolbar({
           title="Alfabeto Griego y Símbolos de Física (Ω) — Σ, θ, α, π, ω, Δ..."
         >
           <span className="omega-symbol-glyph">Ω</span>
-        </button>
-
-        <button
-          className={`wb-tool-btn physics-accent-tool ${activeFlyout === 'templates' ? 'active' : ''}`}
-          onClick={() => toggleFlyout('templates')}
-          title="Plantillas Escolares y Temario de MRU (Física)"
-        >
-          <BookOpen size={19} />
         </button>
 
         </div>
@@ -238,55 +235,16 @@ export default function LeftToolbar({
       </div>
 
       {/* Modular Flyouts */}
-      <PhysicsObjectsFlyout
-        isOpen={activeFlyout === 'physics_objects'}
-        onClose={() => setActiveFlyout(null)}
-        onAddPhysicsObject={(type, preset) => {
-          if (onAddPhysicsObject) {
-            onAddPhysicsObject(type, preset);
-          }
-          setActiveFlyout(null);
-        }}
-        onAddAssembly={(assemblyType) => {
-          if (onAddAssembly) {
-            onAddAssembly(assemblyType);
-          }
-          setActiveFlyout(null);
-        }}
-        onSelectRopeTool={() => {
-          if (onSelectRopeTool) {
-            onSelectRopeTool();
-          }
-          setActiveFlyout(null);
-        }}
-        onOpenMruSolver={onOpenMruSolver}
-        onOpenMruvSolver={onOpenMruvSolver}
-        onOpenFreefallSolver={onOpenFreefallSolver}
-        onOpenTiroVerticalSolver={onOpenTiroVerticalSolver}
-        onOpenHorizontalLaunchSolver={onOpenHorizontalLaunchSolver}
-        onOpenProjectileMotionSolver={onOpenProjectileMotionSolver}
-        onOpenMcuSolver={onOpenMcuSolver}
-        onOpenMcuvSolver={onOpenMcuvSolver}
-        onOpenPoleasMcuSolver={onOpenPoleasMcuSolver}
-        onOpenDclSolver={onOpenDclSolver}
-        onOpenEquilibrioSolver={onOpenEquilibrioSolver}
-        onOpenNewtonSolver={onOpenNewtonSolver}
-        onOpenCustomExampleBuilder={onOpenCustomExampleBuilder}
-        onMountCustomExample={onMountCustomExample}
-      />
-
       <PenFlyout
         isOpen={activeFlyout === 'pen'}
         activeTool={activeTool}
         setActiveTool={setActiveTool}
         penColor={penColor}
         setPenColor={setPenColor}
-      />
-
-      <TemplatesFlyout
-        isOpen={activeFlyout === 'templates'}
-        onClose={() => setActiveFlyout(null)}
-        onLoadTemplate={onLoadTemplate}
+        eraserSize={eraserSize}
+        setEraserSize={setEraserSize}
+        eraserShape={eraserShape}
+        setEraserShape={setEraserShape}
       />
 
       <StickyFlyout
@@ -294,7 +252,6 @@ export default function LeftToolbar({
         stickyColor={stickyColor}
         setStickyColor={setStickyColor}
         setActiveTool={setActiveTool}
-        onOpenTemplates={() => toggleFlyout('templates')}
       />
 
       <ShapesFlyout
@@ -304,7 +261,15 @@ export default function LeftToolbar({
         activeShape={activeShape}
         setActiveShape={setActiveShape}
         onClose={() => setActiveFlyout(null)}
-        onOpenTemplates={() => toggleFlyout('templates')}
+        onInsertFlowchart={onInsertFlowchart}
+      />
+
+      <MruSystemsFlyout
+        isOpen={activeFlyout === 'mru_systems'}
+        onClose={() => setActiveFlyout(null)}
+        onAddPhysicsObject={onAddPhysicsObject}
+        onAddAssembly={onAddAssembly}
+        onInsertFormulaCard={onInsertFormulaCard}
       />
 
       <GreekSymbolsFlyout
@@ -432,7 +397,7 @@ export default function LeftToolbar({
           position: absolute;
           left: calc(100% + 10px);
           top: 0;
-          width: 216px;
+          width: 232px;
           padding: 6px;
           background: #ffffff;
           border-radius: 12px;
@@ -539,6 +504,159 @@ export default function LeftToolbar({
           height: 11px;
           border-radius: 50%;
           flex-shrink: 0;
+        }
+
+        .wand-magic-icon {
+          color: #8b5cf6;
+          flex-shrink: 0;
+        }
+
+        .flyout-beta-badge {
+          font-size: 0.62rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          padding: 1px 5px;
+          border-radius: 4px;
+          background: #f3e8ff;
+          color: #7c3aed;
+          border: 1px solid #ddd6fe;
+          line-height: 1.2;
+          margin-left: auto;
+          margin-right: 4px;
+        }
+
+        .flyout-tool-row.active .flyout-beta-badge {
+          background: #7c3aed;
+          color: #ffffff;
+          border-color: #6d28d9;
+        }
+
+        .custom-color-chip-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          background: #f4f6fc;
+          border: 1.5px solid #e2e8f0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          padding: 3px;
+          flex-shrink: 0;
+          transition: all 0.12s ease;
+          box-sizing: border-box;
+        }
+
+        .custom-color-chip-btn:hover {
+          background: #edf0f5;
+          border-color: #4262ff;
+          transform: scale(1.05);
+        }
+
+        .custom-color-chip-btn.active,
+        .custom-color-chip-btn.open {
+          border-color: #4262ff;
+          background: #edf2fe;
+          box-shadow: 0 0 0 2px rgba(66, 98, 255, 0.2);
+        }
+
+        .custom-color-chip-preview {
+          width: 100%;
+          height: 100%;
+          border-radius: 5px;
+          box-shadow: 0 0 1px rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.9);
+        }
+
+        .pen-flyout-picker-popover {
+          position: absolute;
+          left: calc(100% + 10px);
+          bottom: -10px;
+          z-index: 80;
+          animation: contextFadeIn 0.14s ease-out;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* PENCIL ERASER CONFIGURATION PANEL (PHOTOSHOP STYLE)          */
+        /* ------------------------------------------------------------- */
+        .pencil-eraser-config-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+          margin: 3px 0 4px;
+          padding: 8px 10px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          box-sizing: border-box;
+          animation: contextFadeIn 0.12s ease-out;
+        }
+
+        .config-section-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+
+        .config-label {
+          font-size: 0.68rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: #64748b;
+        }
+
+        .config-value-badge {
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: #0284c7;
+          background: #e0f2fe;
+          padding: 1px 6px;
+          border-radius: 4px;
+        }
+
+
+        .eraser-range-input {
+          width: 100%;
+          height: 4px;
+          border-radius: 2px;
+          background: #cbd5e1;
+          outline: none;
+          cursor: pointer;
+          accent-color: #3b82f6;
+          margin: 4px 0 2px;
+        }
+
+        .eraser-size-presets {
+          display: flex;
+          gap: 4px;
+          margin-top: 2px;
+        }
+
+        .size-preset-pill {
+          flex: 1;
+          padding: 3px 0;
+          font-size: 0.65rem;
+          font-weight: 600;
+          border-radius: 4px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
+          color: #475569;
+          cursor: pointer;
+          text-align: center;
+          transition: all 0.1s ease;
+        }
+
+        .size-preset-pill:hover {
+          background: #f1f5f9;
+          border-color: #cbd5e1;
+        }
+
+        .size-preset-pill.active {
+          background: #0284c7;
+          border-color: #0284c7;
+          color: #ffffff;
         }
 
         /* ------------------------------------------------------------- */
@@ -1155,21 +1273,23 @@ export default function LeftToolbar({
           position: absolute;
           left: calc(100% + 10px);
           top: 0;
-          width: 380px;
-          max-height: 560px;
+          width: 440px;
+          max-height: calc(100vh - 80px);
           display: flex;
           flex-direction: column;
           background: #ffffff;
-          border-radius: 12px;
-          box-shadow: 0 10px 36px rgba(5, 0, 56, 0.16);
-          border: 1px solid #e1e3ea;
-          padding: 16px;
+          border-radius: 14px;
+          box-shadow: 0 12px 36px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+          border: 1px solid #e2e8f0;
+          padding: 16px 16px 14px 16px;
           box-sizing: border-box;
           animation: flyoutSlideIn 0.15s ease-out;
           user-select: none;
+          z-index: 100;
         }
 
         .symbols-drawer-header {
+          flex-shrink: 0;
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
@@ -1195,35 +1315,36 @@ export default function LeftToolbar({
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
-          color: #4262ff;
-          background: #edf2fe;
+          color: #2563eb;
+          background: #eff6ff;
           padding: 2px 8px;
           border-radius: 12px;
         }
 
         .symbols-count-badge {
           font-size: 0.72rem;
-          color: #5f5c80;
+          color: #64748b;
           font-weight: 500;
         }
 
         .symbols-drawer-title {
-          font-size: 1rem;
+          font-size: 1.05rem;
           font-weight: 700;
-          color: #050038;
+          color: #0f172a;
           margin: 0;
         }
 
         .symbols-drawer-subtitle {
-          font-size: 0.74rem;
-          color: #5f5c80;
+          font-size: 0.75rem;
+          color: #64748b;
           margin: 2px 0 0 0;
         }
 
         .symbols-close-btn {
+          flex-shrink: 0;
           background: transparent;
           border: none;
-          color: #5f5c80;
+          color: #64748b;
           border-radius: 6px;
           width: 28px;
           height: 28px;
@@ -1235,11 +1356,12 @@ export default function LeftToolbar({
         }
 
         .symbols-close-btn:hover {
-          background: #f0f1f4;
-          color: #050038;
+          background: #f1f5f9;
+          color: #0f172a;
         }
 
         .symbols-search-container {
+          flex-shrink: 0;
           position: relative;
           display: flex;
           align-items: center;
@@ -1249,7 +1371,7 @@ export default function LeftToolbar({
         .symbols-search-icon {
           position: absolute;
           left: 10px;
-          color: #83809b;
+          color: #94a3b8;
           pointer-events: none;
         }
 
@@ -1257,12 +1379,12 @@ export default function LeftToolbar({
           width: 100%;
           height: 36px;
           padding: 0 32px 0 32px;
-          background: #f5f6f8;
-          border: 1px solid #e1e3ea;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           border-radius: 8px;
           font-size: 0.82rem;
           font-family: var(--font-sans);
-          color: #050038;
+          color: #0f172a;
           outline: none;
           transition: all 0.15s ease;
           box-sizing: border-box;
@@ -1270,8 +1392,8 @@ export default function LeftToolbar({
 
         .symbols-search-input:focus {
           background: #ffffff;
-          border-color: #4262ff;
-          box-shadow: 0 0 0 3px rgba(66, 98, 255, 0.15);
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
         }
 
         .symbols-clear-btn {
@@ -1279,7 +1401,7 @@ export default function LeftToolbar({
           right: 8px;
           background: transparent;
           border: none;
-          color: #83809b;
+          color: #94a3b8;
           cursor: pointer;
           padding: 4px;
           display: flex;
@@ -1289,17 +1411,19 @@ export default function LeftToolbar({
         }
 
         .symbols-clear-btn:hover {
-          color: #050038;
-          background: #e1e3ea;
+          color: #0f172a;
+          background: #e2e8f0;
         }
 
         .symbols-category-tabs {
+          flex-shrink: 0;
           display: flex;
           gap: 6px;
-          margin-bottom: 12px;
+          margin-bottom: 10px;
           overflow-x: auto;
-          padding-bottom: 4px;
+          padding: 2px 2px 4px 2px;
           scrollbar-width: none;
+          -ms-overflow-style: none;
         }
 
         .symbols-category-tabs::-webkit-scrollbar {
@@ -1307,33 +1431,42 @@ export default function LeftToolbar({
         }
 
         .symbols-tab-pill {
-          background: #f0f1f4;
-          border: none;
+          flex-shrink: 0;
+          background: #f1f5f9;
+          border: 1px solid transparent;
           border-radius: 16px;
-          padding: 4px 10px;
+          padding: 5px 10px;
           font-size: 0.72rem;
           font-weight: 600;
-          color: #5f5c80;
+          color: #475569;
           cursor: pointer;
           white-space: nowrap;
           transition: all 0.15s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         .symbols-tab-pill:hover {
-          background: #e1e3ea;
-          color: #050038;
+          background: #e2e8f0;
+          color: #0f172a;
         }
 
         .symbols-tab-pill.active {
-          background: #4262ff;
+          background: #2563eb;
+          border-color: #2563eb;
           color: #ffffff;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
         }
 
         .symbols-grid-scrollable {
           flex: 1;
-          max-height: 320px;
+          min-height: 220px;
+          max-height: 380px;
           overflow-y: auto;
-          padding-right: 4px;
+          overflow-x: hidden;
+          padding: 4px 4px 8px 2px;
+          box-sizing: border-box;
         }
 
         .symbols-grid-scrollable::-webkit-scrollbar {
@@ -1341,14 +1474,20 @@ export default function LeftToolbar({
         }
 
         .symbols-grid-scrollable::-webkit-scrollbar-thumb {
-          background: #d0d3dc;
+          background: #cbd5e1;
           border-radius: 4px;
+        }
+
+        .symbols-grid-scrollable::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
         }
 
         .symbols-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(4, minmax(0, 1fr));
           gap: 8px;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .symbol-tile-card {
@@ -1356,20 +1495,25 @@ export default function LeftToolbar({
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          padding: 10px 4px 8px 4px;
-          background: #fbfcff;
-          border: 1px solid #e7e9f0;
+          min-width: 0;
+          width: 100%;
+          height: 70px;
+          padding: 6px 4px 6px 4px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           border-radius: 8px;
           cursor: pointer;
           transition: all 0.15s ease;
-          gap: 4px;
+          box-sizing: border-box;
+          overflow: hidden;
+          gap: 2px;
         }
 
         .symbol-tile-card:hover {
-          background: #edf2fe;
-          border-color: #4262ff;
+          background: #ffffff;
+          border-color: #3b82f6;
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(66, 98, 255, 0.16);
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
         }
 
         .symbol-tile-card:active {
@@ -1377,31 +1521,40 @@ export default function LeftToolbar({
         }
 
         .symbol-glyph {
-          font-family: 'Cambria Math', 'KaTeX_Main', 'Times New Roman', serif;
-          font-size: 1.55rem;
+          font-family: 'Cambria Math', 'KaTeX_Main', 'STIX Two Math', 'Times New Roman', serif;
+          font-size: 1.6rem;
           line-height: 1;
-          color: #050038;
+          color: #0f172a;
           font-weight: 500;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 32px;
+          user-select: none;
         }
 
         .symbol-tile-card:hover .symbol-glyph {
-          color: #4262ff;
+          color: #2563eb;
         }
 
         .symbol-label {
-          font-size: 0.65rem;
+          font-size: 0.67rem;
           font-weight: 600;
-          color: #5f5c80;
+          color: #64748b;
           text-align: center;
           width: 100%;
+          max-width: 100%;
+          min-width: 0;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          padding: 0 2px;
+          padding: 0 3px;
+          box-sizing: border-box;
+          line-height: 1.2;
         }
 
         .symbol-tile-card:hover .symbol-label {
-          color: #2b45cb;
+          color: #1d4ed8;
         }
 
         .symbols-empty-state {
@@ -1421,20 +1574,20 @@ export default function LeftToolbar({
         .empty-title {
           font-size: 0.88rem;
           font-weight: 700;
-          color: #050038;
+          color: #0f172a;
           margin: 0 0 4px 0;
         }
 
         .empty-desc {
           font-size: 0.74rem;
-          color: #5f5c80;
+          color: #64748b;
           margin: 0 0 12px 0;
           line-height: 1.4;
         }
 
         .empty-clear-btn {
-          background: #edf2fe;
-          color: #4262ff;
+          background: #eff6ff;
+          color: #2563eb;
           border: none;
           border-radius: 6px;
           padding: 6px 12px;
@@ -1444,21 +1597,27 @@ export default function LeftToolbar({
         }
 
         .empty-clear-btn:hover {
-          background: #4262ff;
+          background: #2563eb;
           color: #ffffff;
         }
 
         .symbols-drawer-footer {
-          margin-top: 12px;
-          padding-top: 10px;
-          border-top: 1px solid #f0f1f4;
+          flex-shrink: 0;
+          margin-top: 10px;
+          padding-top: 8px;
+          border-top: 1px solid #f1f5f9;
         }
 
         .footer-tip-text {
           font-size: 0.7rem;
-          color: #727088;
+          color: #64748b;
           line-height: 1.35;
           display: block;
+        }
+
+        .footer-tip-text.text-copied {
+          color: #059669;
+          font-weight: 600;
         }
       `}</style>
     </aside>

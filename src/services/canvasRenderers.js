@@ -10,10 +10,146 @@ import {
 } from '../physics/physicsRegistry';
 
 /**
- * Scientific Engineering Graph Paper & Cartesian Coordinate Grid Renderer
+ * Scientific Engineering Graph Paper, Blank Board, Dot Grid & Cartesian Coordinate Renderer
  */
-export function drawMiroSquareGrid(ctx, w, h, t) {
-  // Base unit in world coordinates: 20px (minor) and 100px (major)
+export function drawMiroSquareGrid(ctx, w, h, t, template = 'cartesian') {
+  // 1. Blank white sheet ("Hoja blanca normal"): Keep pristine background without grid/axes
+  if (template === 'blank') {
+    return;
+  }
+
+  // 2. Realistic Green School Chalkboard ("Pizarra de tiza verde")
+  if (template === 'chalkboard') {
+    ctx.save();
+
+    // Deep rich chalkboard green gradient (vignetted towards corners)
+    const grad = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.15, w / 2, h / 2, Math.max(w, h) * 0.85);
+    grad.addColorStop(0, '#1c4d39');
+    grad.addColorStop(0.55, '#153f2e');
+    grad.addColorStop(0.85, '#0f2f21');
+    grad.addColorStop(1, '#091f16');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle horizontal chalk eraser dust smudges across the board
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.022)';
+    for (let i = 0; i < 7; i++) {
+      const yPos = (h / 8) * (i + 1);
+      ctx.beginPath();
+      ctx.ellipse(w / 2 + (i % 2 === 0 ? 40 : -40), yPos, w * 0.52, 22, (i % 2 === 0 ? 0.015 : -0.015), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Subtle chalk dust specks
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+    ctx.beginPath();
+    ctx.ellipse(w * 0.3, h * 0.4, 180, 45, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(w * 0.72, h * 0.65, 220, 50, -0.08, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Engineering millimeter grid in delicate chalk white/cyan
+    let minorUnit = 25;
+    while (minorUnit * t.scale < 14) minorUnit *= 5;
+    while (minorUnit * t.scale > 70) minorUnit /= 2;
+
+    const minorSpacing = minorUnit * t.scale;
+    const majorSpacing = minorSpacing * 4;
+
+    const minorOffsetX = ((t.x % minorSpacing) + minorSpacing) % minorSpacing;
+    const minorOffsetY = ((t.y % minorSpacing) + minorSpacing) % minorSpacing;
+
+    // Minor chalk grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = minorOffsetX; x < w; x += minorSpacing) {
+      ctx.moveTo(Math.floor(x) + 0.5, 0);
+      ctx.lineTo(Math.floor(x) + 0.5, h);
+    }
+    for (let y = minorOffsetY; y < h; y += minorSpacing) {
+      ctx.moveTo(0, Math.floor(y) + 0.5);
+      ctx.lineTo(w, Math.floor(y) + 0.5);
+    }
+    ctx.stroke();
+
+    // Major chalk grid lines
+    const majorOffsetX = ((t.x % majorSpacing) + majorSpacing) % majorSpacing;
+    const majorOffsetY = ((t.y % majorSpacing) + majorSpacing) % majorSpacing;
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.11)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = majorOffsetX; x < w; x += majorSpacing) {
+      ctx.moveTo(Math.floor(x) + 0.5, 0);
+      ctx.lineTo(Math.floor(x) + 0.5, h);
+    }
+    for (let y = majorOffsetY; y < h; y += majorSpacing) {
+      ctx.moveTo(0, Math.floor(y) + 0.5);
+      ctx.lineTo(w, Math.floor(y) + 0.5);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+    return;
+  }
+
+  ctx.save();
+
+  // 3. Dots Template ("Puntos discretos")
+  if (template === 'dots') {
+    let dotSpacing = 25 * t.scale;
+    while (dotSpacing < 14) dotSpacing *= 2;
+    while (dotSpacing > 50) dotSpacing /= 2;
+
+    const offsetX = ((t.x % dotSpacing) + dotSpacing) % dotSpacing;
+    const offsetY = ((t.y % dotSpacing) + dotSpacing) % dotSpacing;
+
+    ctx.fillStyle = 'rgba(71, 85, 105, 0.28)';
+    const radius = Math.max(1, 1.2 * Math.min(t.scale, 2));
+
+    for (let x = offsetX; x < w; x += dotSpacing) {
+      for (let y = offsetY; y < h; y += dotSpacing) {
+        ctx.beginPath();
+        ctx.arc(Math.floor(x) + 0.5, Math.floor(y) + 0.5, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 3. Ruled Notebook Template ("Líneas de cuaderno")
+  if (template === 'ruled') {
+    let lineSpacing = 28 * t.scale;
+    while (lineSpacing < 16) lineSpacing *= 2;
+    while (lineSpacing > 56) lineSpacing /= 2;
+
+    const offsetY = ((t.y % lineSpacing) + lineSpacing) % lineSpacing;
+
+    ctx.strokeStyle = 'rgba(37, 99, 235, 0.12)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let y = offsetY; y < h; y += lineSpacing) {
+      ctx.moveTo(0, Math.floor(y) + 0.5);
+      ctx.lineTo(w, Math.floor(y) + 0.5);
+    }
+    ctx.stroke();
+
+    // Red vertical margin line
+    const marginScreenX = Math.floor(t.x - 120 * t.scale) + 0.5;
+    if (marginScreenX >= 0 && marginScreenX <= w) {
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.28)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(marginScreenX, 0);
+      ctx.lineTo(marginScreenX, h);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 4. Square Grid (Engineering millimeter minor & major lines)
   let minorUnit = 20;
   while (minorUnit * t.scale < 12) minorUnit *= 5;
   while (minorUnit * t.scale > 60) minorUnit /= 2;
@@ -24,9 +160,7 @@ export function drawMiroSquareGrid(ctx, w, h, t) {
   const minorOffsetX = ((t.x % minorSpacing) + minorSpacing) % minorSpacing;
   const minorOffsetY = ((t.y % minorSpacing) + minorSpacing) % minorSpacing;
 
-  ctx.save();
-
-  // 1. Subtle Engineering Millimeter Minor Grid
+  // Subtle Engineering Millimeter Minor Grid
   ctx.strokeStyle = 'rgba(14, 116, 144, 0.05)';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -40,7 +174,7 @@ export function drawMiroSquareGrid(ctx, w, h, t) {
   }
   ctx.stroke();
 
-  // 2. Engineering Major Grid Lines (every 5 units)
+  // Engineering Major Grid Lines (every 5 units)
   const majorOffsetX = ((t.x % majorSpacing) + majorSpacing) % majorSpacing;
   const majorOffsetY = ((t.y % majorSpacing) + majorSpacing) % majorSpacing;
 
@@ -57,46 +191,48 @@ export function drawMiroSquareGrid(ctx, w, h, t) {
   }
   ctx.stroke();
 
-  // 3. Cartesian Coordinate Axes (X = 0, Y = 0 in world coords)
-  const originScreenX = Math.floor(t.x) + 0.5;
-  const originScreenY = Math.floor(t.y) + 0.5;
+  // 5. Cartesian Coordinate Axes (Only for 'cartesian' template)
+  if (template === 'cartesian') {
+    const originScreenX = Math.floor(t.x) + 0.5;
+    const originScreenY = Math.floor(t.y) + 0.5;
 
-  ctx.strokeStyle = 'rgba(2, 132, 199, 0.4)';
-  ctx.fillStyle = 'rgba(2, 132, 199, 0.7)';
-  ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(2, 132, 199, 0.4)';
+    ctx.fillStyle = 'rgba(2, 132, 199, 0.7)';
+    ctx.lineWidth = 1.5;
 
-  // X-Axis (Horizontal)
-  if (originScreenY >= 0 && originScreenY <= h) {
-    ctx.beginPath();
-    ctx.moveTo(0, originScreenY);
-    ctx.lineTo(w, originScreenY);
-    ctx.stroke();
+    // X-Axis (Horizontal)
+    if (originScreenY >= 0 && originScreenY <= h) {
+      ctx.beginPath();
+      ctx.moveTo(0, originScreenY);
+      ctx.lineTo(w, originScreenY);
+      ctx.stroke();
 
-    // +X arrow & label on right edge
-    ctx.font = '600 11px ui-monospace, SFMono-Regular, monospace';
-    ctx.fillText('+X (m)', w - 48, originScreenY - 6);
-  }
+      // +X arrow & label on right edge
+      ctx.font = '600 11px ui-monospace, SFMono-Regular, monospace';
+      ctx.fillText('+X (m)', w - 48, originScreenY - 6);
+    }
 
-  // Y-Axis (Vertical)
-  if (originScreenX >= 0 && originScreenX <= w) {
-    ctx.beginPath();
-    ctx.moveTo(originScreenX, 0);
-    ctx.lineTo(originScreenX, h);
-    ctx.stroke();
+    // Y-Axis (Vertical)
+    if (originScreenX >= 0 && originScreenX <= w) {
+      ctx.beginPath();
+      ctx.moveTo(originScreenX, 0);
+      ctx.lineTo(originScreenX, h);
+      ctx.stroke();
 
-    // +Y arrow & label on top edge
-    ctx.font = '600 11px ui-monospace, SFMono-Regular, monospace';
-    ctx.fillText('+Y (m)', originScreenX + 6, 20);
-  }
+      // +Y arrow & label on top edge
+      ctx.font = '600 11px ui-monospace, SFMono-Regular, monospace';
+      ctx.fillText('+Y (m)', originScreenX + 6, 20);
+    }
 
-  // Origin point marker (0, 0)
-  if (originScreenX >= -20 && originScreenX <= w + 20 && originScreenY >= -20 && originScreenY <= h + 20) {
-    ctx.beginPath();
-    ctx.arc(originScreenX, originScreenY, 3.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#0284c7';
-    ctx.fill();
-    ctx.font = '700 10px ui-monospace, SFMono-Regular, monospace';
-    ctx.fillText('(0, 0)', originScreenX + 6, originScreenY + 14);
+    // Origin point marker (0, 0)
+    if (originScreenX >= -20 && originScreenX <= w + 20 && originScreenY >= -20 && originScreenY <= h + 20) {
+      ctx.beginPath();
+      ctx.arc(originScreenX, originScreenY, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#0284c7';
+      ctx.fill();
+      ctx.font = '700 10px ui-monospace, SFMono-Regular, monospace';
+      ctx.fillText('(0, 0)', originScreenX + 6, originScreenY + 14);
+    }
   }
 
   ctx.restore();
@@ -109,13 +245,15 @@ export function drawEraserBrush(ctx, el) {
   if (!el.points || el.points.length === 0) return;
   ctx.save();
   ctx.globalCompositeOperation = 'destination-out';
+
+  const size = el.size || 24;
   ctx.beginPath();
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = el.size || 24;
+  ctx.lineWidth = size;
 
   if (el.points.length === 1) {
-    ctx.arc(el.points[0].x, el.points[0].y, (el.size || 24) / 2, 0, Math.PI * 2);
+    ctx.arc(el.points[0].x, el.points[0].y, size / 2, 0, Math.PI * 2);
     ctx.fill();
   } else {
     ctx.moveTo(el.points[0].x, el.points[0].y);
@@ -127,6 +265,7 @@ export function drawEraserBrush(ctx, el) {
     ctx.lineTo(el.points[el.points.length - 1].x, el.points[el.points.length - 1].y);
     ctx.stroke();
   }
+
   ctx.restore();
 }
 
@@ -148,6 +287,12 @@ export function drawStroke(ctx, el) {
     ctx.strokeStyle = el.color || '#4262ff';
     ctx.lineWidth = el.size || 3;
     ctx.globalAlpha = 1.0;
+  } else if (el.type === 'chalk') {
+    ctx.strokeStyle = el.color && el.color !== '#050038' ? el.color : '#ffffff';
+    ctx.lineWidth = (el.size || 3) * 1.25;
+    ctx.globalAlpha = 0.92;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
+    ctx.shadowBlur = 1.5;
   } else {
     ctx.strokeStyle = el.color || '#050038';
     ctx.lineWidth = el.size || 3;
@@ -327,6 +472,125 @@ export function drawShape(ctx, el, isSelected) {
     ctx.lineTo(el.endX, el.endY);
     ctx.stroke();
     ctx.restore();
+  } else if (el.type === 'capsule') {
+    const rad = Math.min(width, height) / 2;
+    ctx.beginPath();
+    ctx.roundRect(minX, minY, width, height, rad);
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'parallelogram') {
+    const skew = width * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(minX + skew, minY);
+    ctx.lineTo(maxX, minY);
+    ctx.lineTo(maxX - skew, maxY);
+    ctx.lineTo(minX, maxY);
+    ctx.closePath();
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'cylinder') {
+    const capH = Math.min(22, Math.max(8, height * 0.25));
+    ctx.beginPath();
+    ctx.moveTo(minX, minY + capH / 2);
+    ctx.lineTo(minX, maxY - capH / 2);
+    ctx.ellipse(minX + width / 2, maxY - capH / 2, width / 2, capH / 2, 0, 0, Math.PI, false);
+    ctx.lineTo(maxX, minY + capH / 2);
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.ellipse(minX + width / 2, minY + capH / 2, width / 2, capH / 2, 0, 0, Math.PI * 2);
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'document') {
+    const waveH = Math.min(14, height * 0.15);
+    ctx.beginPath();
+    ctx.moveTo(minX, minY);
+    ctx.lineTo(maxX, minY);
+    ctx.lineTo(maxX, maxY - waveH);
+    ctx.bezierCurveTo(
+      maxX - width * 0.25, maxY,
+      minX + width * 0.35, maxY - waveH * 2,
+      minX, maxY - waveH
+    );
+    ctx.closePath();
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'star') {
+    const cx = minX + width / 2;
+    const cy = minY + height / 2;
+    const outerR = Math.min(width, height) / 2;
+    const innerR = outerR * 0.42;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+      const r = i % 2 === 0 ? outerR : innerR;
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'cloud') {
+    const cx = minX + width / 2;
+    const cy = minY + height / 2;
+    const rx = width / 2;
+    const ry = height / 2;
+    ctx.beginPath();
+    ctx.arc(cx - rx * 0.45, cy + ry * 0.1, ry * 0.4, Math.PI * 0.5, Math.PI * 1.5);
+    ctx.arc(cx - rx * 0.2, cy - ry * 0.35, ry * 0.45, Math.PI, Math.PI * 1.8);
+    ctx.arc(cx + rx * 0.25, cy - ry * 0.3, ry * 0.45, Math.PI * 1.3, Math.PI * 2.1);
+    ctx.arc(cx + rx * 0.45, cy + ry * 0.1, ry * 0.38, Math.PI * 1.7, Math.PI * 0.5);
+    ctx.arc(cx, cy + ry * 0.4, ry * 0.38, 0, Math.PI);
+    ctx.closePath();
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'hexagon') {
+    const cx = minX + width / 2;
+    const cy = minY + height / 2;
+    const rx = width / 2;
+    const ry = height / 2;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const px = cx + rx * Math.cos(angle);
+      const py = cy + ry * Math.sin(angle);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  } else if (el.type === 'pentagon') {
+    const cx = minX + width / 2;
+    const cy = minY + height / 2;
+    const rx = width / 2;
+    const ry = height / 2;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+      const px = cx + rx * Math.cos(angle);
+      const py = cy + ry * Math.sin(angle);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    if (el.fill && el.fill !== 'none') ctx.fill();
+    ctx.stroke();
+  }
+
+  // Centered label / text for all closed shapes and flowcharts
+  if (el.text && el.type !== 'rectangle') {
+    ctx.fillStyle = el.color || '#050038';
+    ctx.font = '600 13px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lines = el.text.split('\n');
+    lines.forEach((line, i) => {
+      ctx.fillText(line, minX + width / 2, minY + height / 2 + (i - (lines.length - 1) / 2) * 16);
+    });
   }
 
   if (isSelected) {
@@ -347,7 +611,72 @@ export function drawShape(ctx, el, isSelected) {
       ctx.fill();
       ctx.stroke();
     });
+
+    // Stem line connecting to circular rotation arrow handle at bottom center
+    const midX = (minX + maxX) / 2;
+    const handleY = maxY + 22;
+    ctx.beginPath();
+    ctx.moveTo(midX, maxY + 4);
+    ctx.lineTo(midX, handleY);
+    ctx.strokeStyle = '#4262ff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Circular arrow rotation handle
+    drawCircularArrowHandle(ctx, midX, handleY);
   }
+
+  ctx.restore();
+}
+
+/**
+ * Visual Circular Arrow Rotation Handle Renderer
+ * Draws a circular handle with an intuitive curved rotation arrow icon (↻)
+ */
+export function drawCircularArrowHandle(ctx, x, y, isHovered = false) {
+  ctx.save();
+  // Outer circular handle
+  ctx.beginPath();
+  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.fillStyle = isHovered ? '#eff6ff' : '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = isHovered ? '#2563eb' : '#4262ff';
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  // Curved circular arrow path inside
+  const iconColor = isHovered ? '#2563eb' : '#4262ff';
+  ctx.strokeStyle = iconColor;
+  ctx.fillStyle = iconColor;
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const r = 5.2;
+  // 3/4 circular arc (approx 40° to 290°)
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0.22 * Math.PI, 1.65 * Math.PI, false);
+  ctx.stroke();
+
+  // Arrowhead at the end of the arc
+  const endAngle = 1.65 * Math.PI;
+  const tipX = x + r * Math.cos(endAngle);
+  const tipY = y + r * Math.sin(endAngle);
+  const tangent = endAngle + Math.PI / 2;
+  const headLen = 3.6;
+
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(
+    tipX - headLen * Math.cos(tangent - Math.PI / 4),
+    tipY - headLen * Math.sin(tangent - Math.PI / 4)
+  );
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(
+    tipX - headLen * Math.cos(tangent + Math.PI / 4),
+    tipY - headLen * Math.sin(tangent + Math.PI / 4)
+  );
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -3272,6 +3601,50 @@ export function drawPhysicsObject(ctx, el, isSelected) {
       ctx.textBaseline = 'middle';
       ctx.fillText(badgeText, x + width / 2, badgeY + 8);
       ctx.restore();
+    }
+
+    // Custom Variables & Kinematic Badge (MRU variables: x0, v, t, d, plus custom user variables)
+    if (props.showVariableBadge !== false) {
+      const varParts = [];
+      if (props.initialX !== undefined && Number(props.initialX) !== 0) {
+        varParts.push(`x₀ = ${props.initialX} m`);
+      }
+      if (props.time !== undefined && Number(props.time) > 0) {
+        varParts.push(`t = ${props.time} s`);
+      }
+      if (props.distance !== undefined && Number(props.distance) > 0) {
+        varParts.push(`d = ${props.distance} m`);
+      }
+      if (Array.isArray(props.customVariables) && props.customVariables.length > 0) {
+        props.customVariables.slice(0, 3).forEach((cv) => {
+          varParts.push(`${cv.symbol} = ${cv.value}${cv.unit ? ' ' + cv.unit : ''}`);
+        });
+      }
+
+      if (varParts.length > 0) {
+        ctx.save();
+        const badgeStr = varParts.join('  •  ');
+        ctx.font = '700 9px Inter, sans-serif';
+        const badgeW = ctx.measureText(badgeStr).width + 16;
+        const badgeH = 18;
+        const badgeX = x + width / 2 - badgeW / 2;
+        const badgeY = y + height + (props.departureTime ? 26 : 7);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+        ctx.fill();
+
+        ctx.strokeStyle = `${bodyColor}99`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(badgeStr, x + width / 2, badgeY + badgeH / 2);
+        ctx.restore();
+      }
     }
 
     // 7. Selection Bounding Box & Anchor Highlights

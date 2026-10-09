@@ -3,8 +3,7 @@ import {
   Download, 
   Share2, 
   Clock, 
-  Save,
-  BookOpen, 
+  Save, 
   Trash2, 
   Undo2, 
   Redo2, 
@@ -13,22 +12,54 @@ import {
   Image as ImageIcon,
   ChevronDown,
   Sparkles,
-  Calculator,
-  TrendingUp,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Navigation,
-  GraduationCap,
-  Target,
-  RotateCw,
-  Disc,
-  GitFork,
-  Scale,
-  Weight,
+  LayoutTemplate,
+  Square,
+  Grid,
+  CircleDot,
+  AlignJustify,
+  Check,
+  Compass,
+  Play,
 } from 'lucide-react';
-import { PHYSICS_TOPICS } from '../../physics/physicsRegistry';
 
-const isTopicActive = (id) => PHYSICS_TOPICS.find((t) => t.id === id)?.active ?? false;
+const BOARD_TEMPLATES = [
+  {
+    id: 'cartesian',
+    title: 'Plano cartesiano',
+    description: 'Ejes coordenados X / Y y cuadrícula milimétrica para física',
+    icon: Compass,
+  },
+  {
+    id: 'blank',
+    title: 'Hoja blanca normal',
+    description: 'Lienzo blanco liso sin cuadrícula ni ejes de coordenadas',
+    icon: Square,
+  },
+  {
+    id: 'chalkboard',
+    title: 'Pizarra de tiza verde',
+    description: 'Pizarra clásica escolar con textura de tiza realista',
+    icon: Sparkles,
+  },
+  {
+    id: 'grid',
+    title: 'Cuadrícula clásica',
+    description: 'Cuadrícula limpia y técnica sin ejes cartesianos',
+    icon: Grid,
+  },
+  {
+    id: 'dots',
+    title: 'Puntos discretos',
+    description: 'Patrón sutil de puntos para diagramas y notas',
+    icon: CircleDot,
+  },
+  {
+    id: 'ruled',
+    title: 'Líneas de cuaderno',
+    description: 'Rayado horizontal con línea de margen lateral',
+    icon: AlignJustify,
+  },
+];
 
 export default function TopBar({
   boardName = 'Pizarra de Física y MRU',
@@ -41,30 +72,20 @@ export default function TopBar({
   onExportJSON,
   onOpenShare,
   onOpenSaveModal,
-  onOpenTemplates,
-  onOpenMruSolver,
-  onOpenMruvSolver,
-  onOpenFreefallSolver,
-  onOpenTiroVerticalSolver,
-  onOpenHorizontalLaunchSolver,
-  onOpenProjectileMotionSolver,
-  onOpenMcuSolver,
-  onOpenMcuvSolver,
-  onOpenPoleasMcuSolver,
-  onOpenDclSolver,
-  onOpenEquilibrioSolver,
-  onOpenNewtonSolver,
-  onOpenPhysicsSandbox,
   onClearBoard,
+  boardTemplate = 'cartesian',
+  setBoardTemplate,
+  activeNav = 'board',
+  onSelectNav,
 }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(boardName);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-  const [isTopicsMenuOpen, setIsTopicsMenuOpen] = useState(false);
+  const [isTemplateMenuOpen, setIsTemplateMenuOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const inputRef = useRef(null);
   const exportMenuRef = useRef(null);
-  const topicsMenuRef = useRef(null);
+  const templateMenuRef = useRef(null);
 
   useEffect(() => {
     setTempName(boardName);
@@ -83,8 +104,8 @@ export default function TopBar({
       if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
         setIsExportMenuOpen(false);
       }
-      if (topicsMenuRef.current && !topicsMenuRef.current.contains(e.target)) {
-        setIsTopicsMenuOpen(false);
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target)) {
+        setIsTemplateMenuOpen(false);
       }
       if (showClearConfirm && !e.target.closest('.clear-board-group')) {
         setShowClearConfirm(false);
@@ -115,7 +136,7 @@ export default function TopBar({
 
   return (
     <header className="phy-studio-header">
-      {/* 1. LEFT: Brand & Board Name */}
+      {/* 1. LEFT: Brand & Board Name & Navigation Sections */}
       <div className="studio-header-left">
 
         {/* Board Title */}
@@ -141,6 +162,30 @@ export default function TopBar({
               <Edit2 size={12} className="studio-title-pencil" />
             </button>
           )}
+        </div>
+
+        <div className="studio-v-divider" />
+
+        {/* Navigation Switcher: Pizarra vs Simulación */}
+        <div className="studio-nav-segmented">
+          <button
+            type="button"
+            className={`studio-nav-tab ${activeNav === 'board' ? 'active' : ''}`}
+            onClick={() => onSelectNav?.('board')}
+            title="Pizarra interactiva de física, notas y dibujos"
+          >
+            <Compass size={13} className="nav-tab-icon" />
+            <span>Pizarra</span>
+          </button>
+          <button
+            type="button"
+            className={`studio-nav-tab ${activeNav === 'simulation' ? 'active' : ''}`}
+            onClick={() => onSelectNav?.('simulation')}
+            title="Módulo de Simulación interactiva de física"
+          >
+            <Play size={12} className="nav-tab-icon play" />
+            <span>Simulación</span>
+          </button>
         </div>
       </div>
 
@@ -168,335 +213,51 @@ export default function TopBar({
 
         <div className="studio-v-divider small" />
 
-        {/* 📚 Unified Topics & Solvers Menu Bar Dropdown */}
-        <div className="studio-dropdown-wrapper topics-menu-wrapper" ref={topicsMenuRef}>
+        {/* Plantillas de la pizarra Selector */}
+        <div className="board-template-dropdown-wrapper" ref={templateMenuRef}>
           <button
-            className={`studio-module-btn topics-menu-btn ${isTopicsMenuOpen ? 'active' : ''}`}
-            onClick={() => setIsTopicsMenuOpen((prev) => !prev)}
-            title="Seleccionar módulo curricular o solucionador de física"
+            className={`board-template-btn ${isTemplateMenuOpen ? 'active' : ''}`}
+            onClick={() => setIsTemplateMenuOpen((prev) => !prev)}
+            title="Plantillas de la pizarra: cambiar cuadrícula o estilo del lienzo"
           >
-            <GraduationCap size={15} className="topics-menu-icon" />
-            <span className="topics-menu-label">Temas y Solucionadores</span>
-            <ChevronDown size={12} className={`chevron-indicator ${isTopicsMenuOpen ? 'open' : ''}`} />
+            <LayoutTemplate size={14} className="template-btn-icon" />
+            <span className="template-btn-label">Plantillas de la pizarra</span>
+            <ChevronDown size={12} className={`template-chevron ${isTemplateMenuOpen ? 'open' : ''}`} />
           </button>
 
-          {isTopicsMenuOpen && (
-            <div className="studio-dropdown-menu topics-dropdown-menu">
-              {/* Category: 1D Kinematics */}
-              {isTopicActive('mru') && (
-                <>
-                  <div className="topics-dropdown-header">CINEMÁTICA EN 1D</div>
-
-                  {onOpenMruSolver && (
+          {isTemplateMenuOpen && (
+            <div className="board-template-popover">
+              <div className="template-popover-header">
+                <span>Plantillas de la pizarra</span>
+              </div>
+              <div className="template-options-list">
+                {BOARD_TEMPLATES.map((tmpl) => {
+                  const isSelected = boardTemplate === tmpl.id;
+                  const Icon = tmpl.icon;
+                  return (
                     <button
-                      className="studio-dropdown-item topic-item"
+                      key={tmpl.id}
+                      className={`template-option-item ${isSelected ? 'selected' : ''}`}
                       onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenMruSolver();
+                        setBoardTemplate?.(tmpl.id);
+                        setIsTemplateMenuOpen(false);
                       }}
                     >
-                      <div className="topic-icon-badge badge-mru">
-                        <Calculator size={14} />
+                      <div className="template-item-preview">
+                        <Icon size={15} />
                       </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">MRU: Movimiento Uniforme</span>
-                          <span className="topic-tag tag-mru">HT01</span>
-                        </div>
-                        <span className="dropdown-item-sub">Velocidad constante (v = cte) • 10 ejercicios y calculadora</span>
+                      <div className="template-item-info">
+                        <span className="template-item-title">{tmpl.title}</span>
+                        <span className="template-item-desc">{tmpl.description}</span>
                       </div>
+                      {isSelected && <Check size={14} className="template-check-icon" />}
                     </button>
-                  )}
-                </>
-              )}
-
-              {isTopicActive('mruv') && onOpenMruvSolver && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenMruvSolver();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-mruv">
-                    <TrendingUp size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">MRUV: Movimiento Variado</span>
-                      <span className="topic-tag tag-mruv">HT02</span>
-                    </div>
-                    <span className="dropdown-item-sub">Aceleración constante, 4 fórmulas • 10 ejercicios</span>
-                  </div>
-                </button>
-              )}
-
-              {/* Category: Vertical Kinematics & 2D */}
-              {(isTopicActive('freefall') ||
-                isTopicActive('tiro_vertical') ||
-                isTopicActive('lanzamiento_horizontal') ||
-                isTopicActive('movimiento_proyectiles') ||
-                isTopicActive('mcu') ||
-                isTopicActive('mcuv') ||
-                isTopicActive('poleas_mcu') ||
-                isTopicActive('dcl') ||
-                isTopicActive('equilibrio') ||
-                isTopicActive('segunda_ley_newton')) && (
-                <>
-                  <div className="topics-dropdown-header">CINEMÁTICA VERTICAL Y 2D</div>
-
-                  {isTopicActive('freefall') && onOpenFreefallSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenFreefallSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-freefall">
-                        <ArrowDownCircle size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Caída Libre</span>
-                          <span className="topic-tag tag-freefall">HT03</span>
-                        </div>
-                        <span className="dropdown-item-sub">Gravedad g = 9.80 m/s², caída desde reposo • 10 ejercicios</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('tiro_vertical') && onOpenTiroVerticalSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenTiroVerticalSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-tiro">
-                        <ArrowUpCircle size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Tiro Vertical</span>
-                          <span className="topic-tag tag-tiro">HT04</span>
-                        </div>
-                        <span className="dropdown-item-sub">Lanzamiento hacia arriba, altura máxima • 10 ejercicios</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('lanzamiento_horizontal') && onOpenHorizontalLaunchSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenHorizontalLaunchSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-horizontal">
-                        <Navigation size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Lanzamiento Horizontal</span>
-                          <span className="topic-tag tag-horizontal">HT01 2D</span>
-                        </div>
-                        <span className="dropdown-item-sub">Movimiento parabólico 2D: MRU + Caída Libre • 10 problemas</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('movimiento_proyectiles') && onOpenProjectileMotionSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenProjectileMotionSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-proyectiles">
-                        <Target size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Movimiento de Proyectiles</span>
-                          <span className="topic-tag tag-proyectiles">HT02 2D</span>
-                        </div>
-                        <span className="dropdown-item-sub">Tiro parabólico oblicuo con ángulo θ • 10 problemas y 7 conceptuales</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('mcu') && onOpenMcuSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenMcuSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-mcu">
-                        <RotateCw size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Movimiento Circular Uniforme (MCU)</span>
-                          <span className="topic-tag tag-mcu">HT03 MCU</span>
-                        </div>
-                        <span className="dropdown-item-sub">Radio, período, frecuencia, velocidad angular y tangencial • 10 problemas y 9 conceptuales</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('mcuv') && onOpenMcuvSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenMcuvSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-mcuv">
-                        <RotateCw size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Movimiento Circular Variado (MCUV)</span>
-                          <span className="topic-tag tag-mcuv">Unidad 2</span>
-                        </div>
-                        <span className="dropdown-item-sub">Aceleración angular α, ω(t), at, ac, atotal • 15 problemas y 10 conceptuales</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('poleas_mcu') && onOpenPoleasMcuSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenPoleasMcuSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-poleas">
-                        <Disc size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Poleas MCU (Transmisión)</span>
-                          <span className="topic-tag tag-poleas">HT01 U3</span>
-                        </div>
-                        <span className="dropdown-item-sub">Mismo eje (ω=cte), fajas (v=cte), trenes compuestos • 9 problemas y 5 preguntas</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('dcl') && onOpenDclSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenDclSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge badge-dcl">
-                        <GitFork size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Diagramas de Cuerpo Libre (DCL)</span>
-                          <span className="topic-tag tag-dcl">HT02 U3</span>
-                        </div>
-                        <span className="dropdown-item-sub">Fuerzas, DCL de cada cuerpo, descomposición y equilibrio • 11 problemas y 5 preguntas</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('equilibrio') && onOpenEquilibrioSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenEquilibrioSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge" style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0' }}>
-                        <Scale size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Equilibrio Traslacional (1ra Ley Newton)</span>
-                          <span className="topic-tag" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #6ee7b7' }}>HT03 U3</span>
-                        </div>
-                        <span className="dropdown-item-sub">Condición ΣF = 0, nudos concurrentes, poleas, cables y planos • 8 problemas y 5 preguntas</span>
-                      </div>
-                    </button>
-                  )}
-
-                  {isTopicActive('segunda_ley_newton') && onOpenNewtonSolver && (
-                    <button
-                      className="studio-dropdown-item topic-item"
-                      onClick={() => {
-                        setIsTopicsMenuOpen(false);
-                        onOpenNewtonSolver();
-                      }}
-                    >
-                      <div className="topic-icon-badge" style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe' }}>
-                        <Weight size={14} />
-                      </div>
-                      <div className="dropdown-item-meta">
-                        <div className="topic-item-header">
-                          <span className="dropdown-item-title">Segunda Ley de Newton (Sin Fricción)</span>
-                          <span className="topic-tag" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #93c5fd' }}>HT01 U4</span>
-                        </div>
-                        <span className="dropdown-item-sub">Dinámica a = ΣF / m, bloques conectados, tensión T, Atwood y planos • 12 problemas y 4 preguntas</span>
-                      </div>
-                    </button>
-                  )}
-                </>
-              )}
-
-              {/* Category: Tools & Syllabus */}
-              <div className="topics-dropdown-header">SIMULACIÓN & TEMARIO</div>
-
-
-              {onOpenTemplates && (
-                <button
-                  className="studio-dropdown-item topic-item"
-                  onClick={() => {
-                    setIsTopicsMenuOpen(false);
-                    onOpenTemplates();
-                  }}
-                >
-                  <div className="topic-icon-badge badge-templates">
-                    <BookOpen size={14} />
-                  </div>
-                  <div className="dropdown-item-meta">
-                    <div className="topic-item-header">
-                      <span className="dropdown-item-title">Plantillas Curriculares</span>
-                      <span className="topic-tag tag-templates">Kinal</span>
-                    </div>
-                    <span className="dropdown-item-sub">Plan escolar previsto, guías teóricas y pizarras de examen</span>
-                  </div>
-                </button>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
-
-        {/* Quick Access: Templates */}
-        {onOpenTemplates && (
-          <button
-            className="studio-module-btn"
-            onClick={onOpenTemplates}
-            title="Abrir temario curricular de física y plantillas"
-          >
-            <BookOpen size={14} />
-            <span>Plantillas</span>
-          </button>
-        )}
-
 
         {/* Clear Board Button */}
         {onClearBoard && (
@@ -673,6 +434,52 @@ export default function TopBar({
           width: 200px;
         }
 
+        .studio-nav-segmented {
+          display: flex;
+          align-items: center;
+          background: #f1f5f9;
+          padding: 3px;
+          border-radius: 8px;
+          gap: 2px;
+          border: 1px solid #e2e8f0;
+        }
+
+        .studio-nav-tab {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 11px;
+          border-radius: 6px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+
+        .studio-nav-tab:hover {
+          color: #0f172a;
+          background: rgba(255, 255, 255, 0.7);
+        }
+
+        .studio-nav-tab.active {
+          background: #ffffff;
+          color: #0284c7;
+          box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+          font-weight: 700;
+        }
+
+        .nav-tab-icon {
+          flex-shrink: 0;
+        }
+
+        .nav-tab-icon.play {
+          fill: currentColor;
+        }
+
         .studio-header-center {
           display: flex;
           align-items: center;
@@ -760,6 +567,154 @@ export default function TopBar({
         .studio-module-btn.accent-sandbox:hover {
           background: #e0e7ff;
           border-color: #a5b4fc;
+        }
+
+        /* Board Template Selector */
+        .board-template-dropdown-wrapper {
+          position: relative;
+        }
+
+        .board-template-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          border-radius: 6px;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
+          color: #334155;
+          font-size: 0.76rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.12s ease;
+          user-select: none;
+        }
+
+        .board-template-btn:hover,
+        .board-template-btn.active {
+          background: #f8fafc;
+          border-color: #0284c7;
+          color: #0284c7;
+        }
+
+        .template-btn-icon {
+          color: #0284c7;
+          flex-shrink: 0;
+        }
+
+        .template-btn-label {
+          white-space: nowrap;
+        }
+
+        .template-chevron {
+          transition: transform 0.15s ease;
+          color: #64748b;
+        }
+
+        .template-chevron.open {
+          transform: rotate(180deg);
+        }
+
+        .board-template-popover {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 50%;
+          transform: translateX(-50%);
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.14);
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          z-index: 75;
+          min-width: 270px;
+          animation: contextFadeIn 0.15s ease-out;
+        }
+
+        .template-popover-header {
+          padding: 4px 8px 6px 8px;
+          font-size: 0.7rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #64748b;
+          border-bottom: 1px solid #f1f5f9;
+          margin-bottom: 3px;
+        }
+
+        .template-options-list {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .template-option-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 7px 10px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.12s ease;
+          width: 100%;
+        }
+
+        .template-option-item:hover {
+          background: #f8fafc;
+          border-color: #e2e8f0;
+        }
+
+        .template-option-item.selected {
+          background: #f0f9ff;
+          border-color: #bae6fd;
+        }
+
+        .template-item-preview {
+          width: 28px;
+          height: 28px;
+          border-radius: 6px;
+          background: #f1f5f9;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #475569;
+          flex-shrink: 0;
+        }
+
+        .template-option-item.selected .template-item-preview {
+          background: #0284c7;
+          color: #ffffff;
+        }
+
+        .template-item-info {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .template-item-title {
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #0f172a;
+          line-height: 1.25;
+        }
+
+        .template-item-desc {
+          font-size: 0.68rem;
+          color: #64748b;
+          line-height: 1.2;
+          white-space: normal;
+        }
+
+        .template-check-icon {
+          color: #0284c7;
+          flex-shrink: 0;
         }
 
         .clear-board-group {
